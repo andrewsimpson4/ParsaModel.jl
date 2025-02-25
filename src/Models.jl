@@ -1,4 +1,4 @@
-using JuMP, Ipopt, StatsBase, Distributions
+using JuMP, Ipopt, StatsBase, Distributions, LinearAlgebra
 
 ##### Normal Model #######
 
@@ -174,6 +174,7 @@ function normal_parsa_V_update(V, package_index, log_pdf)
                     opt_new = 0
                     for (x, pr, params) in package_index
                         opt_new = opt_new + pr * tr(V * diagm(1 ./ (params[:L] * params[:a])) * V' * (x - params[:mu]) * (x - params[:mu])')
+                    end
                 end
             end
         end

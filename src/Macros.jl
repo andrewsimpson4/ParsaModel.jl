@@ -1,9 +1,7 @@
-include("./Types.jl")
-include("./Models.jl")
-include("./Core.jl")
 
 
-function ParsaModel(base_model)
+
+function Parsa_Model(base_model)
     space = Module()
     Base.eval(space, quote
         base_model = $base_model
@@ -18,7 +16,7 @@ macro Categorical(model, name, K)
     K_val = esc(K)
     na = (name)
     quote
-        $mod.$na = Main.CategoricalZ(K = $K_val)
+        $mod.$na = CategoricalZ(K = $K_val)
     end
 end
 
@@ -29,9 +27,9 @@ macro Categorical_Set(model, name, K, indx)
     ind = esc(indx)
     quote
         Base.eval($mod, quote
-            $$na = Main.CategoricalZset()
+            $$na = $$CategoricalZset()
             for (ind, k) in zip($$ind, $$K_val)
-                $$na.set[[ind]] = Main.CategoricalZ(K = k)
+                $$na.set[[ind]] = $$CategoricalZ(K = k)
             end
         end)
     end
@@ -51,8 +49,8 @@ macro Observation(model, main_obj, index_set)
             for j in $$set
                 $$indx = j
                 va = ($$X_loaded[j])
-                local tt = Main.T([() -> Dict((() -> $$map)())], () -> Dict((() -> $$map)()))
-                local ob = Main.Observation(va, tt)
+                local tt = $$T([() -> Dict((() -> $$map)())], () -> Dict((() -> $$map)()))
+                local ob = $$Observation(va, tt)
                 global X_val[($$obs_name, j)] = ob
             end
         end)
@@ -71,12 +69,13 @@ macro Known(model, eq, index_set)
     set = esc(index_set.args[2])
     Z = QuoteNode(name.args[1])
     quote
+        # tp = LatentVaraible
         Base.eval($mod, quote
             for j in $$set
                 $$indx = j
                 z = $$Z
                 va = $$loaded_vals[$$vals_indx]
-                z[$$indx_2] = Main.LatentVaraible(z, va)
+                z[$$indx_2] = $$LatentVaraible(z, va)
             end
         end)
     end
@@ -97,7 +96,7 @@ macro Initialize(model, eq, index_set)
                 $$indx = j
                 z = $$Z
                 va = $$loaded_vals[j]
-                Main.lv_set(z[$$indx_2], va)
+                $$lv_set(z[$$indx_2], va)
             end
         end)
     end
@@ -154,7 +153,7 @@ macro Parameter(model, main_obj)
                     to_return[key] = val.value.value
                 end
                 return to_return
-            elseif typeof($$param_name) == Main.CategoricalZ
+            elseif typeof($$param_name) == $$CategoricalZ
                 return $$param_name.Pi
             else
                 local to_return = Dict()
@@ -172,8 +171,8 @@ end
 function EM!(model; args...)
     space = eval(:($model))
     Base.eval(space, quote
-       local X::Vector{Main.Observation} = collect(values(X_val))
-       fit_model = Main.LMEM(X, base_model; $args...)
+       local X::Vector{$Observation} = collect(values(X_val))
+       fit_model = $LMEM(X, base_model; $args...)
        return nothing
     end)
 end
@@ -188,8 +187,8 @@ macro posterior_probability(model, conditions, index_set)
             local post = Vector{}(undef, length($$set))
             for (i, j) in enumerate($$set)
                 $$indx = j
-                local X::Vector{Main.Observation} = collect(values(X_val))
-                post[i] = Main.posterior_probability(() -> $$cond, X, base_model)
+                local X::Vector{$$Observation} = collect(values(X_val))
+                post[i] = $$posterior_probability(() -> $$cond, X, base_model)
             end
             return post
         end)
@@ -206,8 +205,8 @@ macro max_posterior(model, conditions, index_set)
             local post = Vector{}(undef, length($$set))
             for (i, j) in enumerate($$set)
                 $$indx = j
-                local X::Vector{Main.Observation} = collect(values(X_val))
-                post[i] = Main.max_posterior(Main.posterior_probability(() -> $$cond, X, base_model))
+                local X::Vector{$$Observation} = collect(values(X_val))
+                post[i] = $$max_posterior($$posterior_probability(() -> $$cond, X, base_model))
                 if length(post[i]) == 1
                     post[i] = post[i][1]
                 end
@@ -248,7 +247,7 @@ macro likelihood(model, conditions, index_set)
             for j in $$set
                 $$indx = j
                 local X = X_val[($$obs, $$indx)]
-                post = [post; [Main.initialize_density_evaluation([X], base_model, false)()]]
+                post = [post; [$$initialize_density_evaluation([X], base_model, false)()]]
             end
             return post
         end)

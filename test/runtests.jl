@@ -14,7 +14,6 @@ using Test, LinearAlgebra, Distributions
 
     model_test = Parsa_Model(Normal_Model(p));
     @Categorical(model_test, class, n_classes)
-    println(typeof(model_test.class))
     @Known(model_test, class[i] = class_id[i], i=1:n)
     @Categorical(model_test, Z, K)
     @Observation(model_test, Y[i] = X[i] = (:mu => class[i], :cov => Z[class[i]]), i = 1:n)

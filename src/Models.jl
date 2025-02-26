@@ -1,4 +1,5 @@
-using JuMP, Ipopt, StatsBase, Distributions, LinearAlgebra
+using Ipopt, StatsBase, Distributions, LinearAlgebra
+using JuMP: Model, set_silent, @variable, @constraint, @objective, optimize!, value
 
 ##### Normal Model #######
 
@@ -122,7 +123,7 @@ function optimizeOrthogonal(param, package_index, log_pdf)
     @variable(model, V[i=1:p, j=1:p], start=param[i,j]);
     @constraint(model, V*V' - I == zeros(p,p));
     @objective(model, Max, func(V))
-    JuMP.optimize!(model)
+    optimize!(model)
     return value.(V)
 
 end
@@ -183,6 +184,7 @@ function normal_parsa_V_update(V, package_index, log_pdf)
 end
 
 parsa_V(p) = Parameter(value = ParameterValue(value = diagm(ones(p))), update = normal_parsa_V_update)
+parsa_V_opt(p) = Parsa_Parameter(diagm(ones(p)), optimizeOrthogonal)
 parsa_L(p) = Parameter(value = ParameterValue(value = ones(p)), update = normal_parsa_L_update)
 parsa_a() = Parameter(value = ParameterValue(value = 1), update = normal_parsa_a_update)
 

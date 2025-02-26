@@ -17,5 +17,12 @@ using Test, LinearAlgebra, Distributions
     @Known(model_test, class[i] = class_id[i], i=1:n)
     @Categorical(model_test, Z, K)
     @Observation(model_test, Y[i] = X[i] = (:mu => class[i], :cov => Z[class[i]]), i = 1:n)
-    EM!(model_test; n_init=1, n_wild=1)
+    EM!(model_test; n_init=10, n_wild=10)
+
+    model_test = Parsa_Model(Normal_Parsa_Model(p));
+    @Categorical(model_test, class, n_classes)
+    @Known(model_test, class[i] = class_id[i], i=1:n)
+    @Categorical(model_test, Z, K)
+    @Observation(model_test, Y[i] = X[i] = (:mu => class[i], :a => Z[class[i]], :L => Z[class[i]], :V => 1), i = 1:n)
+    EM!(model_test; n_init=10, n_wild=10)
 end

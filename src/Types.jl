@@ -216,16 +216,17 @@ function parameter_map_to_values(p)
 end
 
 
-Base.@kwdef mutable struct LMMM_Base
+Base.@kwdef mutable struct Parsa_Base
     pdf::Function
     log_pdf::Function
     parameters::Dict
     parameter_order :: Vector
+    is_valid_input :: Function
     evaluate::Function = (X, p) -> pdf(X.X, index_to_parameter_values(p, parameters))
     eval_catch = Dict()
 end
 
-Parsa_density(pdf, log_pdf, params...) = LMMM_Base(pdf = pdf, log_pdf = log_pdf,
+Parsa_density(pdf, log_pdf, is_valid_input, params...) = Parsa_Base(pdf = pdf, log_pdf = log_pdf, is_valid_input = is_valid_input,
                                                    parameter_order = [k for (k,_) in collect(params)],
                                                    parameters = Dict([key => ParameterGenerator(parameter_base = vv) for (key, vv) in Dict(params...)]))
 

@@ -1,5 +1,5 @@
 using Ipopt, StatsBase, Distributions, LinearAlgebra
-using JuMP: Model, set_silent, @variable, @constraint, @objective, optimize!, value
+using JuMP: Model, set_silent, @variable, @constraint, @objective, optimize!, value, set_optimizer_attribute
 
 ##### Normal Model #######
 
@@ -34,7 +34,9 @@ function normal_pdf_log(X, params)
     logpdf(N, X)
 end
 
-Normal_Model(p) = Parsa_density(normal_pdf, normal_pdf_log,
+normal_input(x, p) = length(x) == p && all(isa.(x, Real))
+
+Normal_Model(p) = Parsa_density(normal_pdf, normal_pdf_log, (x) -> normal_input(x, p),
                                 :mu => Parsa_Parameter(zeros(p), normal_mean_update),
                                 :cov => Parsa_Parameter(diagm(ones(p)), p * (p + 1) / 2, normal_covariance_update))
 
@@ -81,7 +83,7 @@ function normal_pdf_log_2(X, params)
     logpdf(N, X)
 end
 
-Double_Normal_Model(p) = LMMM_Base(pdf=normal_pdf_2, pdf_log=normal_pdf_log_2,
+Double_Normal_Model(p) = LMMM_Base(pdf=normal_pdf_2, pdf_log=normal_pdf_log_2, (x) -> normal_input(x, p),
                             :mu1 => Parsa_Parameter(ones(p), normal_mean_update_2_1),
                             :mu2 => Parsa_Parameter(ones(p), normal_mean_update_2_2),
                             :cov => Parsa_Parameter(diagm(ones(p)), p * (p + 1) / 2, normal_covariance_update_2))
@@ -118,6 +120,7 @@ end
 function optimizeOrthogonal(param, package_index, log_pdf)
     func = get_objective_function(param, package_index, log_pdf)
     model = Model(Ipopt.Optimizer)
+    set_optimizer_attribute(model, "max_iter", 3)
     set_silent(model)
     p = size(param)[1]
     @variable(model, V[i=1:p, j=1:p], start=param[i,j]);
@@ -204,7 +207,7 @@ function normal_parsa_pdf_log_2(X, params)
 end
 
 
-Normal_Parsa_Model(p) = Parsa_density(normal_parsa_pdf_2, normal_parsa_pdf_log_2,
+Normal_Parsa_Model(p) = Parsa_density(normal_parsa_pdf_2, normal_parsa_pdf_log_2, (x) -> normal_input(x, p),
         :mu=> Parsa_Parameter(zeros(p), normal_mean_update),
         :a => parsa_a(),
         :L => parsa_L(p),

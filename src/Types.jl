@@ -153,10 +153,15 @@ Base.@kwdef mutable struct Parameter
     update::Function
     run_update::Function = (X, taus, parameter_maps, log_pdf) -> value.value = update(value.value, compress_package(X, taus, parameter_maps), log_pdf)
     is_const::Bool = false
+    post_processing = nothing
 end
 
-Parsa_Parameter(initial_value, update_function) = Parameter(value = ParameterValue(value = initial_value), update = update_function)
-Parsa_Parameter(initial_value, number_of_parameters, update_function) = Parameter(value = ParameterValue(value = initial_value, n_parameters = number_of_parameters), update = update_function)
+Parsa_Parameter(initial_value, update_function::Function) = Parameter(value = ParameterValue(value = initial_value), update = update_function)
+Parsa_Parameter(initial_value, number_of_parameters, update_function::Function) = Parameter(value = ParameterValue(value = initial_value, n_parameters = number_of_parameters), update = update_function)
+
+Parsa_Parameter(initial_value, update_function::Function, post_processing::Function) = Parameter(value = ParameterValue(value = initial_value), update = update_function, post_processing=post_processing)
+Parsa_Parameter(initial_value, number_of_parameters, update_function::Function, post_processing::Function) = Parameter(value = ParameterValue(value = initial_value, n_parameters = number_of_parameters), update = update_function,post_processing=post_processing)
+
 
 Base.@kwdef mutable struct ParameterGenerator
     parameter_base :: Parameter

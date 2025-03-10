@@ -21,12 +21,16 @@ function normal_covariance_update(value, index_package, log_pdf)
     end
     taus = [d[2] for d in index_package]
     cov_new ./= sum(taus)
-    return cov_new
+    # return cov_new
+    return cholesky(cov_new).L
 end
 
 function normal_pdf(X, params)
-    N = MvNormal(params[:mu], params[:cov])
-    pdf(N, X)
+    # N = MvNormal(params[:mu], params[:cov])
+    # pdf(N, X)
+    p = length(X)
+    y = params[:cov] \ (X - params[:mu])
+    (2pi)^(-p/2) * det(params[:cov])^(-1) * exp(-1/2 * y' * y)
 end
 
 function normal_pdf_log(X, params)
@@ -34,11 +38,15 @@ function normal_pdf_log(X, params)
     logpdf(N, X)
 end
 
+function normal_cov_post(L)
+    L * L'
+end
+
 normal_input(x, p) = length(x) == p && all(isa.(x, Real))
 
 Normal_Model(p) = Parsa_density(normal_pdf, normal_pdf_log, (x) -> normal_input(x, p),
                                 :mu => Parsa_Parameter(zeros(p), normal_mean_update),
-                                :cov => Parsa_Parameter(diagm(ones(p)), p * (p + 1) / 2, normal_covariance_update))
+                                :cov => Parsa_Parameter(diagm(ones(p)), p * (p + 1) / 2, normal_covariance_update, normal_cov_post))
 
 
 ### Double mean

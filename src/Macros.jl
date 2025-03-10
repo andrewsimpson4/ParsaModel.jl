@@ -46,9 +46,9 @@ macro Categorical_Set(model, name, K, indx)
         if !(typeof($K_val) == Vector{Int})
             error("Third parameter must be a vector of integers.")
         end
-        if !(typeof($K_val) == Vector{Vector})
-            error("Third parameter must be a vector of vectors")
-        end
+        # if !(typeof($K_val) == Vector{Vector})
+        #     error("Third parameter must be a vector of vectors")
+        # end
         Base.eval($mod, quote
             $$na = $$CategoricalZset()
             for (ind, k) in zip($$ind, $$K_val)
@@ -96,7 +96,7 @@ macro Observation(model, main_obj, index_set)
             for j in $$set
                 $$indx = j
                 va = ($$X_loaded[j])
-                if !($$model.base_model.is_valid_input(va))
+                if !($$mod.base_model.is_valid_input(va))
                     error("Invalid observation type for density")
                 end
                 local tt = $$T([() -> Dict((() -> $$map)())], () -> Dict((() -> $$map)()))
@@ -107,6 +107,53 @@ macro Observation(model, main_obj, index_set)
     end
 end
 
+# macro UpdateObservation(model, main_obj, index_set)
+#     mod = esc(model)
+#     s1 = string(main_obj.args[1])
+#     s2 = string(main_obj.args[2])
+#     obs_name = string(main_obj.args[1].args[1])
+#     obs_indx = QuoteNode(main_obj.args[1].args[2])
+#     X_name = main_obj.args[2].args[1]
+#     X_loaded = esc(X_name)
+#     indx = QuoteNode(index_set.args[1])
+#     set = esc(index_set.args[2])
+
+#     quote
+#         if !(typeof($mod) == Module)
+#             error("First parameter must be a valid module. Use Parsa_Model function")
+#         end
+#         if !isdefined($mod, :is_parsa_model)
+#             error("First parameter must be a valid module. Use Parsa_Model function")
+#         end
+#         re = r"^[a-zA-Z][a-zA-Z0-9_]*\[[a-zA-Z]*\]$"
+#         re2 =r"^[a-zA-Z][a-zA-Z0-9_]*\[([a-zA-Z]*)\]$"
+#         re3 =r"^[a-zA-Z]*$"
+#         if match(re, $s1) == nothing || match(re, $s2) == nothing
+#             error("invalid notation")
+#         end
+#         if match(re3, string($indx)) == nothing
+#             error("Invalid index variable")
+#         end
+#         if string($indx) != match(re2, $s1)[1]
+#             error("unknown " * match(re2, $s1)[1])
+#         end
+#         if string($indx) != match(re2, $s2)[1]
+#             error("unknown " * match(re2, $s2)[1])
+#         end
+#         Base.eval($mod, quote
+#             for j in $$set
+#                 $$indx = j
+#                 va = ($$X_loaded[j])
+#                 # if !($$mod.base_model.is_valid_input(va))
+#                 #     error("Invalid observation type for density")
+#                 # end
+#                 # local tt = $$T([() -> Dict((() -> $$map)())], () -> Dict((() -> $$map)()))
+#                 # local ob = $$Observation(va, tt)
+#                 X_val[($$obs_name, j)].X = va
+#             end
+#         end)
+#     end
+# end
 
 macro Known(model, eq, index_set)
     mod = esc(model)
@@ -295,7 +342,7 @@ end
 macro Parameter(model, main_obj)
     mod = esc(model)
     param_name = QuoteNode(main_obj)
-    s_tmp = main_obj
+    # s_tmp = main_obj
     s1 = string(main_obj)
     quote
         if !(typeof($mod) == Module)
@@ -305,7 +352,7 @@ macro Parameter(model, main_obj)
             error("First parameter must be a valid module. Use Parsa_Model function")
         end
         re = r"^[a-zA-Z][a-zA-Z0-9_]*$"
-        if typeof($s_tmp) != Symbol && match(re, $s1) == nothing
+        if $s1[1] != ':' && match(re, $s1) == nothing
             error("invalid notation")
         end
 
@@ -410,6 +457,7 @@ macro max_posterior(model, conditions, index_set)
                 $$indx = j
                 local X::Vector{$$Observation} = collect(values(X_val))
                 post[i] = $$max_posterior($$posterior_probability(() -> $$cond, X, base_model))
+                # post[i] = $$max_posterior($$posterior_initalize(() -> $$cond, X, base_model)())
                 if length(post[i]) == 1
                     post[i] = post[i][1]
                 end
@@ -418,6 +466,27 @@ macro max_posterior(model, conditions, index_set)
         end)
     end
 end
+
+# macro max_posterior_initialize(model, conditions)
+#     mod = esc(model)
+#     cond = QuoteNode(conditions)
+#     quote
+#         if !(typeof($mod) == Module)
+#             error("First parameter must be a valid module. Use Parsa_Model function")
+#         end
+#         if !isdefined($mod, :is_parsa_model)
+#             error("First parameter must be a valid module. Use Parsa_Model function")
+#         end
+#         Base.eval($mod, quote
+#             local X::Vector{$$Observation} = collect(values(X_val))
+#             post = $$posterior_initalize(() -> $$cond, X, base_model)
+#             return function()
+#                 pp = post()
+#                 $$max_posterior(pp)
+#             end
+#         end)
+#     end
+# end
 
 
 macro BIC(model)

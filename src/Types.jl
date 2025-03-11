@@ -23,6 +23,7 @@ end
 Base.@kwdef mutable struct LatentVaraible
     value_::Union{Int,Unknown}
     Z::CategoricalZ
+    dependent_X = Dict{Any, Observation}()
 end
 
 Base.@kwdef mutable struct CategoricalZVec

@@ -45,6 +45,7 @@ function getDependentObservations(f1::Vector{LatentVaraible}, f2::Vector{Vector{
 	Y[overlap.==1]
 end
 
+
 function getIndependentSets(X::Vector{Observation}, Z)
 	n = length(X)
 	sets = Vector{Vector{Observation}}()
@@ -91,6 +92,54 @@ function getIndependentSets(X::Vector{Observation}, Z)
 	end
 	return sets_X
 end
+
+
+# function getIndependentSets(X::Vector{Observation}, Z)
+# 	n = length(X)
+# 	sets = Vector{Vector{Observation}}()
+# 	M = diagm(ones(n))
+# 	domains = [flattenConditionalDomain(x.T.domain) for x in X]
+# 	diffset = [setdiff([f for f in ff if typeof(f) == LatentVaraible], Z) for ff in  domains]
+# 	for i in 1:(n-1)
+# 		f1 = diffset[i]
+# 		for j in (i+1):n
+# 			f2 = diffset[j]
+# 			M[i, j] = !isdisjoint(f1, f2)
+# 			M[j, i] = M[i, j]
+# 		end
+# 	end
+# 	not_placed = setdiff(1:n, 1)
+# 	sets::Vector{Vector{Int}} = [[1]]
+# 	sets_X::Vector{Vector{Observation}} = [[X[1]]]
+# 	while length(not_placed) > 0
+# 		found = false
+# 		for (set, set_x) in zip(sets, sets_X)
+# 			for j in set
+# 				for i in not_placed
+# 					if M[i,j] == 1
+# 						not_placed = setdiff(not_placed, i)
+# 						push!(set, i)
+# 						push!(set_x, X[i])
+# 						found = true
+# 						break
+# 					end
+# 				end
+# 				if found
+# 					break
+# 				end
+# 			end
+# 			if found
+# 				break
+# 			end
+# 		end
+# 		if !found && length(not_placed) > 0
+# 			push!(sets, [not_placed[1]])
+# 			push!(sets_X, [X[not_placed[1]]])
+# 			not_placed = setdiff(not_placed, not_placed[1])
+# 		end
+# 	end
+# 	return sets_X
+# end
 
 
 function initialize_density_evaluation(X::Vector{Observation}, density::Parsa_Base, independent_by)
@@ -160,30 +209,31 @@ function initialize_density_evaluation_ind(X::Vector{Observation}, density::Pars
 	return (initialize_density_evaluation_ind(X, D, density, independent_by))
 end
 
-function independent_sets_from_independent_by(X::Vector{Observation}, independent_by)
-    n = length(X)
-    all_domains = [flattenConditionalDomain(x.T.domain) for x in X]
-    blocks::Vector{Vector{Observation}} = [[] for _ in 1:length(independent_by[1].LV)]
-    set_map = Dict()
-    bi = 1
-    for (_, LV) in independent_by[1].LV
-        for (i, x, xf) in zip(1:n, X, all_domains)
-            if LV in xf
-                blocks[bi] = [blocks[bi]; x]
-                set_map[i] = bi
-            end
-        end
-        bi = bi + 1
-    end
-    return blocks, set_map
-end
+# function independent_sets_from_independent_by(X::Vector{Observation}, independent_by)
+#     n = length(X)
+#     all_domains = [flattenConditionalDomain(x.T.domain) for x in X]
+#     blocks::Vector{Vector{Observation}} = [[] for _ in 1:length(independent_by[1].LV)]
+#     set_map = Dict()
+#     bi = 1
+#     for (_, LV) in independent_by[1].LV
+#         for (i, x, xf) in zip(1:n, X, all_domains)
+#             if LV in xf
+#                 blocks[bi] = [blocks[bi]; x]
+#                 set_map[i] = bi
+#             end
+#         end
+#         bi = bi + 1
+#     end
+#     return blocks, set_map
+# end
 
 function initialize_density_evaluation_ind(X::Vector{Observation}, conditioned_domains::Vector, density::Parsa_Base, independent_by)
 	current_condition = [(LV, LV.v()) for LV in conditioned_domains if typeof(LV.value_) == Unknown]
 	if haskey(density.eval_catch, (X, current_condition))
 	    return () -> density.eval_catch[(X, current_condition)]
 	end
-	independent_sets, _ = independent_sets_from_independent_by(X, independent_by)
+	# independent_sets, _ = independent_sets_from_independent_by(X, independent_by)
+    independent_sets = [collect(values(LV.dependent_X)) for (_, LV) in independent_by[1].LV]
 	mult_list = Vector{}()
 	for G in independent_sets
 		domains = (flattenConditionalDomain(reduce(vcat, [x.T.domain for x in G])))
@@ -230,7 +280,6 @@ function LMEM(X::Vector{Observation}, base::Parsa_Base;
 	verbose ? update(pbar) : nothing
 	tau_wild = [wild_tau(ta()) for ta in tau_init]
 	M = M_step_init(X, tau_wild, parameter_map, base)
-
 	init_likelihoods = zeros(n_init, n_wild)
 	if should_initialize
 		best_likelihood = -Inf
@@ -391,12 +440,13 @@ function E_step_initalize(X::Vector{Observation}, density::Parsa_Base, independe
 	all_domains = [flattenConditionalDomain(x.T.domain) for x in X]
     # I_sets, set_map = independent_sets_from_independent_by(X, independent_by)
 	for i in 1:n
-		dependent_observations = getDependentObservations(all_domains[i], all_domains, X)
+		# dependent_observations = getDependentObservations(all_domains[i], all_domains, X)
+        dependent_observations = unique(reduce(vcat, [collect(values(LV.dependent_X)) for LV in all_domains[i]]))
 		tau_init_i = E_step_i_initalize_initzial_values(X[i], dependent_observations, density, Vector{}())
         # tau_init_i = E_step_i_initalize_initzial_values(X[i], I_sets[set_map[i]], density, Vector{}())
 		(tau_i, parameters_used_i, pi_parameters_used_i, tau_i_pre_set, pi_chain_i) = E_step_i_initalize(X[i], dependent_observations, density, Vector{}())
         # (tau_i, parameters_used_i, pi_parameters_used_i, tau_i_pre_set, pi_chain_i) = E_step_i_initalize(X[i], I_sets[set_map[i]], density, Vector{}())
-		tau_i_func = () -> (tau_eval = tau_i([]); (tau_eval / sum(tau_eval)))
+		tau_i_func = () -> (tau_eval = tau_i([]); Float64.(tau_eval / sum(tau_eval)))
 		Q_i = () -> (tau_eval = tau_i([]); pp = pi_chain_i([]); probs = (tau_eval / sum(tau_eval)); sum(probs .* log.(tau_eval)))
 		# Q_i = () -> (tau_eval = tau_i([]); pp = pi_chain_i([]); probs = Float64.(tau_eval / sum(tau_eval)); sum(probs .* log.(tau_eval .* pp)) - sum(probs .* log.(probs)))
 		tau_i_pre_set_func = () -> (tau_eval = tau_i_pre_set([]); (tau_eval / sum(tau_eval)))
@@ -512,9 +562,8 @@ end
 
 function posterior_probability(conditions::Function, X::Vector{Observation}, base::Parsa_Base)
 	domains = flattenConditionalDomainSimple([conditions])
-    all_domains = [flattenConditionalDomain(x.T.domain) for x in X]
-	X_sub = [x for (x,xf) in zip(X, all_domains) if !isdisjoint(domains, xf)]
-	(tau, Pi) = posterior_probability_sub(X, conditions, base, 1)
+	X_sub = unique(reduce(vcat, [collect(values(LV.dependent_X)) for LV in domains]))
+	(tau, Pi) = posterior_probability_sub(X_sub, conditions, base, 1)
 	tau = Float64.(tau ./ sum(tau))
 	Pi = [[y for (_, y) in pi_i] for pi_i in Pi]
 	return collect(zip(Pi, tau))

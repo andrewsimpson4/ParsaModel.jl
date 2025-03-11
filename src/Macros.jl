@@ -101,6 +101,13 @@ macro Observation(model, main_obj, index_set)
                 end
                 local tt = $$T([() -> Dict((() -> $$map)())], () -> Dict((() -> $$map)()))
                 local ob = $$Observation(va, tt)
+                domains = $$flattenConditionalDomain(tt.domain)
+                if typeof(domains) != Vector{$$LatentVaraible}
+                    domains = reduce(vcat, domains)
+                end
+                for LV in domains
+                    LV.dependent_X[($$obs_name, j)] = ob
+                end
                 global X_val[($$obs_name, j)] = ob
             end
         end)

@@ -19,19 +19,20 @@ export Parsa_Model,
        @max_posterior,
        @BIC,
        @likelihood,
+       @IndependentBy,
        Normal_Model,
        Double_Normal_Model,
        Normal_Parsa_Model
 end
 
-# using LinearAlgebra, UnicodePlots, ProgressBars, Distributions
+# using LinearAlgebra, UnicodePlots, ProgressBars, Distributions, Clustering
 # include("./Types.jl")
 # include("./Models.jl")
 # include("./Core.jl")
 # include("./Macros.jl")
 # p = 4
 # K = 3
-# n = 600
+# n = 1000
 # true_id = rand(1:K, n);
 # mu = [ones(p), ones(p) .+ 6, ones(p) .- 6];
 # cov = [diagm(ones(p)), diagm(ones(p)), diagm(ones(p)) .+ 1];
@@ -41,18 +42,31 @@ end
 # @Categorical(model_test, Z, K);
 # @IndependentBy(model_test, Z)
 # @Observation(model_test, Y[i] = X[i] = (:mu => Z[i], :cov => Z[i]), i = 1:n);
-# @time EM!(model_test; n_init=1, n_wild=1, should_initialize=true);
+# @time @profview EM!(model_test; n_init=1, n_wild=1, should_initialize=true);
 # @Parameter(model_test, :cov)
 
-# NX = Dict("T" => X[1])
-# @Observation(model_test, Y[i] = NX[i] = (:mu => Z[i], :cov => Z[i]), i = keys(NX));
-# f = @max_posterior_initialize(model_test, [Z["T"]])
-
-# predictor(x) = (NX["T"] = x; @UpdateObservation(model_test, Y[i] = NX[i], i = keys(NX)); f();)
-
-# @time [predictor(X[i]) for i in 1:n]
-
+# @Observation(model_test, Y[i] = X[i] = (:mu => Z[i], :cov => Z[i]), i = 1:n);
 # @time @max_posterior(model_test, [Z[i]], i=1:n)
 
-# @UpdateObservation(model_test, Y[i] = Y[i], i = 1)
+
+# n = 500
+# p = 8
+# K = 2
+# mu = [ones(p) .+ i  for i in 1:n];
+# cov = [diagm(ones(p)) .+ i^4 for i in 1:2];
+# class_id = [Int(ceil(i / 5)) for i in 1:n];
+# n_classes = length(unique(class_id))
+# true_id = rand(1:2, n_classes);
+# X = [vec(rand(MvNormal(mu[class_id[i]], cov[true_id[class_id[i]]]), 1)) for i in 1:n];
+
+# model_test = Parsa_Model(Normal_Model(p));
+# @Categorical(model_test, class, n_classes)
+# @Known(model_test, class[i] = class_id[i], i=1:n)
+# @Categorical(model_test, Z, K)
+# @Observation(model_test, Y[i] = X[i] = (:mu => class[i], :cov => Z[class[i]]), i = 1:n)
+# EM!(model_test; should_initialize=true)
+# id = @max_posterior(model_test, [Z[i]], i=1:n_classes);
+# id_ = [id[i] for i in 1:n_classes]
+# randindex(Int.(id_), true_id)
+
 

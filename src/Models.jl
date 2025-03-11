@@ -39,7 +39,7 @@ function normal_pdf_log(X, params)
 end
 
 function normal_cov_post(L)
-    L * L'
+    L #L * L'
 end
 
 normal_input(x, p) = length(x) == p && all(isa.(x, Real))

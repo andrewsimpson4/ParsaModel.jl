@@ -22,7 +22,7 @@ function normal_covariance_update(value, index_package, log_pdf)
     taus = [d[2] for d in index_package]
     cov_new ./= sum(taus)
     # return cov_new
-    return cholesky(cov_new).L
+    return cholesky(Hermitian(cov_new)).L
 end
 
 function normal_pdf(X, params)
@@ -49,8 +49,30 @@ Normal_Model(p) = Parsa_density(normal_pdf, normal_pdf_log, (x) -> normal_input(
                                 :cov => Parsa_Parameter(diagm(ones(p)), p * (p + 1) / 2, normal_covariance_update, normal_cov_post))
 
 
-### Double mean
 
+
+### Normal singular
+
+
+function normal_covariance_update_singular(value, index_package, log_pdf)
+    cov_new = zeros(size(value))
+    for (x, pr, params) in index_package
+        cov_new += pr * ((x - params[:mu]) * (x - params[:mu])')
+    end
+    taus = [d[2] for d in index_package]
+    cov_new ./= sum(taus)
+    # return cov_new
+    return cholesky(Hermitian(cov_new .+ diagm(zeros(size(cov_new)[1]) .+ 10^-10))).L
+end
+
+
+Normal_Model_singular(p) = Parsa_density(normal_pdf, normal_pdf_log, (x) -> normal_input(x, p),
+                                :mu => Parsa_Parameter(zeros(p), normal_mean_update),
+                                :cov => Parsa_Parameter(diagm(ones(p)), p * (p + 1) / 2, normal_covariance_update_singular, normal_cov_post))
+
+
+
+### Double mean
 
 function normal_mean_update_2_1(value, index_package, log_pdf)
     mu_new = zeros(length(value))

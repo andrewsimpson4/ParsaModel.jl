@@ -20,30 +20,45 @@ export Parsa_Model,
        @BIC,
        @likelihood,
        @IndependentBy,
+       @posterior_probability_generator,
+       @likelihood_generator,
+       @max_posterior_generator,
        Normal_Model,
        Double_Normal_Model,
-       Normal_Parsa_Model
+       Normal_Parsa_Model,
+       Normal_Model_singular
 end
 
-# using LinearAlgebra, UnicodePlots, ProgressBars, Distributions, Clustering
-# include("./Types.jl")
-# include("./Models.jl")
-# include("./Core.jl")
-# include("./Macros.jl")
-# p = 4
-# K = 3
-# n = 1000
-# true_id = rand(1:K, n);
-# mu = [ones(p), ones(p) .+ 6, ones(p) .- 6];
-# cov = [diagm(ones(p)), diagm(ones(p)), diagm(ones(p)) .+ 1];
-# X = [vec(rand(MvNormal((mu[true_id[i]], cov[true_id[i]])...), 1)) for i in 1:n];
+using LinearAlgebra, UnicodePlots, ProgressBars, Distributions, Clustering
+include("./Types.jl")
+include("./Models.jl")
+include("./Core.jl")
+include("./Macros.jl")
+p = 4
+K = 3
+n = 1000000
+true_id = rand(1:K, n);
+mu = [ones(p), ones(p) .+ 6, ones(p) .- 6];
+cov = [diagm(ones(p)), diagm(ones(p)), diagm(ones(p)) .+ 1];
+X = [vec(rand(MvNormal((mu[true_id[i]], cov[true_id[i]])...), 1)) for i in 1:n];
 
-# model_test = Parsa_Model(Normal_Model(p));
-# @Categorical(model_test, Z, K);
+model_test = Parsa_Model(Normal_Model(p));
+@Categorical(model_test, Z, K);
 # @IndependentBy(model_test, Z)
-# @Observation(model_test, Y[i] = X[i] = (:mu => Z[i], :cov => Z[i]), i = 1:n);
-# @time @profview EM!(model_test; n_init=1, n_wild=1, should_initialize=true);
-# @Parameter(model_test, :cov)
+@Observation(model_test, Y[i] = X[i] = (:mu => Z[i], :cov => Z[i]), i = 1:n);
+EM!(model_test; n_init=1, n_wild=1, should_initialize=true);
+@Parameter(model_test, :cov)
+
+gen = @likelihood_generator(model_test, X[i] = (:mu => Z[i,"G"], :cov => Z[i,"G"]), i=1)
+
+@time [gen([X[i]]) for i in 1:n]
+
+ddd
+
+struct testing2
+    Int
+end
+
 
 # @Observation(model_test, Y[i] = X[i] = (:mu => Z[i], :cov => Z[i]), i = 1:n);
 # @time @max_posterior(model_test, [Z[i]], i=1:n)

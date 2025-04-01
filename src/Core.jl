@@ -180,18 +180,19 @@ function initialize_density_evaluation(X::Vector{Observation}, conditioned_domai
 		if length(next_conditions) != 0
 			next_condition = next_conditions[1]
 			K = typeof(next_condition.value_) == Unknown ? (1:next_condition.Z.K) : lv_v(next_condition)
-			sum_list = Vector{}()
-			for k in K
+			sum_list = Vector{Function}(undef, length(K))
+			for (i_k, k) in enumerate(K)
 				lv_set(next_condition, k)
 				new_conditions = [conditioned_domains; next_condition]
 				lik_new = initialize_density_evaluation(G, new_conditions, density)
-				sum_list = [sum_list; () -> (lv_set(next_condition, k); eval = next_condition.Z.Pi[k] * lik_new(); lv_set(next_condition, 0); eval)]
+				sum_list[i_k] = () -> (lv_set(next_condition, k); eval = next_condition.Z.Pi[k] * lik_new(); lv_set(next_condition, 0); eval)
 				lv_set(next_condition, 0)
 			end
 			mult_list = [mult_list; () -> sum([t() for t in sum_list])]
 		else
 			for g in G
-				mult_list = [mult_list; () -> BigFloat(density.evaluate(g, g.T.map())[1])]
+				mm = g.T.map()
+				mult_list = [mult_list; () -> BigFloat(density.evaluate(g,  mm)[1])]
 			end
 
 		end
@@ -199,7 +200,6 @@ function initialize_density_evaluation(X::Vector{Observation}, conditioned_domai
 	end
 	# density.eval_catch[(X, current_condition)] = 1
 	# return () -> (ll = prod([t() for t in mult_list]); density.eval_catch[(X, current_condition)] = ll; return ll)
-
 	return () -> prod([t() for t in mult_list])
 end
 
@@ -355,14 +355,14 @@ function plotit(lines, final_lines)
 	ymin = minimum([l for l in lll])
 	xmin = 0
 	xmax = length(findall(lines[1, :] .!= 0)) + length(final_lines)
-	plt = lineplot(; ylim = (ymin, ymax), xlim = (xmin, xmax), xlabel = "steps", ylabel = "log-likelihood", height = Int(round(terminal[1] / 2)), width = Int(round(terminal[2] / 2)), color = :red)
+	plt = UnicodePlots.lineplot([0], [0]; ylim = (ymin, ymax), xlim = (xmin, xmax), xlabel = "steps", ylabel = "log-likelihood", height = Int(round(terminal[1] / 2)), width = Int(round(terminal[2] / 2)), color = :red)
 	for i in 1:size(lines)[1]
 		n_l = [l for l in lines[i, :] if l != 0]
-		lineplot!(plt, 1:length(n_l), n_l, color = :blue)
+		UnicodePlots.lineplot!(plt, 1:length(n_l), n_l, color = :blue)
 	end
 	if length(final_lines) > 0
 		n_l = final_lines
-		lineplot!(plt, size(lines)[2]:(length(n_l)+size(lines)[2]-1), n_l)
+		UnicodePlots.lineplot!(plt, size(lines)[2]:(length(n_l)+size(lines)[2]-1), n_l)
 	end
 	display(plt)
 	sleep(0.001)

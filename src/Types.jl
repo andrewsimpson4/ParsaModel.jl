@@ -144,7 +144,14 @@ Base.@kwdef mutable struct ParameterValue
 end
 
 function compress_package(X, taus, parameter_maps)
-    map_new = [Dict([key => vv.value.value for (key,vv) in params]) for params in parameter_maps]
+    # map_new = [Dict([key => vv.value.value for (key,vv) in params]) for params in parameter_maps]
+    map_new = Vector{Dict}(undef, length(parameter_maps))
+    for i in eachindex(parameter_maps)
+        map_new[i] = copy(parameter_maps[i])
+        for (k, v) in map_new[i]
+            map_new[i][k] = v.value.value
+        end
+    end
     x_new = [x.X for x in X]
     zip(x_new, taus, map_new)
 end

@@ -442,6 +442,138 @@ macro posterior_probability(model, conditions, index_set)
     end
 end
 
+macro posterior_probability_generator(model, conditions, obs_map, index_set)
+    mod = esc(model)
+    obs_name = string(obs_map.args[1])
+    map = QuoteNode(obs_map.args[2])
+    indx = QuoteNode(index_set.args[1])
+    set = esc(index_set.args[2])
+    cond = QuoteNode(conditions)
+    quote
+        if !(typeof($mod) == Module)
+            error("First parameter must be a valid module. Use Parsa_Model function")
+        end
+        if !isdefined($mod, :is_parsa_model)
+            error("First parameter must be a valid module. Use Parsa_Model function")
+        end
+        re3 =r"^[a-zA-Z]*$"
+        if match(re3, string($indx)) == nothing
+            error("Invalid index variable")
+        end
+        Base.eval($mod, quote
+            # for (i, j) in enumerate($$set)
+                $$indx = $$set
+                local tt = $$T([() -> Dict((() -> $$map)())], () -> Dict((() -> $$map)()))
+                local ob = $$Observation(nothing, tt)
+                local domains = $$flattenConditionalDomain(tt.domain)
+                if typeof(domains) != Vector{$$LatentVaraible}
+                    domains = reduce(vcat, domains)
+                end
+                for LV in domains
+                    LV.dependent_X[($$obs_name,  $$indx)] = ob
+                end
+                global X_val[($$obs_name, $$indx)] = ob
+            # end
+            local X::Vector{$$Observation} = collect(values(X_val))
+            post = $$posterior_initalize(() -> $$cond, X, base_model)
+            return function (x)
+                for (i, j) in enumerate($$set)
+                    X_val[($$obs_name, j)].X = x[j]
+                end
+                post()
+            end
+        end)
+    end
+end
+
+macro max_posterior_generator(model, conditions, obs_map, index_set)
+    mod = esc(model)
+    obs_name = string(obs_map.args[1])
+    map = QuoteNode(obs_map.args[2])
+    indx = QuoteNode(index_set.args[1])
+    set = esc(index_set.args[2])
+    cond = QuoteNode(conditions)
+    quote
+        if !(typeof($mod) == Module)
+            error("First parameter must be a valid module. Use Parsa_Model function")
+        end
+        if !isdefined($mod, :is_parsa_model)
+            error("First parameter must be a valid module. Use Parsa_Model function")
+        end
+        re3 =r"^[a-zA-Z]*$"
+        if match(re3, string($indx)) == nothing
+            error("Invalid index variable")
+        end
+        Base.eval($mod, quote
+            # for (i, j) in enumerate($$set)
+                $$indx = $$set
+                local tt = $$T([() -> Dict((() -> $$map)())], () -> Dict((() -> $$map)()))
+                local ob = $$Observation(nothing, tt)
+                local domains = $$flattenConditionalDomain(tt.domain)
+                if typeof(domains) != Vector{$$LatentVaraible}
+                    domains = reduce(vcat, domains)
+                end
+                for LV in domains
+                    LV.dependent_X[($$obs_name,  $$indx)] = ob
+                end
+                global X_val[($$obs_name, $$indx)] = ob
+            # end
+            local X::Vector{$$Observation} = collect(values(X_val))
+            post = $$posterior_initalize(() -> $$cond, X, base_model)
+            return function (x)
+                for (i, j) in enumerate($$set)
+                    X_val[($$obs_name, j)].X = x[j]
+                end
+                $$max_posterior(post())
+            end
+        end)
+    end
+end
+
+
+macro likelihood_generator(model, obs_map, index_set)
+    mod = esc(model)
+    obs_name = string(obs_map.args[1])
+    map = QuoteNode(obs_map.args[2])
+    indx = QuoteNode(index_set.args[1])
+    set = esc(index_set.args[2])
+    quote
+        if !(typeof($mod) == Module)
+            error("First parameter must be a valid module. Use Parsa_Model function")
+        end
+        if !isdefined($mod, :is_parsa_model)
+            error("First parameter must be a valid module. Use Parsa_Model function")
+        end
+        re3 =r"^[a-zA-Z]*$"
+        if match(re3, string($indx)) == nothing
+            error("Invalid index variable")
+        end
+        Base.eval($mod, quote
+            # for (i, j) in enumerate($$set)
+            $$indx = $$set
+            local tt = $$T([() -> Dict((() -> $$map)())], () -> Dict((() -> $$map)()))
+            local ob = $$Observation(nothing, tt)
+            local domains = $$flattenConditionalDomain(tt.domain)
+            if typeof(domains) != Vector{$$LatentVaraible}
+                domains = reduce(vcat, domains)
+            end
+            for LV in domains
+                LV.dependent_X[($$obs_name,  $$indx)] = ob
+            end
+            global X_val[($$obs_name, $$indx)] = ob
+            # end
+            post = $$initialize_density_evaluation([ob], base_model, Vector{}())
+            return function (x)
+                for (i, j) in enumerate($$set)
+                    X_val[($$obs_name, j)].X = x[j]
+                end
+                post()
+            end
+        end)
+    end
+end
+
+
 macro max_posterior(model, conditions, index_set)
     mod = esc(model)
     indx = QuoteNode(index_set.args[1])
@@ -538,7 +670,7 @@ macro likelihood(model, conditions, index_set)
             for j in $$set
                 $$indx = j
                 local X = X_val[($$obs, $$indx)]
-                post = [post; [$$initialize_density_evaluation([X], base_model, false)()]]
+                post = [post; [$$initialize_density_evaluation([X], base_model, Vector{}())()]]
             end
             return post
         end)

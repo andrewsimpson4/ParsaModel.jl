@@ -51,7 +51,7 @@ model_test = Parsa_Model(Normal_Model(p));
 @Known(model_test, class[i] = class_id[i], i=1:n)
 @Categorical(model_test, Z, K)
 @Observation(model_test, Y[i] = X[i] = (:mu => class[i], :cov => Z[class[i]]), i = 1:n)
-@profview EM!(model_test; n_init=1, n_wild=1)
+@profview EM!(model_test; n_init=10, n_wild=10)
 id = @max_posterior(model_test, [Z[i]], i=1:n_classes);
 id_ = [id[i] for i in 1:n_classes]
 randindex(Int.(id_), true_id)

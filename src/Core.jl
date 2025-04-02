@@ -307,6 +307,7 @@ function LMEM(X::Vector{Observation}, base::Parsa_Base;
 	verbose ? update(pbar) : nothing
 	tau_wild = [wild_tau(ta()) for ta in tau_init]
 	M = M_step_init(X, tau_wild, parameter_map, base)
+	Pi = Pi_init(X, tau_wild, pi_parameters_used)
 	init_likelihoods = zeros(n_init, n_wild)
 	if should_initialize
 		best_likelihood = -Inf
@@ -361,7 +362,7 @@ function LMEM(X::Vector{Observation}, base::Parsa_Base;
         lik_old = lik_new
         lik_new = ((likelihood()))
 		tau::Vector{Vector{Real}} = [(ta()) for ta in tau_chain]
-		Pi_Update(X, tau, pi_parameters_used)
+		Pi(tau)
 		M(X, tau, parameter_map, base)
 		all_likelihoods = [all_likelihoods; Float64(lik_new)]
 		all_steps = [all_steps; i]
@@ -568,22 +569,42 @@ function getRelaventTaus(parameter::Tuple{CategoricalZ, Int}, X::Vector{Observat
 	reduce(vcat, [[pr for (pr, param) in zip(tau_x, params_x) if parameter in (param)] for (x, tau_x, params_x) in zip(X, tau, parameter_map)])
 end
 
+function getRelaventTausIndex(parameter::Tuple{CategoricalZ, Int}, X::Vector{Observation}, tau::Vector{Vector{Real}}, parameter_map::Vector{Vector{Any}})
+	reduce(vcat, [[(i_1, i_2) for (i_2, (pr, param)) in enumerate(zip(tau_x, params_x)) if parameter in param] for (i_1, (x, tau_x, params_x)) in enumerate(zip(X, tau, parameter_map))])
+	# V = []
+	# for (i_1, (x, tau_x, params_x)) in enumerate(zip(X, tau, parameter_map))
+	# 	for (i_2, (pr, param)) in enumerate(zip(tau_x, params_x))
+	# 		println(typeof(parameter))
+	# 		println(typeof(param))
+	# 		if parameter in param
+	# 			V = [V; (i_1, i_2)]
+	# 		end
+	# 	end
+	# end
+	# return V
+end
 
-# function Pi_init(X::Vector{Observation}, tau::Vector{Vector{Real}}, pi_parameters_used::Vector{Vector{Any}})
-# 	mappings = Vector{}()
-# 	domains = reduce(vcat, flattenConditionalDomain(reduce(vcat, [x.T.domain for x in X])))
-# 	all_Z = unique([LV.Z for LV in domains])
-# 	for Z_cat in all_Z
-# 		for k in 1:Z_cat.K
-# 			mappings = [mappings; (getRelaventTaus(params, X, tau, parameter_map), params)]
 
-# 	end
-# 	return function (X, tau, parameter_map, base)
-# 		for (index_map, param) in mappings
-# 			(x, pr, map) = zip_package(index_map, X, tau, parameter_map)
-# 			param.run_update(x, pr, map, base.log_pdf)
-# 		end
-# 	end
+function Pi_init(X::Vector{Observation}, tau::Vector{Vector{Real}}, pi_parameters_used::Vector{Vector{Any}})
+	domains = reduce(vcat, flattenConditionalDomain(reduce(vcat, [x.T.domain for x in X])))
+	all_Z = unique([LV.Z for LV in domains])
+	mappings = [[[] for _ in 1:Z_cat.K] for Z_cat in all_Z]
+	for (i, Z_cat) in enumerate(all_Z)
+		for k in 1:Z_cat.K
+			mappings[i][k] = getRelaventTausIndex((Z_cat, k), X, tau, pi_parameters_used)
+		end
+	end
+	return function (tau)
+		for (i, Z_cat) in enumerate(all_Z)
+			Pi_new = zeros(Z_cat.K)
+			for k in 1:Z_cat.K
+				relavent = [tau[i_1][i_2] for (i_1, i_2) in mappings[i,k]]
+				Pi_new[k] = sum(relavent)
+			end
+			Pi_new = Pi_new ./ sum(Pi_new)
+			Z_cat.Pi = Pi_new
+		end
+	end
 end
 
 

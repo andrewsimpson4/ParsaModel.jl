@@ -17,7 +17,7 @@ end
 function normal_covariance_update(value, index_package, log_pdf)
     cov_new = zeros(size(value))
     for (x, pr, params) in index_package
-        cov_new += pr * ((x - params[:mu]) * (x - params[:mu])')
+        cov_new += pr * ((x - (params[:mu])) * (x - (params[:mu]))')
     end
     taus = [d[2] for d in index_package]
     cov_new ./= sum(taus)

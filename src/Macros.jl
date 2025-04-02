@@ -549,20 +549,22 @@ macro likelihood_generator(model, obs_map, index_set)
             error("Invalid index variable")
         end
         Base.eval($mod, quote
-            # for (i, j) in enumerate($$set)
-            $$indx = $$set
-            local tt = $$T([() -> Dict((() -> $$map)())], () -> Dict((() -> $$map)()))
-            local ob = $$Observation(nothing, tt)
-            local domains = $$flattenConditionalDomain(tt.domain)
-            if typeof(domains) != Vector{$$LatentVaraible}
-                domains = reduce(vcat, domains)
+            local ob_set::Vector{$$Observation} = []
+            for (i, j) in enumerate($$set)
+                $$indx = $$set
+                local tt = $$T([() -> Dict((() -> $$map)())], () -> Dict((() -> $$map)()))
+                local ob = $$Observation(nothing, tt)
+                ob_set = [ob_set; ob]
+                local domains = $$flattenConditionalDomain(tt.domain)
+                if typeof(domains) != Vector{$$LatentVaraible}
+                    domains = reduce(vcat, domains)
+                end
+                for LV in domains
+                    LV.dependent_X[($$obs_name,  $$indx)] = ob
+                end
+                global X_val[($$obs_name, $$indx)] = ob
             end
-            for LV in domains
-                LV.dependent_X[($$obs_name,  $$indx)] = ob
-            end
-            global X_val[($$obs_name, $$indx)] = ob
-            # end
-            post = $$initialize_density_evaluation([ob], base_model, Vector{}())
+            post = $$initialize_density_evaluation(ob_set, base_model, Vector{}())
             return function (x)
                 for (i, j) in enumerate($$set)
                     X_val[($$obs_name, j)].X = x[j]

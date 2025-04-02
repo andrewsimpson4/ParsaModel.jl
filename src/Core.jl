@@ -46,51 +46,76 @@ function getDependentObservations(f1::Vector{LatentVaraible}, f2::Vector{Vector{
 end
 
 
+# function getIndependentSets(X::Vector{Observation}, Z)
+# 	n = length(X)
+# 	sets = Vector{Vector{Observation}}()
+# 	M = diagm(ones(n))
+# 	domains = [flattenConditionalDomain(x.T.domain) for x in X]
+# 	diffset = [setdiff([f for f in ff if typeof(f) == LatentVaraible], Z) for ff in  domains]
+# 	for i in 1:(n-1)
+# 		f1 = diffset[i]
+# 		for j in (i+1):n
+# 			f2 = diffset[j]
+# 			M[i, j] = !isdisjoint(f1, f2)
+# 			M[j, i] = M[i, j]
+# 		end
+# 	end
+# 	not_placed = setdiff(1:n, 1)
+# 	sets::Vector{Vector{Int}} = [[1]]
+# 	sets_X::Vector{Vector{Observation}} = [[X[1]]]
+# 	while length(not_placed) > 0
+# 		found = false
+# 		for (set, set_x) in zip(sets, sets_X)
+# 			for j in set
+# 				for i in not_placed
+# 					if M[i,j] == 1
+# 						not_placed = setdiff(not_placed, i)
+# 						push!(set, i)
+# 						push!(set_x, X[i])
+# 						found = true
+# 						break
+# 					end
+# 				end
+# 				if found
+# 					break
+# 				end
+# 			end
+# 			if found
+# 				break
+# 			end
+# 		end
+# 		if !found && length(not_placed) > 0
+# 			push!(sets, [not_placed[1]])
+# 			push!(sets_X, [X[not_placed[1]]])
+# 			not_placed = setdiff(not_placed, not_placed[1])
+# 		end
+# 	end
+# 	return sets_X
+# end
+
+
 function getIndependentSets(X::Vector{Observation}, Z)
 	n = length(X)
-	sets = Vector{Vector{Observation}}()
-	M = diagm(ones(n))
-	domains = [flattenConditionalDomain(x.T.domain) for x in X]
-	diffset = [setdiff([f for f in ff if typeof(f) == LatentVaraible], Z) for ff in  domains]
-	for i in 1:(n-1)
-		f1 = diffset[i]
-		for j in (i+1):n
-			f2 = diffset[j]
-			M[i, j] = !isdisjoint(f1, f2)
-			M[j, i] = M[i, j]
-		end
+	domain_map = Dict([x => flattenConditionalDomain(x.T.domain) for x in X])
+	indo_sets = Vector{Any}(undef, n)
+	for i in 1:n
+		sets = unique(conditional_dependent_search(domain_map[X[i]], domain_map, Z))
+		indo_sets[i] = sets[sortperm([objectid(x) for x in sets])]
 	end
-	not_placed = setdiff(1:n, 1)
-	sets::Vector{Vector{Int}} = [[1]]
-	sets_X::Vector{Vector{Observation}} = [[X[1]]]
-	while length(not_placed) > 0
-		found = false
-		for (set, set_x) in zip(sets, sets_X)
-			for j in set
-				for i in not_placed
-					if M[i,j] == 1
-						not_placed = setdiff(not_placed, i)
-						push!(set, i)
-						push!(set_x, X[i])
-						found = true
-						break
-					end
-				end
-				if found
-					break
-				end
-			end
-			if found
-				break
-			end
+	return unique(indo_sets)
+end
+
+function conditional_dependent_search(D, domain_map, Z)
+	x_depo::Vector{Observation} = []
+	for d in D
+		d_depo = collect(values(d.dependent_X))
+		new_Z = setdiff(reduce(vcat, [domain_map[x] for x in d_depo]), [D; Z])
+		if length(new_Z) > 0
+			d_depo = [d_depo; conditional_dependent_search(new_Z, domain_map, [Z; D])]
 		end
-		if !found && length(not_placed) > 0
-			push!(sets, [not_placed[1]])
-			push!(sets_X, [X[not_placed[1]]])
-			not_placed = setdiff(not_placed, not_placed[1])
-		end
+		x_depo = [x_depo; d_depo]
 	end
-	return sets_X
+	return x_depo
 end
 
 
@@ -192,6 +217,7 @@ function initialize_density_evaluation(X::Vector{Observation}, conditioned_domai
 		else
 			for g in G
 				mm = g.T.map()
+				# mm_I = index_to_parameter_values(mm, density.parameters)
 				mult_list = [mult_list; () -> BigFloat(density.evaluate(g,  mm)[1])]
 			end
 
@@ -251,7 +277,8 @@ function initialize_density_evaluation_ind(X::Vector{Observation}, conditioned_d
 			end
 			mult_list = [mult_list; () -> sum([t() for t in sum_list])]
 		else
-			mult_list = [mult_list; () -> BigFloat(density.evaluate(G, G.T.map())[1])]
+			mm = G.T.map()
+			mult_list = [mult_list; () -> BigFloat(density.evaluate(G, mm)[1])]
 		end
 
 	end
@@ -539,6 +566,24 @@ end
 
 function getRelaventTaus(parameter::Tuple{CategoricalZ, Int}, X::Vector{Observation}, tau::Vector{Vector{Real}}, parameter_map::Vector{Vector{Any}})
 	reduce(vcat, [[pr for (pr, param) in zip(tau_x, params_x) if parameter in (param)] for (x, tau_x, params_x) in zip(X, tau, parameter_map)])
+end
+
+
+# function Pi_init(X::Vector{Observation}, tau::Vector{Vector{Real}}, pi_parameters_used::Vector{Vector{Any}})
+# 	mappings = Vector{}()
+# 	domains = reduce(vcat, flattenConditionalDomain(reduce(vcat, [x.T.domain for x in X])))
+# 	all_Z = unique([LV.Z for LV in domains])
+# 	for Z_cat in all_Z
+# 		for k in 1:Z_cat.K
+# 			mappings = [mappings; (getRelaventTaus(params, X, tau, parameter_map), params)]
+
+# 	end
+# 	return function (X, tau, parameter_map, base)
+# 		for (index_map, param) in mappings
+# 			(x, pr, map) = zip_package(index_map, X, tau, parameter_map)
+# 			param.run_update(x, pr, map, base.log_pdf)
+# 		end
+# 	end
 end
 
 

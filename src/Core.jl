@@ -99,7 +99,7 @@ function getIndependentSets(X::Vector{Observation}, Z)
 	domain_map = Dict([x => flattenConditionalDomain(x.T.domain) for x in X])
 	indo_sets = Vector{Any}(undef, n)
 	for i in 1:n
-		sets = unique(conditional_dependent_search(domain_map[X[i]], domain_map, Z))
+		sets = unique([X[i]; conditional_dependent_search(domain_map[X[i]], domain_map, Z)])
 		indo_sets[i] = sets[sortperm([objectid(x) for x in sets])]
 	end
 	return unique(indo_sets)
@@ -107,7 +107,8 @@ end
 
 function conditional_dependent_search(D, domain_map, Z)
 	x_depo::Vector{Observation} = []
-	for d in D
+	new_d = setdiff(D, Z)
+	for d in new_d
 		d_depo = collect(values(d.dependent_X))
 		new_Z = setdiff(reduce(vcat, [domain_map[x] for x in d_depo]), [D; Z])
 		if length(new_Z) > 0
@@ -314,17 +315,17 @@ function LMEM(X::Vector{Observation}, base::Parsa_Base;
 		best_tau = nothing
 		domain_post_catch = Vector{Vector}(undef, n_init)
 		tau_wild = [wild_tau(ta()) for ta in tau_init]
-		Pi_Update(X, tau_wild, pi_parameters_used)
+		Pi(tau_wild)
 		M(X, tau_wild, parameter_map, base)
-		Pi_Update(X, tau_wild, pi_parameters_used)
+		Pi(tau_wild)
 		M(X, tau_wild, parameter_map, base)
 		for i_init in 1:n_init
 			tau_wild::Vector{Vector{Real}} = [wild_tau(ta()) for ta in tau_init]
-			Pi_Update(X, tau_wild, pi_parameters_used)
+			Pi(tau_wild)
 			M(X, tau_wild, parameter_map, base)
 			for i_wild in 1:n_wild
 				tau_wild = [(ta()) for ta in tau_chain]
-				Pi_Update(X, tau_wild, pi_parameters_used)
+				Pi(tau_wild)
 				M(X, tau_wild, parameter_map, base)
 				init_likelihoods[i_init, i_wild] = likelihood()
 				verbose ? plotit(init_likelihoods, Vector{}()) : nothing
@@ -336,15 +337,15 @@ function LMEM(X::Vector{Observation}, base::Parsa_Base;
 			end
 		end
 		tau_start::Vector{Vector{Real}} = best_tau
-		Pi_Update(X, tau_start, pi_parameters_used)
+		Pi(tau_start)
 		M(X, tau_start, parameter_map, base)
-		Pi_Update(X, tau_start, pi_parameters_used)
+		Pi(tau_start)
 		M(X, tau_start, parameter_map, base)
 	else
 		tau_start = [(ta()) for ta in tau_init]
-		Pi_Update(X, tau_start, pi_parameters_used)
+		Pi(tau_start)
 		M(X, tau_start, parameter_map, base)
-		Pi_Update(X, tau_start, pi_parameters_used)
+		Pi(tau_start)
 		M(X, tau_start, parameter_map, base)
 	end
 
@@ -598,7 +599,7 @@ function Pi_init(X::Vector{Observation}, tau::Vector{Vector{Real}}, pi_parameter
 		for (i, Z_cat) in enumerate(all_Z)
 			Pi_new = zeros(Z_cat.K)
 			for k in 1:Z_cat.K
-				relavent = [tau[i_1][i_2] for (i_1, i_2) in mappings[i,k]]
+				relavent = [tau[i_1][i_2] for (i_1, i_2) in mappings[i][k]]
 				Pi_new[k] = sum(relavent)
 			end
 			Pi_new = Pi_new ./ sum(Pi_new)
@@ -608,19 +609,19 @@ function Pi_init(X::Vector{Observation}, tau::Vector{Vector{Real}}, pi_parameter
 end
 
 
-function Pi_Update(X::Vector{Observation}, tau::Vector{Vector{Real}}, pi_parameters_used::Vector{Vector{Any}})
-	domains = reduce(vcat, flattenConditionalDomain(reduce(vcat, [x.T.domain for x in X])))
-	all_Z = unique([LV.Z for LV in domains])
-	for Z_cat in all_Z
-		Pi_new = zeros(Z_cat.K)
-		for k in 1:Z_cat.K
-			relavent = getRelaventTaus((Z_cat, k), X, tau, pi_parameters_used)
-			Pi_new[k] = sum(relavent)
-		end
-		Pi_new = Pi_new ./ sum(Pi_new)
-		Z_cat.Pi = Pi_new
-	end
-end
+# function Pi_Update(X::Vector{Observation}, tau::Vector{Vector{Real}}, pi_parameters_used::Vector{Vector{Any}})
+# 	domains = reduce(vcat, flattenConditionalDomain(reduce(vcat, [x.T.domain for x in X])))
+# 	all_Z = unique([LV.Z for LV in domains])
+# 	for Z_cat in all_Z
+# 		Pi_new = zeros(Z_cat.K)
+# 		for k in 1:Z_cat.K
+# 			relavent = getRelaventTaus((Z_cat, k), X, tau, pi_parameters_used)
+# 			Pi_new[k] = sum(relavent)
+# 		end
+# 		Pi_new = Pi_new ./ sum(Pi_new)
+# 		Z_cat.Pi = Pi_new
+# 	end
+# end
 
 function posterior_probability(conditions::LatentVaraible, X::Vector{Observation}, base::Parsa_Base)
 	posterior_probability([conditions], X, base)
@@ -684,7 +685,6 @@ function posterior_initalize(domains, X::Vector{Observation}, density::Parsa_Bas
 	tau_chain = (V) -> V
 	K = typeof(condition.value_) == Unknown ? (1:condition.Z.K) : lv_v(condition)
 	Pi_used = Vector{Any}()
-
 	for k in K
 		lv_set(condition, k)
 		if length(domains_left) > 1

@@ -57,11 +57,21 @@ end
 
 function Base.getindex(PG::CategoricalZVec, indx...)
     indx = collect(indx)
-    [typeof(P) == CategoricalZ ? P[indx] : P for P in PG.set]
+    [typeof(P) == CategoricalZ ? P[indx...] : P for P in PG.set]
 end
 
 function Base.getindex(PG::CategoricalZ, indx...)
     indx = collect(indx)
+    indx_new = []
+    for ix in indx
+        # indx_new = [indx_new; ix]
+        if typeof(ix) == Vector{Int} || typeof(ix) == Int
+            push!(indx_new, ix...)
+        else
+            push!(indx_new, ix)
+        end
+    end
+    indx = indx_new
     V = Vector{Any}(undef, length(indx))
     for (i, ix) in enumerate(indx)
         if typeof(ix) == LatentVaraible
@@ -71,6 +81,20 @@ function Base.getindex(PG::CategoricalZ, indx...)
             else
                 V[i] = lv_v(ix)
             end
+        elseif typeof(ix) == Vector{LatentVaraible}
+            ma = -Inf
+            for ix2 in ix
+                mv = 0
+                if lv_v(ix2) == 0
+                    mv = ix2.Z.K
+                else
+                    mv = lv_v(ix2)
+                end
+                if mv > ma
+                    ma = mv
+                end
+            end
+            V[i] = 1:ma
         else
             V[i] = ix
         end
@@ -109,11 +133,14 @@ function Base.getindex(PG::CategoricalZset, indx...)
         end
     end
     all_indx = get_possible_indexes(V, 1)
+    # println(all_indx)
     LV = Vector{CategoricalZ}(undef, length(all_indx))
     for (i, v) in enumerate(all_indx)
         LV[i] = PG.set[v]
     end
+    # println(length(LV))
     LV = [LV; extra_LV]
+    # println(length(LV))
     if length(LV) == 1
         return LV[1]
     else

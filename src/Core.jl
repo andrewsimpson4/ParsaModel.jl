@@ -452,7 +452,7 @@ end
 function wild_tau(tau)
 	G = Distributions.Categorical(tau)
 	g = rand(G)
-	tau_new = zeros(length(tau)) .+ 0
+	tau_new = zeros(length(tau))
 	tau_new[g] = 1
 	tau_new /= sum(tau_new)
 	return tau_new
@@ -669,7 +669,14 @@ end
 function posterior_initalize(conditions, X::Vector{Observation}, density::Parsa_Base)
 	domains = flattenConditionalDomainSimple([conditions])
     all_domains = [flattenConditionalDomain(x.T.domain) for x in X]
-	X_sub = [x for (x,xf) in zip(X, all_domains) if !isdisjoint(domains, xf)]
+	X_sub = [(x, xf) for (x,xf) in zip(X, all_domains) if !isdisjoint(domains, xf)]
+	X_full::Vector{Observation} = []
+	for (_, xf) in X_sub
+		for LV in xf
+			X_full = [X_full; collect(values(LV.dependent_X))]
+		end
+	end
+	X_sub = unique(X_full)
 	(tau, Pi) = posterior_initalize(domains, X_sub, density, Vector{}())
 	function ()
 		tt = tau([])

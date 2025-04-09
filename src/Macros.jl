@@ -243,7 +243,7 @@ macro Known(model, eq, index_set)
                 $$indx = j
                 z = $$Z
                 va = $$loaded_vals[$$vals_indx]
-                z[$$indx_2] = $$LatentVaraible(z, va)
+                z[$$indx_2...] = $$LatentVaraible(z, va)
             end
         end)
     end
@@ -337,8 +337,6 @@ macro Constant(model, main_obj, index_set)
         re2_sym =r"^.*\[([a-zA-Z]*)\]$"
         re3 =r"^[a-zA-Z]*$"
         if (match(re_sym, $s1) == nothing || typeof($st) != Symbol) || match(re, $s2) == nothing
-            println(match(re_sym, $s1) == nothing)
-            println(typeof($st) == Symbol)
             error("invalid notation")
         end
         if match(re3, string($indx)) == nothing

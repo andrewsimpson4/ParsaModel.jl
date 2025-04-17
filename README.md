@@ -125,7 +125,7 @@ K = 3
 model = Parsa_Model(Normal_Model(p));
 @Categorical(model, Z, K);
 @Initialize(model, Z[i] = init_id[i], i = 1:n);
-@Observation(model, X[i] = iris_m[i] = (:mu => Z[i], :cov => Z[i]), i = 1:n);
+@Observation(model, X[i] = iris_m[i] -> (:mu => Z[i], :cov => Z[i]), i = 1:n);
 EM!(model; should_initialize=false);
 id = @posterior_probability(model, [Z[i]], i = 1:n)();
 id_ = [id[i].max for i in 1:n];
@@ -141,6 +141,38 @@ You should see and output the following which shows very good clustering perform
 (0.9038742317748124, 0.9574944071588367, 0.042505592841163314, 0.9149888143176734)
 ```
 Notice here there are no purple lines since we did pre-initialize the algorithm.
+
+### Semi-Supervised Gaussian Mixture Models
+
+Suppose for whatever reason we know the true species of some of the observations in the iris dataset. We will simulate this using the following where we assume we know the label of $30$ of the observations.
+
+```julia
+known_samples = sample(1:n, 30; replace=false)
+known_map = Dict([s => class[s] for s in known_samples])
+```
+
+We can now run the model which is similar to before but with one additional line.
+```julia
+model = Parsa_Model(Normal_Model(p));
+@Categorical(model, Z, K);
+@Known(model, Z[i] = known_map[i], i = known_samples)
+@Observation(model, X[i] = iris_m[i] -> (:mu => Z[i], :cov => Z[i]), i = 1:n)
+EM!(model; n_init=10, n_wild=10)
+id = @posterior_probability(model, [Z[i]], i = 1:n)()
+id_ = [id[i].max for i in 1:n]
+randindex(id_, class)
+```
+-`@Known(model, Z[i] = known_map[i], i = known_samples)` simply assigns the value of `known_map[i]` to the respective random variable `Z[i]` and changes it to a known variable. Thus `Z[i]` can no longer take the values $1,2,\dots, K$ and instead is always the value of `known_map[i]`.
+
+#### Semi-Supervised Gaussian Mixture Models with Positive Constraints
+
+#### Semi-Supervised Gaussian Mixture Models with Negative Constraints
+
+### Parsimonious Gaussian Mixture Models
+
+A common method in finite mixture models is to consider the parsimonious parameterization of the multivariate normal distribution. This is done using the `mclust` package in `R`. We can do a similare
+
+This is important information which can be incorperated
 
 ## 📖 Package Reference
 

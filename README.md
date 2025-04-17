@@ -4,7 +4,9 @@
 <p align="center">
 <img src="./Assets/logo.png" alt="drawing" width="200"/>
 
-ParaModel is a Julia package for creating, estimating and predicting using Parsa Models. A Parsa Model is a generic framework for models of the form $$X_i | Z = \gamma \sim F(T^i_{1}(\gamma), \dots, T^i_{G}(\gamma); \Psi)$$ where $Z_{mj} \sim \text{Categorical}(\pi_{m1}, \pi_{m2}, \dots, \pi_{mK_m})$ See the [paper](https://apple.com) for more details on Parsa Models.
+ParaModel is a Julia package for creating, estimating and predicting using Parsa Models. A Parsa Model is a generic framework for models of the form
+$$X_i | Z = \gamma \sim F(T^i_{1}(\gamma), \dots, T^i_{G}(\gamma); \Psi)$$
+where $Z_{mj} \sim \text{Categorical}(\pi_{m1}, \pi_{m2}, \dots, \pi_{mK_m})$ See the [paper](https://apple.com) for more details on Parsa Models.
 
 ## 📋 Table of Contents
 
@@ -44,7 +46,7 @@ EM!(model)
 
 For the examples listed below, 15 different Parsa Models are defined and fit all on the iris dataset. It should be noted most of this models are not actually good models for the iris dataset but are none the less possible to fit for the sake of simplicity.
 
-##### Setup the iris dataset
+### Setup the iris dataset
 First the iris dataset is processed into the correct format for the package.
 ```julia
 iris = CSV.read("./examples/datasets/Iris.csv", DataFrame)
@@ -58,7 +60,7 @@ class = [mapping[val] for val in class_string];
 ```
 Here we have a vector of vectors `iris_m` where each element is one of the observations from the dataset. Next is `class` which is a vector containing the species of the respective elements in `iris_m`. We also define `n`, the number of observations, as well as `p` which is the dimension of each observation.
 
-#### Gaussian Finite Mixture Model
+### Gaussian Finite Mixture Model
 
 
 ## 📖 Package Reference

@@ -8,7 +8,7 @@ ParaModel is a Julia package for creating, estimating and predicting using Parsa
 ```math
 X_i | Z = \gamma \sim F(T^i_{1}(\gamma), \dots, T^i_{G}(\gamma); \Psi)
 ```
-where $Z_{mj} \sim \text{Categorical}(\pi_{m1}, \pi_{m2}, \dots, \pi_{mK_m})$ See the [paper](https://apple.com) for more details on Parsa Models.
+where $Z_{mj} \sim \text{Categorical}(\pi_{m1}, \pi_{m2}, \dots, \pi_{mK_m})$. See the [paper](https://apple.com) for more details on Parsa Models.
 
 ## 📋 Table of Contents
 
@@ -62,8 +62,37 @@ class = [mapping[val] for val in class_string];
 ```
 Here we have a vector of vectors `iris_m` where each element is one of the observations from the dataset. Next is `class` which is a vector containing the species of the respective elements in `iris_m`. We also define `n`, the number of observations, as well as `p` which is the dimension of each observation.
 
-### Gaussian Finite Mixture Model
+### Gaussian Mixture Model
 
+The first example is how to implement a Gaussian mixture model using ParsaModel. This package is manly interacted with via macros which allows for a custom and minimal syntax.
+
+```julia
+K = 3
+model = Parsa_Model(Normal_Model(p));
+@Categorical(model, Z, K);
+@Observation(model, X[i] = iris_m[i] -> (:mu => Z[i], :cov => Z[i]), i = 1:n)
+EM!(model; n_init=100, n_wild=30)
+```
+The following is a description of what each function above is doing.
+- `Normal_Model(p)` defines the base distributional assumption we are making for the data. In this case, a $p$-dimensional multivariate normal distribution.
+- `Parsa_Model` returns an isolated "space" where we will build the rest of the model.
+- `@Categorical(model, Z, K)` creates a new categorical distribution named `Z` with `K` categories inside of our space `model`.
+- `@Observation(model, X[i] = iris_m[i] -> (:mu => Z[i], :cov => Z[i]), i = 1:n)` loops through `i` from $1$ to `n` and assigns `iris_m[i]` to `X[i]` which is a variable now defined locally inside of `model`. Finally `(:mu => Z[i], :cov => Z[i])` defines the mapping of the observation. The parameters `:mu` and `:cov` are exposed by `Normal_Model` and different base models with have different associated parameters. `Z[i]` respresents a random varaible sampled from `Z` which can take on values from $1$ to `K`.
+- `EM!(model; n_init=100, n_wild=30)` simply fits the model! `n_init` is the number of initializations to run and `n_wild` is the number of steps per initializations run.
+
+⚠️ This package currently uses random initialization by default. This can have mixed results for finding the maximum likelihood estimates but allows for package to fit ANY model which can be defined using the package. Just proceed with caution and watch the likelihood plot output for incite.
+
+After running `EM!(model; n_init=100, n_wild=30)` you should see sometime like the following with your terminal.
+
+![](./Assets/ex_vid.gif)
+
+The purple lines here are each of the initialization runs and the final green line is taking the best initialization and running the algorithm until convergence is reached.
+
+```julia
+id = @posterior_probability(model, [Z[i]], i = 1:n)()
+id_ = [id[i].max for i in 1:n]
+randindex(id_, class)
+```
 
 ## 📖 Package Reference
 

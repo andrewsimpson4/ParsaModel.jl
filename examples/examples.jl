@@ -16,6 +16,10 @@ model = Parsa_Model(Normal_Model(p));
 @Categorical(model, Z, K);
 @Observation(model, X[i] = iris_m[i] -> (:mu => Z[i], :cov => Z[i]), i = 1:n)
 EM!(model; n_init=100, n_wild=30)
+
+@Parameter(model, :mu)
+@Parameter(model, :cov)
+
 id = @posterior_probability(model, [Z[i]], i = 1:n)()
 id_ = [id[i].max for i in 1:n]
 randindex(id_, class)
@@ -30,10 +34,9 @@ model = Parsa_Model(Normal_Model(p));
 @Initialize(model, Z[i] = init_id[i], i = 1:n)
 @Observation(model, X[i] = iris_m[i] = (:mu => Z[i], :cov => Z[i]), i = 1:n)
 EM!(model; should_initialize=false)
-id = @posterior_probability(model, [Z[i]], i = 1:n)()
+id = @posterior_probability(model, [Z[i]], i = 1:n)();
 id_ = [id[i].max for i in 1:n]
 randindex(id_, class)
-@Parameter(model, :mu)
 
 K = 3
 model = Parsa_Model(Normal_Parsa_Model(p));

@@ -64,7 +64,7 @@ Here we have a vector of vectors `iris_m` where each element is one of the obser
 
 ### Gaussian Mixture Model
 
-The first example is how to implement a Gaussian mixture model using ParsaModel. This package is manly interacted with via macros which allows for a custom and minimal syntax.
+The first example is how to implement a Gaussian mixture model using ParsaModel. This package is manly interacted with via macros which allows for a custom and minimal syntax. Here we are using a finite mixture model to cluster the observations in the iris dataset with the goal of clustering and recovering species. Thus we will look look for $3$ clusters.
 
 ```julia
 K = 3
@@ -88,11 +88,59 @@ After running `EM!(model; n_init=100, n_wild=30)` you should see sometime like t
 
 The purple lines here are each of the initialization runs and the final green line is taking the best initialization and running the algorithm until convergence is reached.
 
+Now that the model has been fit, we can look at the parameter estimates of the model. Since we used `Normal_Model` as the base, we have parameters for `:mu` and `:cov`. This can be viewed with the following.
+
+```julia
+@Parameter(model, :mu)
+@Parameter(model, :cov)
+```
+
+Notice here that we have $3$ `:mu` parameters and $3$ `:cov` paramters since we fit a $3$ component mixture model.
+
+Since our goal was to use a gaussian mixture model to cluster observations from the iris dataset, we need to get the max posterior probability for each `Z[i]`. This can be done by the following.
+
 ```julia
 id = @posterior_probability(model, [Z[i]], i = 1:n)()
 id_ = [id[i].max for i in 1:n]
 randindex(id_, class)
 ```
+- `@posterior_probability(model, [Z[i]], i = 1:n)()` returns the $P(Z[i] = k | X)$ for $k=1,2,\dots, K$ since our categorical distribution `Z` has `K` categories.
+- `id[i].max` simply gets the max of $P(Z[i] = k | X)$ for $k=1,2,\dots, K$
+- `randindex` is from the `Clustering` package and gives values such as the adjusted rand index to see how well the clustering solution compared to the ground truth.
+
+#### Custom Initialization
+
+While the default initialization method is extremely flexible and works with any model which can be defined with this package, it may take a lot of initialization runs to achieve the desired performance. In cases when a custom initialization method can be defined for a given model structure, initial values can be passed directly into the model.
+
+For the iris dataset with a Gaussian mixture model we will used hierarchical clustering found in the `Clustering` package to get initial ID's for each `Z[i]`.
+
+```julia
+iris_hclust = hclust(pairwise(Euclidean(), iris_matrix'), :ward)
+init_id = cutree(iris_hclust, k=3)
+```
+We can now build and run the model which is the same as above with a few small changes.
+
+```julia
+K = 3
+model = Parsa_Model(Normal_Model(p));
+@Categorical(model, Z, K);
+@Initialize(model, Z[i] = init_id[i], i = 1:n);
+@Observation(model, X[i] = iris_m[i] = (:mu => Z[i], :cov => Z[i]), i = 1:n);
+EM!(model; should_initialize=false);
+id = @posterior_probability(model, [Z[i]], i = 1:n)();
+id_ = [id[i].max for i in 1:n];
+randindex(id_, class)
+```
+-`@Initialize(model, Z[i] = init_id[i], i = 1:n)` takes our initial values from init_id and assigns them to the respective random variable `Z[i]`.
+-`should_initialize=false` disables the default initialization method.
+
+You should see and output the following which shows very good clustering performance
+
+![](./Assets/ex_vid2.gif)
+```
+(0.9038742317748124, 0.9574944071588367, 0.042505592841163314, 0.9149888143176734)
+```
+Notice here there are no purple lines since we did pre-initialize the algorithm.
 
 ## 📖 Package Reference
 

@@ -27,7 +27,8 @@ Base.@kwdef mutable struct LatentVaraible
 end
 
 Base.@kwdef mutable struct CategoricalZVec
-    set::Vector{Union{CategoricalZ, LatentVaraible}}
+    inside::Any#Vector{Union{CategoricalZ, LatentVaraible}}
+    outside::Any
 end
 
 
@@ -57,7 +58,7 @@ end
 
 function Base.getindex(PG::CategoricalZVec, indx...)
     indx = collect(indx)
-    [typeof(P) == CategoricalZ ? P[indx...] : P for P in PG.set]
+    CategoricalZVec(PG.inside, [typeof(P) == CategoricalZ ? P[indx...] : P for P in PG.outside])
 end
 
 function Base.getindex(PG::CategoricalZ, indx...)
@@ -73,17 +74,32 @@ function Base.getindex(PG::CategoricalZ, indx...)
     end
     indx = indx_new
     V = Vector{Any}(undef, length(indx))
+    extras = []
     for (i, ix) in enumerate(indx)
         if typeof(ix) == LatentVaraible
-
             if lv_v(ix) == 0
+                extras = [extras; ix]
                 V[i] = 1:ix.Z.K
             else
                 V[i] = lv_v(ix)
             end
-        elseif typeof(ix) == Vector{LatentVaraible}
+        elseif typeof(ix) == CategoricalZVec
+            for ii in ix.inside
+                if typeof(ii) == LatentVaraible
+                    if lv_v(ii) == 0
+                        extras = [extras; ii]
+                    end
+                end
+            end
+            for ii in ix.outside
+                if typeof(ii) == LatentVaraible
+                    if lv_v(ii) == 0
+                        extras = [extras; ii]
+                    end
+                end
+            end
             ma = -Inf
-            for ix2 in ix
+            for ix2 in ix.outside
                 mv = 0
                 if lv_v(ix2) == 0
                     mv = ix2.Z.K
@@ -109,6 +125,7 @@ function Base.getindex(PG::CategoricalZ, indx...)
             LV[i] = PG.LV[v]
         end
     end
+    LV::Vector{LatentVaraible} = [LV; extras]
     if length(LV) == 1
         return LV[1]
     else
@@ -122,9 +139,9 @@ function Base.getindex(PG::CategoricalZset, indx...)
     extra_LV = Vector{LatentVaraible}()
     for (i, ix) in enumerate(indx)
         if typeof(ix) == LatentVaraible
+            extra_LV = [extra_LV; ix]
             if lv_v(ix) == 0
                 V[i] = 1:ix.Z.K
-                extra_LV = [extra_LV; ix]
             else
                 V[i] = lv_v(ix)
             end
@@ -139,12 +156,14 @@ function Base.getindex(PG::CategoricalZset, indx...)
         LV[i] = PG.set[v]
     end
     # println(length(LV))
-    LV = [LV; extra_LV]
+    inside = extra_LV
+    outside = LV
+    # LV = [LV; extra_LV]
     # println(length(LV))
     if length(LV) == 1
         return LV[1]
     else
-        return CategoricalZVec(LV)
+        return CategoricalZVec(inside, outside)
     end
 end
 

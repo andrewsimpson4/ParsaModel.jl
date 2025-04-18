@@ -95,9 +95,10 @@ Now that the model has been fit, we can look at the parameter estimates of the m
 ```julia
 @Parameter(model, :mu)
 @Parameter(model, :cov)
+@Parameter(model, Z)
 ```
 
-Notice here that we have $3$ `:mu` parameters and $3$ `:cov` paramters since we fit a $3$ component mixture model.
+Notice here that we have $3$ `:mu` parameters and $3$ `:cov` paramters since we fit a $3$ component mixture model. We also can see the estimated proportions of the categorical distribution `Z`.
 
 Since our goal was to use a gaussian mixture model to cluster observations from the iris dataset, we need to get the max posterior probability for each `Z[i]`. This can be done by the following.
 
@@ -404,6 +405,8 @@ model = Parsa_Model(Normal_Parsa_Model(p));
                                          :L => cov[class[i], Z[class[i]][i]],
                                          :V => 1), i = 1:n)
 EM!(model; n_init=10, n_wild=10)
+@Parameter(model, :L)
+@Parameter(model, :V)
 G = @posterior_probability(model, [cov[i]], i = reduce(vcat, [[[i,j] for i in 1:K] for j in 1:2]))()
 for (key, M) in G
     mm = Dict(key => M.max)
@@ -417,7 +420,7 @@ id = @posterior_probability(model, [class[i, "T"]], i = 1:n)();
 id_ = [id[i].max for i in 1:n]
 mean(id_ .== class)
 ```
-
+- Note the outputs of `@Parameter(model, :L)` and `@Parameter(model, :V)` and the number of parameters estimated.
 
 ### Semi-Supervised Gaussian Mixture Models
 
@@ -443,8 +446,49 @@ randindex(id_, class)
 
 #### Semi-Supervised Gaussian Mixture Models with Positive Constraints
 
+Assume we know every two observations in the iris dataset came from the same yet unknown component. This information can be incorporated as follows by first setting up some needed information.
+
+```julia
+blocks = Int.(repeat(1:(n/2),inner=2))
+n_blocks = length(unique(blocks))
+true_class_block = [class[i] for i in 1:n if i % 2 == 0]
+```
+We can now setup the model as follows
+```julia
+model = Parsa_Model(Normal_Model(p));
+@Categorical(model, Z, K);
+@Categorical(model, B, n_blocks);
+@Known(model, B[i] = blocks[i], i = 1:n)
+@Observation(model, X[i] = iris_m[i] -> (:mu => Z[B[i]], :cov => Z[B[i]]), i = 1:n)
+EM!(model; n_init=20, n_wild=30)
+id = @posterior_probability(model, [Z[i]], i = 1:n_blocks)()
+id_ = [id[i].max for i in 1:n_blocks]
+randindex(id_, true_class_block)
+```
+
 #### Semi-Supervised Gaussian Mixture Models with Negative Constraints
 
+Suppose we know that the first two observations are from different components or species (this is not true but we will go with it). We can incorporate this into the model with negative constraints in the following way.
+
+```julia
+blocks = [1;1:(n-1)]
+I = [1;2; repeat([1], 148)]
+n_blocks = length(unique(blocks))
+perms = reduce(vcat, [[[i,j] for i in 1:K if i != j] for j in 1:K])
+model = Parsa_Model(Normal_Model(p));
+@Categorical(model, Z, K);
+@Categorical(model, B, n_blocks);
+@Known(model, B[i] = blocks[i], i = 1:n)
+@Categorical(model, P, Int.([repeat([2], length(perms))][1]));
+@Known(model, P[i][j] = perms[i][j], i = 1:6, j=1:2)
+@Categorical(model, I, 2)
+@Known(model, I[i] = I[i], i = 1:n)
+@Categorical(model, PP, 6)
+@Observation(model, X[i] = iris_m[i] = (:mu => Z[P[PP[B[i]]][I[i]], i], :cov => Z[P[PP[B[i]]][I[i]], i]), i = 1:n)
+EM!(model; n_init=1, n_wild=1)
+perms[@posterior_probability(model, [PP[B[i]]], i = 1)()[1].max]
+```
+- The final line outputs the predicted species of the first and second observation in the iris dataset. Notice that they are not the same as was enforced.
 
 ## 📖 Package Reference
 

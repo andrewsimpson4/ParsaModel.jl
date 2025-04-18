@@ -140,11 +140,20 @@ id_ = [id[i].max for i in 1:n]
 mean(id_ .== class)
 
 
+model = Parsa_Model(Normal_Parsa_Model(p));
+@Categorical(model, class, K);
+@Known(model, class[i] = class[i], i = 1:n)
+@Observation(model, X[i] = iris_m[i] -> (:mu => class[i],
+                                         :a => class[i],
+                                         :L => class[i],
+                                         :V => 1), i = 1:n)
+EM!(model; n_init=1, n_wild=1)
+
 K = 3
 model = Parsa_Model(Normal_Model(p));
 @Categorical(model, class, K);
 @Known(model, class[i] = class[i], i = 1:n)
-@Categorical_Set(model, Z, [2,2,2], 1:3);
+@Categorical(model, Z, [2,2,2]);
 @Observation(model, X[i] = iris_m[i] = (:mu => [class[i], Z[class[i]][i]], :cov => [class[i], Z[class[i]][i]]), i = 1:n)
 EM!(model; n_init=10, n_wild=10)
 @Observation(model, X_new[i] = iris_m[i] = (:mu => [class[i, "T"], Z[class[i, "T"]][i, "T"]], :cov => [class[i, "T"], Z[class[i, "T"]][i, "T"]]), i = 1:n)
@@ -158,7 +167,7 @@ K = 3
 model = Parsa_Model(Normal_Parsa_Model(p));
 @Categorical(model, class, K);
 @Known(model, class[i] = class[i], i = 1:n)
-@Categorical_Set(model, Z, [2,2,2], 1:3);
+@Categorical(model, Z, [2,2,2]);
 @Observation(model, X[i] = iris_m[i] = (:mu => [class[i], Z[class[i]][i]], :a => [class[i], Z[class[i]][i]], :L => [class[i], Z[class[i]][i]], :V => 1), i = 1:n)
 EM!(model; n_init=10, n_wild=10)
 @Observation(model, X_new[i] = iris_m[i] = (:mu => [class[i, "T"], Z[class[i, "T"]][i, "T"]], :a => [class[i, "T"], Z[class[i, "T"]][i, "T"]], :L => [class[i, "T"], Z[class[i, "T"]][i, "T"]], :V => 1), i = 1:n)
@@ -191,9 +200,9 @@ K = 3
 model = Parsa_Model(Normal_Parsa_Model(p));
 @Categorical(model, class, K);
 @Known(model, class[i] = class[i], i = 1:n)
-@Categorical_Set(model, Z, [2,2,2], 1:3);
+@Categorical_Set(model, Z, [2,2,2]);
 @Categorical(model, cov, 2);
-@Observation(model, X[i] = iris_m[i] = (:mu => [class[i], Z[class[i]][i]], :a => cov[class[i], Z[class[i]][i]], :L => cov[class[i], Z[class[i]][i]], :V => 1), i = 1:n)
+@Observation(model, X[i] = iris_m[i] -> (:mu => [class[i], Z[class[i]][i]], :a => cov[class[i], Z[class[i]][i]], :L => cov[class[i], Z[class[i]][i]], :V => 1), i = 1:n)
 EM!(model; n_init=10, n_wild=10)
 G = @posterior_probability(model, [cov[i]], i = reduce(vcat, [[[i,j] for i in 1:K] for j in 1:2]))()
 for (key, M) in G

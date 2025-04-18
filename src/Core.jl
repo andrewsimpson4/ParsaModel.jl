@@ -1,5 +1,5 @@
 
-using LinearAlgebra, UnicodePlots, ProgressBars
+using UnicodePlots
 
 
 function getRelaventTaus(parameter::Parameter, X::Vector{Observation}, tau::Vector{Vector{Real}}, parameter_map::Vector{Vector{Any}})

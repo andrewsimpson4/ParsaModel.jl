@@ -1,4 +1,4 @@
-using Ipopt, StatsBase, Distributions, LinearAlgebra
+using Ipopt, StatsBase, Distributions
 using JuMP: Model, set_silent, @variable, @constraint, @objective, optimize!, value, set_optimizer_attribute
 
 ##### Normal Model #######

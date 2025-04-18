@@ -34,8 +34,12 @@ where $Z_{mj} \sim \text{Categorical}(\pi_{m1}, \pi_{m2}, \dots, \pi_{mK_m})$. S
 
 ## 🚀 Installation
 
-```bash
+<!-- ```
 ] add ParsaModel
+``` -->
+
+```julia
+] add https://<token>@github.com/andrewsimpson4/ParsaModel.jl.git
 ```
 
 <div id='quick-start'/>

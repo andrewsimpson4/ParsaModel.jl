@@ -10,6 +10,8 @@ X_i | Z = \gamma \sim F(T^i_{1}(\gamma), \dots, T^i_{G}(\gamma); \Psi)
 ```
 where $Z_{mj} \sim \text{Categorical}(\pi_{m1}, \pi_{m2}, \dots, \pi_{mK_m})$. See the [paper](https://apple.com) for more details on Parsa Models.
 
+---
+
 ## 📋 Table of Contents
 
 - [Features](#features)
@@ -20,18 +22,23 @@ where $Z_{mj} \sim \text{Categorical}(\pi_{m1}, \pi_{m2}, \dots, \pi_{mK_m})$. S
 - [License](#license)
 - [Acknowledgements](#acknowledgements)
 
+<div id='features'/>
+
 ## ✨ Features
 
 - **Develop**: define custom and novel parsa models
 - **Fit models**: maximum likelihood estimation is used to fit models
 - **Clustering, Predictions, and Likelihood**: Given your problem, the fitted model can be used to cluster observations, predict new observations, or get likelihoods
 
+<div id='installation'/>
+
 ## 🚀 Installation
 
-### Julia
 ```bash
 ] add ParsaModel
 ```
+
+<div id='quick-start'/>
 
 ## 🏁 Quick Start
 
@@ -43,6 +50,9 @@ model = Parsa_Model(Normal_Model(p));
 @Observation(model, X[i] = X[i] -> (:mu => Z[i], :cov => Z[i]), i = 1:n)
 EM!(model)
 ```
+---
+
+<div id='usage-examples'/>
 
 ## 💡 Usage Tutorial
 
@@ -530,6 +540,9 @@ lik(x) = (upt(x); LL())
 [lik([X[i]]) for i in 1:n]
 ```
 
+---
+
+<div id='api-reference'/>
 
 ## 📖 Package Reference
 
@@ -598,6 +611,7 @@ Returns the base for a `p`-dimensional Gaussian distribution.
 ### `Normal_Parsa_Model(p)`
 Returns the base for a `p`-dimensional Gaussian distribution with the parsimonious parameterization.
 
+---
 <!-- **Parameters:**
 
 | Parameter | Type | Required | Description |
@@ -606,14 +620,18 @@ Returns the base for a `p`-dimensional Gaussian distribution with the parsimonio
 | `var`   | None | Yes | Name of the distribution|
 | `K`     | Int  | Yes | Number of categories -->
 
+<div id='license'/>
+
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
+<div id='acknowledgements'/>
+
 ## 👏 Acknowledgements
 
-- [Library Name](https://github.com/user/repo) - For inspiration and some code patterns
+<!-- - [Library Name](https://github.com/user/repo) - For inspiration and some code patterns
 - [Another Library](https://github.com/user/repo) - For the excellent algorithms
-- All our contributors and users
+- All our contributors and users -->
 
 ---

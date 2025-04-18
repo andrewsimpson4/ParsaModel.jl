@@ -492,38 +492,30 @@ perms[@posterior_probability(model, [PP[B[i]]], i = 1)()[1].max]
 
 ## 📖 Package Reference
 
-### `mainFunction(options)`
+### `Parsa_Model(base)`
 
-The main entry point for the library.
-
-**Parameters:**
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `options` | Object | No | Configuration options |
-| `options.option1` | String | No | Description of option1 |
-| `options.option2` | Boolean | No | Description of option2 |
-
-**Returns:**
-
-Returns an instance with the following methods:
-
-- `doSomething()`: Description of what this method does
-- `getData()`: Description of what this method does
-
-### `utilities.transform(data)`
-
-A utility function for transforming data.
+Setup the model and set the base distributional assumption of the model.
 
 **Parameters:**
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `data` | Any | Yes | The data to transform |
-
+| `base` | Parsa_Base | No | distributional assumption |
 **Returns:**
 
-The transformed data.
+Returns a Parsa_Module to build the model
+
+### `@Categorical(model, var, K)`
+
+Creates a new categorical distribution inside of `model` with `K` categories.
+
+**Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `model` | Parsa_Module | Yes | model space |
+| `var`   | None | Yes | Name of the distribution|
+| `K`     | Int  | Yes | Number of categories
 
 
 ## 📄 License

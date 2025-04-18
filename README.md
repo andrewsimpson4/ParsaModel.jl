@@ -111,6 +111,11 @@ randindex(id_, class)
 - `id[i].max` simply gets the max of $P(Z[i] = k | X)$ for $k=1,2,\dots, K$
 - `randindex` is from the `Clustering` package and gives values such as the adjusted rand index to see how well the clustering solution compared to the ground truth.
 
+One common task in mixture modeling is to calculate the bayesian information criterion of the model. This can be done with
+```julia
+@BIC(model)
+```
+
 #### Custom Initialization
 
 While the default initialization method is extremely flexible and works with any model which can be defined with this package, it may take a lot of initialization runs to achieve the desired performance. In cases when a custom initialization method can be defined for a given model structure, initial values can be passed directly into the model.
@@ -144,7 +149,6 @@ You should see and output the following which shows very good clustering perform
 (0.9038742317748124, 0.9574944071588367, 0.042505592841163314, 0.9149888143176734)
 ```
 Notice here there are no purple lines since we did pre-initialize the algorithm.
-
 
 ### Parsimonious Gaussian Mixture Models
 
@@ -490,9 +494,46 @@ perms[@posterior_probability(model, [PP[B[i]]], i = 1)()[1].max]
 ```
 - The final line outputs the predicted species of the first and second observation in the iris dataset. Notice that they are not the same as was enforced.
 
+### Fast posterior prediction and likelihood calculations
+
+Consider the simple finite mixture model
+
+```julia
+K = 3
+model = Parsa_Model(Normal_Model(p));
+@Categorical(model, Z, K);
+@Observation(model, X[i] = iris_m[i] -> (:mu => Z[i], :cov => Z[i]), i = 1:n)
+EM!(model; n_init=100, n_wild=30)
+```
+
+In order to calculate the posterior probabilities we used the code
+
+```julia
+@posterior_probability(model, [Z[i]], i = 1:n)()
+```
+While this works, it can be extremely slow as the likelihood must be recompiled for each `i`. To speed this up we do the following.
+
+```julia
+@Observation(model_test, X_new[i] = iris_m[i] -> (:mu => Z[i, "T"], :cov => Z[i, "T"]), i=1)
+gen = @posterior_probability(model_test, [Z[i, "T"]], i = 1)
+upt = @ObservationUpdater(model_test, X_new[i], i = 1)
+pred(x) = (upt(x); gen()[1].max)
+id = [pred([X[i]]) for i in 1:n]
+```
+- `@ObservationUpdater` returns a function that allows us to change the value of `X_new[i]` without needing to recompile the likelihood.
+
+We can do a similar thing for getting the likelihood of the model given an observation(s). This can be done with
+
+```julia
+LL = @likelihood(model_test, G[i], i = 1)
+lik(x) = (upt(x); LL())
+[lik([X[i]]) for i in 1:n]
+```
+
+
 ## 📖 Package Reference
 
-#### `Parsa_Model(base)`
+### `Parsa_Model(base)`
 
 Setup the model and set the base distributional assumption of the model.
 
@@ -506,7 +547,7 @@ Setup the model and set the base distributional assumption of the model.
 
 Returns a Parsa_Module to build the model -->
 
-#### `@Categorical(model, name, K)`
+### `@Categorical(model, name, K)`
 
 Creates a new categorical distribution inside of `model` with `K` categories with the name of `name`.
 
@@ -519,39 +560,39 @@ Creates a new categorical distribution inside of `model` with `K` categories wit
 | `K`     | Int  | Yes | Number of categories -->
 
 
-#### `@Observation(model, X[i] = Y[i] -> (:par => ), i = N)`
+### `@Observation(model, X[i] = Y[i] -> (:par => ), i = N)`
 
 Adds a new observations named `X` indexed by `i` with the value of `Y[i]` and the mapping `(:par => )`. This is repeated for each `i` in `N`
 
-#### `@Known(model, name[i] = C[i], i = N)`
+### `@Known(model, name[i] = C[i], i = N)`
 Sets the random variables `name[i]` to known with the value of `C[i]`. This is repeated for each `i` in `N`.
 
-#### `@Initialize(model, name[i] = C[i], i = N)`
+### `@Initialize(model, name[i] = C[i], i = N)`
 Sets the random variables `name[i]` to the value of `C[i]`. This is repeated for each `i` in `N`.
 
-#### `@Constant(model, :par[i] = C[i], i = N)`
+### `@Constant(model, :par[i] = C[i], i = N)`
 Sets the parameter `:par[i]` to be constant with the value of `C[i]`. This is repeated for each `i` in `N`.
 
-#### `@Parameter(model, :par)` or `@Parameter(model, name)`
+### `@Parameter(model, :par)` or `@Parameter(model, name)`
 Returns either the parameters of `:par` or the probabilities of the categorical distribution `name`.
 
-#### `EM!(model; n_init, n_wild, should_initialize)`
+### `EM!(model; n_init, n_wild, should_initialize)`
 Fits the model by running the EM algorithm and finding parameter estimates.
 
-#### `@posterior_probability(model, [var1, var2, ...], i=N)`
+### `@posterior_probability(model, [var1, var2, ...], i=N)`
 Returns a function that returns the posterior probabilities of `[var1, var2, ...]` for each `i` in `N`.
 
-#### `@BIC(model)`
+### `@BIC(model)`
 Returns the bayesian information criterion of the model.
 
-#### `@likelihood(model, X[i], i = N)`
-Returns a function that returns the likelihood `$f(X[N_1], X[N_2], \dots, X[N_m])$`.
+### `@likelihood(model, X[i], i = N)`
+Returns a function that returns the likelihood $f(X[N_1], X[N_2], \dots, X[N_m])$.
 
 
-#### `@ObservationUpdater(model, X[i], i=N)`
+### `@ObservationUpdater(model, X[i], i=N)`
 Returns a function that takes in `$|N|$` observations and will assign them to the corresponding `X[i]`.
 
-#### `Normal_Model(p)`
+### `Normal_Model(p)`
 Returns the base for a `p`-dimensional Gaussian distribution.
 
 ### `Normal_Parsa_Model(p)`

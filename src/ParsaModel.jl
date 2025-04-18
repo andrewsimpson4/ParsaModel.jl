@@ -8,7 +8,6 @@ include("./Macros.jl")
 
 export Parsa_Model,
        @Categorical,
-       @Categorical_Set,
        @Observation,
        @Known,
        @Initialize,

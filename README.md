@@ -496,27 +496,40 @@ perms[@posterior_probability(model, [PP[B[i]]], i = 1)()[1].max]
 
 Setup the model and set the base distributional assumption of the model.
 
-**Parameters:**
+<!-- **Parameters:**
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `base` | Parsa_Base | No | distributional assumption |
+
 **Returns:**
 
-Returns a Parsa_Module to build the model
+Returns a Parsa_Module to build the model -->
 
 ### `@Categorical(model, var, K)`
 
-Creates a new categorical distribution inside of `model` with `K` categories.
+Creates a new categorical distribution inside of `model` with `K` categories with the name of `var`.
 
-**Parameters:**
+<!-- **Parameters:**
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `model` | Parsa_Module | Yes | model space |
 | `var`   | None | Yes | Name of the distribution|
-| `K`     | Int  | Yes | Number of categories
+| `K`     | Int  | Yes | Number of categories -->
 
+
+### `@Observation(model, X[i] = Y[i] -> (:par => ), i=N)`
+
+Adds a new observations named `X` indexed by `i` with the value of `Y[i]` and the mapping `(:par => )`. This is repeated for each `i` in `N`
+
+<!-- **Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `model` | Parsa_Module | Yes | model space |
+| `var`   | None | Yes | Name of the distribution|
+| `K`     | Int  | Yes | Number of categories -->
 
 ## 📄 License
 

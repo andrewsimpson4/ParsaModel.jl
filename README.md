@@ -70,7 +70,6 @@ julia_command('Pkg.add(url="https://<token>@github.com/andrewsimpson4/ParsaModel
 
 ```
 
-
 <div id='quick-start'/>
 
 ## 🏁 Quick Start

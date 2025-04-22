@@ -10,6 +10,7 @@ X_i | Z = \gamma \sim F(T^i_{1}(\gamma), \dots, T^i_{G}(\gamma); \Psi)
 ```
 where $Z_{mj} \sim \text{Categorical}(\pi_{m1}, \pi_{m2}, \dots, \pi_{mK_m})$. See the [paper](https://apple.com) for more details on Parsa Models.
 
+---
  ⚠️ This package assumes a moderate understanding and desciminant analysis and mixture models. Checkout this [book](https://math.univ-cotedazur.fr/~cbouveyr/MBCbook/) on Model-Based Clustering and Classification for more information on this class of models.
 
 ⚠️ This package is currently under development and may be unstable. It is suggested to be used with caution at this time.

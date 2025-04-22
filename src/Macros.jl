@@ -16,7 +16,7 @@ end
 macro Categorical(model, name, K)
     mod = esc(model)
     K_val = esc(K)
-    na = (name)
+    na = QuoteNode(name)
     quote
         if length($K_val) == 1
             if !(typeof($mod) == Module)
@@ -28,7 +28,9 @@ macro Categorical(model, name, K)
             if !(typeof($K_val) == Int)
                 error("Third parameter must be an integer.")
             end
-            $mod.$na = CategoricalZ(K = $K_val)
+            Base.eval($mod, quote
+                $$na = $$CategoricalZ(K = $$K_val)
+            end)
         else
             @Categorical_Set($mod, $name, $K_val)
         end

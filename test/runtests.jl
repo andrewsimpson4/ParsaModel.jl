@@ -31,10 +31,10 @@ end
 # using ParsaModel
 
 # using LinearAlgebra, UnicodePlots, ProgressBars, Distributions, Clustering
-# include("./Types.jl")
-# include("./Models.jl")
-# include("./Core.jl")
-# include("./Macros.jl")
+# include("../src/Types.jl")
+# include("../src/Models.jl")
+# include("../src/Core.jl")
+# include("../src/Macros.jl")
 
 
 # n = 500

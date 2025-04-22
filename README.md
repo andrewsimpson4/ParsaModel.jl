@@ -624,7 +624,7 @@ Sets the parameter `:par[i]` to be constant with the value of `C[i]`. This is re
 ### `@Parameter(model, :par)` or `@Parameter(model, name)`
 Returns either the parameters of `:par` or the probabilities of the categorical distribution `name`.
 
-### `EM!(model; n_init, n_wild, should_initialize)`
+### `EM!(model; n_init=1, n_wild=1, should_initialize=true, verbose=true)`
 Fits the model by running the EM algorithm and finding parameter estimates.
 
 ### `@posterior_probability(model, [var1, var2, ...], i=N)`

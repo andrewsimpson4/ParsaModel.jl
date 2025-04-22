@@ -94,9 +94,13 @@ EM!(model)
 
 For the examples listed below, $16$ different Parsa Models are defined and fit all on the iris dataset. It should be noted most of this models are not actually good models for the iris dataset but are none the less possible to fit for the sake of simplicity.
 
+For this example, the packages `CSV`, `DataFrames`, `Clustering`, `Distances`, `LinearAlgebra`, and `StatsBase` are required.
+
 ### Setup the iris dataset
 First the iris dataset is processed into the correct format for the package.
 ```julia
+using CSV, DataFrames, Clustering, Distances, LinearAlgebra, StatsBase
+
 iris = CSV.read("./examples/datasets/Iris.csv", DataFrame)
 iris_matrix = Matrix(iris[:, 2:5])
 iris_m = eachrow(iris_matrix);

@@ -4,7 +4,7 @@
 <p align="center">
 <img src="./Assets/logo.png" alt="drawing" width="200"/>
 
-ParaModel is a domain-specific modeling language inside Julia package for creating, estimating and predicting using Parsa Models. A Parsa Model is a generic framework for models of the form
+ParaModel is a domain-specific modeling language inside Julia for creating, estimating and predicting using Parsa Models. A Parsa Model is a generic framework for models of the form
 ```math
 X_i | Z = \gamma \sim F(T^i_{1}(\gamma), \dots, T^i_{G}(\gamma); \Psi)
 ```

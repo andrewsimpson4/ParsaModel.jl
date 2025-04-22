@@ -185,8 +185,8 @@ id = @posterior_probability(model, [Z[i]], i = 1:n)();
 id_ = [id[i].max for i in 1:n];
 randindex(id_, class)
 ```
--`@Initialize(model, Z[i] = init_id[i], i = 1:n)` takes our initial values from init_id and assigns them to the respective random variable `Z[i]`.
--`should_initialize=false` disables the default initialization method.
+- `@Initialize(model, Z[i] = init_id[i], i = 1:n)` takes our initial values from init_id and assigns them to the respective random variable `Z[i]`.
+- `should_initialize=false` disables the default initialization method.
 
 You should see and output the following which shows very good clustering performance
 
@@ -235,8 +235,8 @@ id = @posterior_probability(model, [Z[i]], i = 1:n)()
 id_ = [id[i].max for i in 1:n]
 randindex(id_, class)
 ```
--`const_V = [diagm(ones(4))];` simply defined a diagonal matrix.
--`@Constant(model, :V[i] = const_V[i], i = 1)` sets $V_1$ as a constant and to be the diagonal matrix.
+- `const_V = [diagm(ones(4))];` simply defined a diagonal matrix.
+- `@Constant(model, :V[i] = const_V[i], i = 1)` sets $V_1$ as a constant and to be the diagonal matrix.
 
 #### Diagonal covariance matrices with shared eigenvalues
 
@@ -275,7 +275,7 @@ model = Parsa_Model(Normal_Model(p));
 @Observation(model, X[i] = iris_m[i] -> (:mu => class[i], :cov => 1), i = 1:n)
 EM!(model; n_init=1, n_wild=1)
 ```
--`@Known(model, class[i] = class[i], i = 1:n)` simply assigns the value of `class[i]` to the respective random variable `class[i]` within our space `model` and changes it to a known variable. Thus `class[i]` can no longer take the values $1,2,\dots, K$ and instead is always the value of `class[i]`.
+- `@Known(model, class[i] = class[i], i = 1:n)` simply assigns the value of `class[i]` to the respective random variable `class[i]` within our space `model` and changes it to a known variable. Thus `class[i]` can no longer take the values $1,2,\dots, K$ and instead is always the value of `class[i]`.
 
 Note here that there are no unknown categorical variables, thus EM algorithm is constant and we don't see and increase in the likelihood like before.
 
@@ -348,8 +348,8 @@ id = @posterior_probability(model, [class[i, "T"]], i = 1:n)();
 id_ = [id[i].max for i in 1:n]
 mean(id_ .== class)
 ```
--`@Categorical(model, Z, [2,2,2])` creates a set of three categorical distributions each which has two categories. This is to set up a different categorical distribution for each class.
--`[class[i], Z[class[i]][i]]` ensures that our parameters are index by two variables. The first indicates the class and the second indicates the component of the mixture model within that class.
+- `@Categorical(model, Z, [2,2,2])` creates a set of three categorical distributions each which has two categories. This is to set up a different categorical distribution for each class.
+- `[class[i], Z[class[i]][i]]` ensures that our parameters are index by two variables. The first indicates the class and the second indicates the component of the mixture model within that class.
 - Note that `Z[class[i]]` returns the categorical distribution of class `class[i]` at which point `Z[class[i]][i]` gets the random variable of  categorical distribution `Z[class[i]]`
 - Take note of the output from `@Parameter(model, :mu)`
 
@@ -492,7 +492,7 @@ id = @posterior_probability(model, [Z[i]], i = 1:n)()
 id_ = [id[i].max for i in 1:n]
 randindex(id_, class)
 ```
--`@Known(model, Z[i] = known_map[i], i = known_samples)` simply assigns the value of `known_map[i]` to the respective random variable `Z[i]` and changes it to a known variable. Thus `Z[i]` can no longer take the values $1,2,\dots, K$ and instead is always the value of `known_map[i]`.
+- `@Known(model, Z[i] = known_map[i], i = known_samples)` simply assigns the value of `known_map[i]` to the respective random variable `Z[i]` and changes it to a known variable. Thus `Z[i]` can no longer take the values $1,2,\dots, K$ and instead is always the value of `known_map[i]`.
 
 #### Semi-Supervised Gaussian Mixture Models with Positive Constraints
 

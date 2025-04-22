@@ -1,6 +1,7 @@
 <!-- # ParsaModel -->
 
-<!-- [![Build Status](https://github.com/andrewsimpson4/ParsaModel.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/andrewsimpson4/ParsaModel.jl/actions/workflows/CI.yml?query=branch%3Amain) -->
+[![Build Status](https://github.com/andrewsimpson4/ParsaModel.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/andrewsimpson4/ParsaModel.jl/actions/workflows/CI.yml?query=branch%3Amain)
+
 <p align="center">
 <img src="./Assets/logo.png" alt="drawing" width="200"/>
 

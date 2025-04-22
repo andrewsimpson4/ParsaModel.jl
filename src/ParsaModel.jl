@@ -6,6 +6,19 @@ include("./Models.jl")
 include("./Core.jl")
 include("./Macros.jl")
 
+println("
+                    \\       /
+                      .-'-.
+                 --  /     \\  --
+`~~^~^~^~^~^~^~^~^~^-=======-~^~^~^~~^~^~^~^~^~^~^~`
+`~^_~^~^~^~^~^_~^~^~^~^~^~^~^~^~^_~^~^~^~^~^~^_~^~^~`")
+println("____                      __  __           _      _
+|  _ \\ __ _ _ __ ___  __ _|  \\/  | ___   __| | ___| |
+| |_) / _` | '__/ __|/ _` | |\\/| |/ _ \\ / _` |/ _ \\ |
+|  __/ (_| | |  \\__ \\ (_| | |  | | (_) | (_| |  __/ |
+|_|   \\__,_|_|  |___/\\__,_|_|  |_|\\___/ \\__,_|\\___|_|")
+
+
 export Parsa_Model,
        @Categorical,
        @Observation,
@@ -27,6 +40,8 @@ export Parsa_Model,
        Normal_Parsa_Model,
        Normal_Model_singular
 end
+
+using ParsaModel
 
 # using LinearAlgebra, UnicodePlots, ProgressBars, Distributions, Clustering
 # include("./Types.jl")

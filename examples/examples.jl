@@ -2,6 +2,7 @@ using ParsaModel
 
 using CSV, DataFrames, Clustering, Distances, LinearAlgebra, StatsBase
 
+
 iris = CSV.read("./examples/datasets/Iris.csv", DataFrame)
 iris_matrix = Matrix(iris[:, 2:5])
 iris_m = eachrow(iris_matrix);

@@ -4,7 +4,7 @@
 <p align="center">
 <img src="./Assets/logo.png" alt="drawing" width="200"/>
 
-ParaModel is a Julia package for creating, estimating and predicting using Parsa Models. A Parsa Model is a generic framework for models of the form
+ParaModel is a domain-specific modeling language inside Julia package for creating, estimating and predicting using Parsa Models. A Parsa Model is a generic framework for models of the form
 ```math
 X_i | Z = \gamma \sim F(T^i_{1}(\gamma), \dots, T^i_{G}(\gamma); \Psi)
 ```
@@ -37,10 +37,34 @@ where $Z_{mj} \sim \text{Categorical}(\pi_{m1}, \pi_{m2}, \dots, \pi_{mK_m})$. S
 <!-- ```
 ] add ParsaModel
 ``` -->
+<!--
+```
+] add https://<token>@github.com/andrewsimpson4/ParsaModel.jl.git
+``` -->
+
+
+#### Julia
 
 ```julia
-] add https://<token>@github.com/andrewsimpson4/ParsaModel.jl.git
+using Pkg
+Pkg.add(url="https://<token>@github.com/andrewsimpson4/ParsaModel.jl.git")
 ```
+
+#### R
+
+For use in R it is currently recommended to use the [JuliaCall](https://cran.r-project.org/web/packages/JuliaCall/index.html) package within R.
+
+```r
+install.packages("JuliaCall")
+library(JuliaCall)
+julia_setup(installJulia = TRUE)
+julia <- julia_setup()
+
+julia_command("using Pkg;")
+julia_command('Pkg.add(url="https://<token>@github.com/andrewsimpson4/ParsaModel.jl.git")')
+
+```
+
 
 <div id='quick-start'/>
 
@@ -48,12 +72,15 @@ where $Z_{mj} \sim \text{Categorical}(\pi_{m1}, \pi_{m2}, \dots, \pi_{mK_m})$. S
 
 This is a minimal example of how to define and fit a $p$-dimensional Gaussian mixture model with $K$ components where observations are stored in the variable $X$.
 
+
+#### Julia
 ```julia
 model = Parsa_Model(Normal_Model(p));
 @Categorical(model, Z, K);
 @Observation(model, X[i] = X[i] -> (:mu => Z[i], :cov => Z[i]), i = 1:n)
 EM!(model)
 ```
+- Observations to be clustered are stores in `X` which is a vector of vectors
 ---
 
 <div id='usage-examples'/>

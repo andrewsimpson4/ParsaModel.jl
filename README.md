@@ -92,7 +92,7 @@ EM!(model)
 
 ## 💡 Usage Tutorial
 
-For the examples listed below, 15 different Parsa Models are defined and fit all on the iris dataset. It should be noted most of this models are not actually good models for the iris dataset but are none the less possible to fit for the sake of simplicity.
+For the examples listed below, $16$ different Parsa Models are defined and fit all on the iris dataset. It should be noted most of this models are not actually good models for the iris dataset but are none the less possible to fit for the sake of simplicity.
 
 ### Setup the iris dataset
 First the iris dataset is processed into the correct format for the package.
@@ -181,6 +181,7 @@ model = Parsa_Model(Normal_Model(p));
 @Initialize(model, Z[i] = init_id[i], i = 1:n);
 @Observation(model, X[i] = iris_m[i] -> (:mu => Z[i], :cov => Z[i]), i = 1:n);
 EM!(model; should_initialize=false);
+
 id = @posterior_probability(model, [Z[i]], i = 1:n)();
 id_ = [id[i].max for i in 1:n];
 randindex(id_, class)
@@ -211,6 +212,7 @@ model = Parsa_Model(Normal_Parsa_Model(p));
                                          :L => Z[i],
                                          :V => 1), i = 1:n)
 EM!(model; n_init=20, n_wild=30)
+
 id = @posterior_probability(model, [Z[i]], i = 1:n)()
 id_ = [id[i].max for i in 1:n]
 randindex(id_, class)
@@ -231,6 +233,7 @@ model = Parsa_Model(Normal_Parsa_Model(p));
 const_V = [diagm(ones(4))];
 @Constant(model, :V[i] = const_V[i], i = 1)
 EM!(model; n_init=20, n_wild=30)
+
 id = @posterior_probability(model, [Z[i]], i = 1:n)()
 id_ = [id[i].max for i in 1:n]
 randindex(id_, class)
@@ -253,6 +256,7 @@ model = Parsa_Model(Normal_Parsa_Model(p));
 const_V = [diagm(ones(4))];
 @Constant(model, :V[i] = const_V[i], i = 1)
 EM!(model; n_init=20, n_wild=30)
+
 id = @posterior_probability(model, [Z[i]], i = 1:n)()
 id_ = [id[i].max for i in 1:n]
 randindex(id_, class)
@@ -300,6 +304,7 @@ model = Parsa_Model(Normal_Model(p));
 @Known(model, class[i] = class[i], i = 1:n)
 @Observation(model, X[i] = iris_m[i] -> (:mu => class[i], :cov => class[i]), i = 1:n)
 EM!(model; n_init=1, n_wild=1)
+
 @Observation(model, X_new[i] = iris_m[i] -> (:mu => class[i, "T"], :cov => class[i, "T"]), i = 1:n)
 id = @posterior_probability(model, [class[i, "T"]], i = 1:n)()
 id_ = [id[i].max for i in 1:n]
@@ -318,6 +323,7 @@ model = Parsa_Model(Normal_Parsa_Model(p));
                                          :L => class[i],
                                          :V => 1), i = 1:n)
 EM!(model; n_init=1, n_wild=1)
+
 @Observation(model, X_new[i] = iris_m[i] = (:mu => class[i, "T"],
                                             :a => class[i, "T"],
                                             :L => class[i, "T"],
@@ -369,6 +375,7 @@ model = Parsa_Model(Normal_Parsa_Model(p));
                                         :L => [class[i], Z[class[i]][i]],
                                         :V => class[i]), i = 1:n)
 EM!(model; n_init=10, n_wild=10)
+
 @Observation(model, X_new[i] = iris_m[i] -> (:mu => [class[i, "T"], Z[class[i, "T"]][i, "T"]],
                                             :a => [class[i, "T"], Z[class[i, "T"]][i, "T"]],
                                             :L => [class[i, "T"], Z[class[i, "T"]][i, "T"]],
@@ -392,6 +399,7 @@ model = Parsa_Model(Normal_Parsa_Model(p));
                                         :L => [class[i], Z[class[i]][i]],
                                         :V => 1), i = 1:n)
 EM!(model; n_init=10, n_wild=10)
+
 @Observation(model, X_new[i] = iris_m[i] -> (:mu => [class[i, "T"], Z[class[i, "T"]][i, "T"]],
                                             :a => [class[i, "T"], Z[class[i, "T"]][i, "T"]],
                                             :L => [class[i, "T"], Z[class[i, "T"]][i, "T"]],
@@ -462,6 +470,7 @@ for (key, M) in G
     mm = Dict(key => M.max)
     @Known(model, cov[i] = mm[i], i = [key])
 end
+
 @Observation(model, X_new[i] = iris_m[i] = (:mu => [class[i, "T"], Z[class[i, "T"]][i, "T"]],
                                             :a => cov[class[i, "T"], Z[class[i, "T"]][i, "T"]],
                                             :L => cov[class[i, "T"], Z[class[i, "T"]][i, "T"]],
@@ -488,6 +497,7 @@ model = Parsa_Model(Normal_Model(p));
 @Known(model, Z[i] = known_map[i], i = known_samples)
 @Observation(model, X[i] = iris_m[i] -> (:mu => Z[i], :cov => Z[i]), i = 1:n)
 EM!(model; n_init=10, n_wild=10)
+
 id = @posterior_probability(model, [Z[i]], i = 1:n)()
 id_ = [id[i].max for i in 1:n]
 randindex(id_, class)
@@ -511,6 +521,7 @@ model = Parsa_Model(Normal_Model(p));
 @Known(model, B[i] = blocks[i], i = 1:n)
 @Observation(model, X[i] = iris_m[i] -> (:mu => Z[B[i]], :cov => Z[B[i]]), i = 1:n)
 EM!(model; n_init=20, n_wild=30)
+
 id = @posterior_probability(model, [Z[i]], i = 1:n_blocks)()
 id_ = [id[i].max for i in 1:n_blocks]
 randindex(id_, true_class_block)

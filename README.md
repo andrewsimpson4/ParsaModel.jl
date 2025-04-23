@@ -265,7 +265,7 @@ id = @posterior_probability(model, [Z[i]], i = 1:n)()
 id_ = [id[i].max for i in 1:n]
 randindex(id_, class)
 ```
-One should now start to see a pattern of how simply changing the mapping for each observation leads to different models.
+One should now start to see a pattern of how simply changing the mapping for each observation leads to different models. This can be used to recreate the others parsimonious model structures in [Mclust](https://cran.r-project.org/web/packages/mclust/index.html) including others.
 
 ### Discriminant Analysis
 

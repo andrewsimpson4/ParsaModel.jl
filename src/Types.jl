@@ -27,7 +27,7 @@ Base.@kwdef mutable struct LatentVaraible
 end
 
 Base.@kwdef mutable struct CategoricalZVec
-    inside::Any#Vector{Union{CategoricalZ, LatentVaraible}}
+    inside::Any
     outside::Any
 end
 

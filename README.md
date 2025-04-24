@@ -12,7 +12,7 @@ X_i | Z = \gamma \sim F(T^i_{1}(\gamma), \dots, T^i_{G}(\gamma); \Psi)
 where $Z_{mj} \sim \text{Categorical}(\pi_{m1}, \pi_{m2}, \dots, \pi_{mK_m})$. See the [paper](https://apple.com) for more details on Parsa Models. The package has $8$ core functions and $6$ additions functions which in totality allow one to define a large class of different models for model-based clustering, classification, and general patter recognition problems.
 
 ---
- ⚠️ This package assumes a moderate understanding and desciminant analysis and mixture models. Checkout this [book](https://math.univ-cotedazur.fr/~cbouveyr/MBCbook/) on Model-Based Clustering and Classification for more information on this class of models.
+ ⚠️ This package assumes a moderate understanding and discriminant analysis and mixture models. Checkout this [book](https://math.univ-cotedazur.fr/~cbouveyr/MBCbook/) on Model-Based Clustering and Classification for more information on this class of models.
 
 ⚠️ This package is currently under development and may be unstable. It is suggested to be used with caution at this time.
 
@@ -48,6 +48,7 @@ where $Z_{mj} \sim \text{Categorical}(\pi_{m1}, \pi_{m2}, \dots, \pi_{mK_m})$. S
 ] add https://<token>@github.com/andrewsimpson4/ParsaModel.jl.git
 ``` -->
 
+If you are reading this, the repository is currently private. To install the package, you must generate a personal token and paste it into the `<token>` spot below. To get a token in github, `settings -> Developer settings -> Personal access tokens -> Tokens (classic)` and click `Generate new token`.
 
 #### Julia
 
@@ -267,6 +268,7 @@ randindex(id_, class)
 ```
 One should now start to see a pattern of how simply changing the mapping for each observation leads to different models. This can be used to recreate the others parsimonious model structures in [Mclust](https://cran.r-project.org/web/packages/mclust/index.html) including others.
 
+
 ### Discriminant Analysis
 
 So far we have considered using Parsa Models for clustering, but we can also use then to build classifiers. We will again consider the iris dataset but now assume we know the classes (species) and wish to build a model to predict the species of new observations.
@@ -314,7 +316,7 @@ id = @posterior_probability(model, [class[i, "T"]], i = 1:n)()
 id_ = [id[i].max for i in 1:n]
 mean(id_ .== class)
 ```
-#### Common component desciminant analysis
+#### Common component discriminant analysis
 
 Suppose we wish to do a model like LDA and QDA but where each component shares the same covariance matrix. This can be done as follows.
 
@@ -337,7 +339,7 @@ id_ = [id[i].max for i in 1:n]
 mean(id_ .== class)
 ```
 
-### Mixture desciminant analysis
+### Mixture discriminant analysis
 
 Suppose we wish to assume that each class follows Gaussian mixture model. This can be done by
 
@@ -365,7 +367,7 @@ mean(id_ .== class)
 
 Note that this is very similar to `MclustDA` in `R`.
 
-#### Mixture desciminant analysis with shared eigenvectors within classes
+#### Mixture discriminant analysis with shared eigenvectors within classes
 
 To do the same except assume the covariance matrices for the components within each class share the same eigenvectors we can do the following
 
@@ -389,7 +391,7 @@ id_ = [id[i].max for i in 1:n]
 mean(id_ .== class)
 ```
 
-#### Mixture desciminant analysis with shared eigenvectors within classes
+#### Mixture discriminant analysis with shared eigenvectors within classes
 
 What is we wish to do the same but now assume there is a single set of eigenvectors shared between all components across all classes. This is done with
 
@@ -413,7 +415,7 @@ id_ = [id[i].max for i in 1:n]
 mean(id_ .== class)
 ```
 
-#### Mixture desciminant analysis with two covariance matrices shared across between all components
+#### Mixture discriminant analysis with two covariance matrices shared across between all components
 
 This model is much more complicated but allows for a dramatic reduce is the number of parameters in the model. We again assume that each class follows a mixture model but now assume that each covariance matrix of each component is one of two possible covariance matrices
 
@@ -451,7 +453,7 @@ id_ = [id[i].max for i in 1:n]
 mean(id_ .== class)
 ```
 
-#### Mixture desciminant analysis with two covariance matrices shared across between all components and one set of eigenvectors shared across the two covariance matrices
+#### Mixture discriminant analysis with two covariance matrices shared across between all components and one set of eigenvectors shared across the two covariance matrices
 
 We can now do something a little crazy and assume that the two covariance matrices within our model share the same eigenvectors.
 

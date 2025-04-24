@@ -5,11 +5,11 @@
 <p align="center">
 <img src="./Assets/logo.png" alt="drawing" width="200"/>
 
-ParaModel is a domain-specific modeling language inside Julia for creating, estimating and predicting using Parsa Models. A Parsa Model is a generic framework for models of the form
+ParaModel is a domain-specific modeling language inside Julia for creating, estimating and predicting, using categorical parsimonious models. A categorical parsimonious models is a generic framework for models of the form
 ```math
 X_i | Z = \gamma \sim F(T^i_{1}(\gamma), \dots, T^i_{G}(\gamma); \Psi)
 ```
-where $Z_{mj} \sim \text{Categorical}(\pi_{m1}, \pi_{m2}, \dots, \pi_{mK_m})$. See the [paper](https://apple.com) for more details on Parsa Models. The package has $8$ core functions and $6$ additions functions which in totality allow one to define a large class of different models for model-based clustering, classification, and general patter recognition problems.
+where $Z_{mj} \sim \text{Categorical}(\pi_{m1}, \pi_{m2}, \dots, \pi_{mK_m})$. See the [paper](https://apple.com) for more details on categorical parsimonious models. The package has $8$ core functions and $6$ additions functions which in totality allow one to define a large class of different models for model-based clustering, classification, and general patter recognition problems.
 
 ---
  ⚠️ This package assumes a moderate understanding and discriminant analysis and mixture models. Checkout this [book](https://math.univ-cotedazur.fr/~cbouveyr/MBCbook/) on Model-Based Clustering and Classification for more information on this class of models.
@@ -32,7 +32,7 @@ where $Z_{mj} \sim \text{Categorical}(\pi_{m1}, \pi_{m2}, \dots, \pi_{mK_m})$. S
 
 ## ✨ Features
 
-- **Develop**: define custom and novel parsa models
+- **Develop**: define custom and novel categorical parsimonious models
 - **Fit models**: maximum likelihood estimation is used to fit models
 - **Clustering, Predictions, and Likelihood**: Given your problem, the fitted model can be used to cluster observations, predict new observations, or get likelihoods
 
@@ -93,7 +93,7 @@ EM!(model)
 
 ## 💡 Usage Tutorial
 
-For the examples listed below, $16$ different Parsa Models are defined and fit all on the iris dataset. It should be noted most of this models are not actually good models for the iris dataset but are none the less possible to fit for the sake of simplicity.
+For the examples listed below, $16$ different categorical parsimonious models are defined and fit all on the iris dataset. It should be noted most of this models are not actually good models for the iris dataset but are none the less possible to fit for the sake of simplicity.
 
 For this example, the packages `CSV`, `DataFrames`, `Clustering`, `Distances`, `LinearAlgebra`, and `StatsBase` are required.
 
@@ -271,7 +271,7 @@ One should now start to see a pattern of how simply changing the mapping for eac
 
 ### Discriminant Analysis
 
-So far we have considered using Parsa Models for clustering, but we can also use then to build classifiers. We will again consider the iris dataset but now assume we know the classes (species) and wish to build a model to predict the species of new observations.
+So far we have considered using categorical parsimonious models for clustering, but we can also use then to build classifiers. We will again consider the iris dataset but now assume we know the classes (species) and wish to build a model to predict the species of new observations.
 
 #### Linear Discriminant Analysis
 

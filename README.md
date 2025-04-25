@@ -11,6 +11,8 @@ X_i | Z = \gamma \sim F(T^i_{1}(\gamma), \dots, T^i_{G}(\gamma); \Psi)
 ```
 where $Z_{mj} \sim \text{Categorical}(\pi_{m1}, \pi_{m2}, \dots, \pi_{mK_m})$. See the [paper](https://apple.com) for more details on categorical parsimonious models. The package has $8$ core functions and $6$ additions functions which in totality allow one to define a large class of different models for model-based clustering, classification, and general patter recognition problems.
 
+For an easy intuition on what this package does, ParsaModel is to model-based clustering and discriminant analysis as [STAN](https://en.wikipedia.org/wiki/Stan_(software)) and [JAGS](https://en.wikipedia.org/wiki/Just_another_Gibbs_sampler) is to bayesian inference.
+
 ---
  ⚠️ This package assumes a moderate understanding and discriminant analysis and mixture models. Checkout this [book](https://math.univ-cotedazur.fr/~cbouveyr/MBCbook/) on Model-Based Clustering and Classification for more information on this class of models.
 
@@ -128,7 +130,7 @@ The following is a description of what each function above is doing.
 - `Normal_Model(p)` defines the base distributional assumption we are making for the data. In this case, a $p$-dimensional multivariate normal distribution.
 - `Parsa_Model` returns an isolated "space" where we will build the rest of the model.
 - `@Categorical(model, Z, K)` creates a new categorical distribution named `Z` with `K` categories inside of our space `model`.
-- `@Observation(model, X[i] = iris_m[i] -> (:mu => Z[i], :cov => Z[i]), i = 1:n)` loops through `i` from $1$ to `n` and assigns `iris_m[i]` to `X[i]` which is a variable now defined locally inside of `model`. Finally `(:mu => Z[i], :cov => Z[i])` defines the mapping of the observation. The parameters `:mu` and `:cov` are exposed by `Normal_Model` and different base models with have different associated parameters. `Z[i]` respresents a random varaible sampled from `Z` which can take on values from $1$ to `K`.
+- `@Observation(model, X[i] = iris_m[i] -> (:mu => Z[i], :cov => Z[i]), i = 1:n)` loops through `i` from $1$ to `n` and assigns `iris_m[i]` to `X[i]` which is a variable now defined locally inside of `model`. Finally `(:mu => Z[i], :cov => Z[i])` defines the mapping of the observation. The parameters `:mu` and `:cov` are exposed by `Normal_Model` and different base models with have different associated parameters. `Z[i]` represents a random variable sampled from `Z` which can take on values from $1$ to `K`.
 - `EM!(model; n_init=100, n_wild=30)` simply fits the model! `n_init` is the number of initializations to run and `n_wild` is the number of steps per initializations run.
 
 ⚠️ This package currently uses random initialization by default. This can have mixed results for finding the maximum likelihood estimates but allows for package to fit ANY model which can be defined using the package. Just proceed with caution and watch the likelihood plot output for incite.
@@ -430,7 +432,7 @@ model = Parsa_Model(Normal_Model(p));
 EM!(model; n_init=3, n_wild=10)
 @Parameter(model, :cov)
 ```
-- Because of the nesting of multiple random variables via `cov[class[i], Z[class[i]][i]]`, many of the observations are dependent of eachother. This creates a complex likelihood structures and leads to a slowing algorithm as the computational expense has been increased.
+- Because of the nesting of multiple random variables via `cov[class[i], Z[class[i]][i]]`, many of the observations are dependent on each other. This creates a complex likelihood structures and leads to a slower algorithm as the computational expense has been increased.
 - Take note of the output of `@Parameter(model, :cov)` and the number of covariance parameters.
 
 If we where to introduce a new random variable of unknown class and try to predict its class, because of the complex dependency structure, is it nearly computationally infeasible. To fix this, we can predict the most likely covariance matrix for each component and assign it to the respective component.

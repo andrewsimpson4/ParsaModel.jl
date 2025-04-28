@@ -482,7 +482,7 @@ model = Parsa_Model(F=Normal_Model(p));
     class = Categorical(n_classes),
     class[i=1:n] == class_id[i],
     Z = Categorical(K),
-    X[i=1:n] ~ F(:mu => class[i], :cov => Z[class[i]]))
+    X[i=1:n] ~ F(:mu => class[i], :cov => Z[class[i]]));
 EM!(model; n_init=10, n_wild=10)
 @| model Z :mu :cov
 

@@ -33,7 +33,7 @@ macro |(model, expr...)
                 q1 = ex.args[1]
                 q2 = esc(ex.args[2].args[2])
                 new = quote
-                    display(@Categorical($mod, $q1, $q2))
+                    (@Categorical($mod, $q1, $q2))
                 end
                 push!(result_expr.args, new)
             elseif string(ex.head) == "="
@@ -205,7 +205,7 @@ macro Observation(model, main_obj, index_set)
     X_loaded = esc(esc(X_name))
     map = QuoteNode(main_obj.args[2].args[2])
     indx = QuoteNode(index_set.args[1])
-    set = esc(index_set.args[2])
+    set = esc(esc(index_set.args[2]))
 
     quote
         if !(typeof($mod) == Module)
@@ -545,7 +545,7 @@ end
 
 
 macro Parameter(model, main_obj)
-    mod = esc(model)
+    mod = esc(esc(model))
     param_name = QuoteNode(main_obj)
     # s_tmp = main_obj
     s1 = string(main_obj)
@@ -617,7 +617,6 @@ macro posterior_probability(model, conditions, index_set)
     indx = QuoteNode(index_set.args[1])
     sets = esc(index_set.args[2])
     cond = QuoteNode(conditions)
-    println(string(conditions))
     quote
         if !(typeof($mod) == Module)
             error("First parameter must be a valid module. Use Parsa_Model function")

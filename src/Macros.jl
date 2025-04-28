@@ -1,10 +1,11 @@
 
 
 
-function Parsa_Model(base_model::Parsa_Base)
+
+function Parsa_Model(;F::Parsa_Base)
     space = Module()
     Base.eval(space, quote
-        base_model = $base_model
+        base_model = $F
         fit_model = nothing
         X_val = Dict()
         is_parsa_model = true
@@ -12,6 +13,8 @@ function Parsa_Model(base_model::Parsa_Base)
     end)
     return space
 end
+
+Parsa_Model(Parsa_Base) = Parsa_Model(F = Parsa_Model)
 
 macro |(model, expr...)
     result_expr = quote end
@@ -70,75 +73,68 @@ macro |(model, expr...)
                 push!(result_expr.args, new)
             elseif string(ex.args[1]) == "=="
                 Z = (ex.args[2].args[1])
-                indx = (ex.args[2].args[2].args[1])
-                indx_set = ex.args[2].args[2].args[2]
-                new_set = ex.args[3]
-                t1 = :(($Z)[$indx])
-                t2 = :($t1 = $new_set)
-                t3 = :($indx = $indx_set)
                 if typeof(Z) == Symbol
-                    new = quote
-                        @Known($mod, $t2, $t3)
+                    indx = (ex.args[2].args[2].args[1])
+                    indx_set = ex.args[2].args[2].args[2]
+                    new_set = (ex.args[3])
+                    t1 = :(($Z)[$indx])
+                    t2 = :($t1 = $new_set)
+                    t3 = :($indx = $indx_set)
+                    if typeof(Z) == Symbol
+                        new = quote
+                            @Known($mod, $t2, $t3)
+                        end
+                        push!(result_expr.args, new)
                     end
-                    push!(result_expr.args, new)
-                end
-                if typeof(Z) == QuoteNode
-                    new = quote
-                        @Constant($mod, $t2, $t3)
+                    if typeof(Z) == QuoteNode
+                        new = quote
+                            @Constant($mod, $t2, $t3)
+                        end
+                        push!(result_expr.args, new)
                     end
+                else
+                    Z = ex.args[2].args[1].args[1]
+                    indx_1 = ex.args[2].args[1].args[2].args[1]
+                    indx_set_1 = ex.args[2].args[1].args[2].args[2]
+                    indx_2 = ex.args[2].args[2].args[1]
+                    indx_set_2 = ex.args[2].args[2].args[2]
+                    new_set = ex.args[3]
+
+                    t1 = :(($Z)[$indx_1][$indx_2])
+                    t2 = :($t1 = $new_set)
+                    t3 = :($indx_1 = $indx_set_1)
+                    t4 = :($indx_2 = $indx_set_2)
+
+                    new = quote
+                            @Known($mod, $t2, $t3, $t4)
+                        end
                     push!(result_expr.args, new)
                 end
             end
         end
         if string(ex.args[1]) == "f"
-            # println(ex.args[2:end])
-            # g1 = []
-            # for xx in ex.args[2:end]
-            #     Z = (xx.args[1])
-            #     indx = (xx.args[2].args[1])
-            #     indx_set = (xx.args[2].args[2])
-            #     # g1 = [g1; [:(($Z)[$i]) for i in eval(:($indx_set))]]
-            #     g1 = [g1; esc(indx_set)]
-            # end
-            # # t1 = Expr(:vect, t1...)
-            # Z = QuoteNode(ex.args[2].args[1])
-            # println(g1)
-            # new = quote
-            #     for i in 1:length($g1)
-            #         println(($g1)[i])
-            #     end
-            #     # println(isdefined($mod, $Z))
-            #     # if isdefined($mod, $Z)
-            #         # @posterior_probability($mod, $t1, i=1)
-            #     # end
-            # end
-            # push!(result_expr.args, new)
-            if length(ex.args[2:end]) == 1
+            if length(ex.args[2:end]) > 0
                 Z = (ex.args[2].args[1])
                 indx = (ex.args[2].args[2].args[1])
-                indx_set = esc(ex.args[2].args[2].args[2])
+                indx_set = (ex.args[2].args[2].args[2])
+                indx_set_esc = esc(ex.args[2].args[2].args[2])
                 t1 = (:(($Z)[$indx]))
                 t2 = (:($indx = $indx_set))
                 Z = QuoteNode(ex.args[2].args[1])
-                # t3 = :(Expr(:vect, [:(($$Z)[$i___]) for i___ in $indx_set]...))
+
+                indx_esc = [esc(e.args[2].args[2]) for e in ex.args[2:end]]
+                Zs = [e.args[1] for e in ex.args[2:end]]
                 new = quote
                     if !isdefined($mod, $Z)
                         @likelihood($mod, $t1, $t2)
                     else
-                        # @posterior_probability($mod, $t3, i=1)
-                        t3 = Expr(:vect, [:(($$Z)[$i___]) for i___ in $indx_set]...)
-                        # eval(quote
-                        #    @posterior_probability($$mod, $t3, i=1)
-                        # end)
+                        t3 = Expr(:vect, [:(($$Z)[$i___]) for i___ in $indx_set_esc]...)
+                        indxes = [[:($z[$i]) for i in r] for (r, z) in zip($(Expr(:vect, indx_esc...)), $Zs)]
+                        indxes = Expr(:vect, reduce(vcat, indxes)...)
                         Base.eval($mod, quote
                             local X::Vector{$$Observation} = collect(values(X_val))
-                            post = $$posterior_initalize(() -> $t3, X, base_model)
-                            return function ()
-                                v = post()
-                                return (max = $$max_posterior(v)[1], probability = v)
-                                # return (probability = v)
-                            end
-                            # return ff
+                            post = $$posterior_initalize(() -> $indxes, X, base_model)
+                            return post
                         end)
                     end
                 end
@@ -237,11 +233,13 @@ macro Observation(model, main_obj, index_set)
             for j in $$set
                 $$indx = j
                 va = ($$X_loaded[j])
-                if !($$mod.base_model.is_valid_input(va))
+                if !($$mod.base_model.is_valid_input(va.X))
                     error("Invalid observation type for density")
                 end
                 local tt = $$T([() -> Dict((() -> $$map)())], () -> Dict((() -> $$map)()))
-                local ob = $$Observation(va, tt)
+                # local ob = $$Observation(va, tt)
+                ob = va
+                ob.T = tt
                 domains = $$flattenConditionalDomain(tt.domain)
                 if typeof(domains) != Vector{$$LatentVaraible}
                     domains = reduce(vcat, domains)
@@ -311,11 +309,11 @@ macro Known(model, eq, index_set)
     vals = eq.args[2]
     s1 = string(name)
     s2 = string(vals)
-    loaded_vals = esc(vals.args[1])
+    loaded_vals = esc(esc(vals.args[1]))
     vals_indx = QuoteNode(vals.args[2])
     indx = QuoteNode(index_set.args[1])
     indx_2 = QuoteNode(name.args[2])
-    set = esc(index_set.args[2])
+    set = esc(esc(index_set.args[2]))
     Z = QuoteNode(name.args[1])
     quote
         if !(typeof($mod) == Module)
@@ -678,7 +676,7 @@ end
 macro likelihood(model, conditions, index_set)
     mod = esc(model)
     indx = QuoteNode(index_set.args[1])
-    set = esc(index_set.args[2])
+    set = esc(esc(index_set.args[2]))
     obs = string(conditions.args[1])
     quote
         if !(typeof($mod) == Module)

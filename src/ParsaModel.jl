@@ -28,21 +28,24 @@ function __init__()
 end
 
 export Parsa_Model,
-       @Categorical,
-       @Observation,
-       @Known,
-       @Initialize,
-       @Constant,
-       @Parameter,
-       EM!,
-       @posterior_probability,
-       @BIC,
-       @likelihood,
-       @ObservationUpdater,
-       Normal_Model,
-       Double_Normal_Model,
-       Normal_Parsa_Model,
-       Normal_Model_singular
+      Observation,
+      @|,
+      EM!,
+      Normal_Model,
+      Double_Normal_Model,
+      Normal_Parsa_Model,
+      Normal_Model_singular
+      #  @Categorical,
+      #  @Observation,
+      #  @Known,
+      #  @Initialize,
+      #  @Constant,
+      #  @Parameter,
+      #  EM!,
+      #  @posterior_probability,
+      #  @BIC,
+      #  @likelihood,
+      #  @ObservationUpdater,
 end
 
 

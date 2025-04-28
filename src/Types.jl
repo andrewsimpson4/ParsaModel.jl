@@ -300,3 +300,5 @@ mutable struct Observation
     X::Any
     T::T
 end
+
+Observation(x) = Observation(x, T([], () -> ()))

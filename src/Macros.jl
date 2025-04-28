@@ -13,6 +13,142 @@ function Parsa_Model(base_model::Parsa_Base)
     return space
 end
 
+macro |(model, expr...)
+    result_expr = quote end
+    mod = esc(model)
+    # expr = collect(expr)
+    for ex in expr
+        if typeof(ex) == QuoteNode || typeof(ex) == Symbol
+            new = quote
+                display(@Parameter(model, $ex))
+            end
+            push!(result_expr.args, new)
+            continue
+        end
+        if length(ex.args) == 2
+            if string(ex.args[2].args[1]) == "Categorical"
+                q1 = ex.args[1]
+                q2 = esc(ex.args[2].args[2])
+                new = quote
+                    display(@Categorical($mod, $q1, $q2))
+                end
+                push!(result_expr.args, new)
+            elseif string(ex.head) == "="
+                Z = (ex.args[1].args[1])
+                indx = (ex.args[1].args[2].args[1])
+                indx_set = ex.args[1].args[2].args[2]
+                new_set = ex.args[2]
+                t1 = :(($Z)[$indx])
+                t2 = :($t1 = $new_set)
+                t3 = :($indx = $indx_set)
+                if typeof(Z) == Symbol
+                    new = quote
+                        @Initialize($mod, $t2, $t3)
+                    end
+                    push!(result_expr.args, new)
+                end
+                if typeof(Z) == QuoteNode
+                    new = quote
+                        @Constant_Init($mod, $t2, $t3)
+                    end
+                    push!(result_expr.args, new)
+                end
+            end
+        end
+        if length(ex.args) == 3
+            if string(ex.args[3].args[1]) == "F"
+                X = (ex.args[2].args[1])
+                indx = (ex.args[2].args[2].args[1])
+                indx_set = ex.args[2].args[2].args[2]
+                map = Expr(:vect, ex.args[3].args[2:end]...)
+                t1 = :(($X)[$indx])
+                t2 = :($t1 = $t1 = $map)
+                t3 = :($indx = $indx_set)
+                new = quote
+                    @Observation($mod, $t2, $t3)
+                end
+                push!(result_expr.args, new)
+            elseif string(ex.args[1]) == "=="
+                Z = (ex.args[2].args[1])
+                indx = (ex.args[2].args[2].args[1])
+                indx_set = ex.args[2].args[2].args[2]
+                new_set = ex.args[3]
+                t1 = :(($Z)[$indx])
+                t2 = :($t1 = $new_set)
+                t3 = :($indx = $indx_set)
+                if typeof(Z) == Symbol
+                    new = quote
+                        @Known($mod, $t2, $t3)
+                    end
+                    push!(result_expr.args, new)
+                end
+                if typeof(Z) == QuoteNode
+                    new = quote
+                        @Constant($mod, $t2, $t3)
+                    end
+                    push!(result_expr.args, new)
+                end
+            end
+        end
+        if string(ex.args[1]) == "f"
+            # println(ex.args[2:end])
+            # g1 = []
+            # for xx in ex.args[2:end]
+            #     Z = (xx.args[1])
+            #     indx = (xx.args[2].args[1])
+            #     indx_set = (xx.args[2].args[2])
+            #     # g1 = [g1; [:(($Z)[$i]) for i in eval(:($indx_set))]]
+            #     g1 = [g1; esc(indx_set)]
+            # end
+            # # t1 = Expr(:vect, t1...)
+            # Z = QuoteNode(ex.args[2].args[1])
+            # println(g1)
+            # new = quote
+            #     for i in 1:length($g1)
+            #         println(($g1)[i])
+            #     end
+            #     # println(isdefined($mod, $Z))
+            #     # if isdefined($mod, $Z)
+            #         # @posterior_probability($mod, $t1, i=1)
+            #     # end
+            # end
+            # push!(result_expr.args, new)
+            if length(ex.args[2:end]) == 1
+                Z = (ex.args[2].args[1])
+                indx = (ex.args[2].args[2].args[1])
+                indx_set = esc(ex.args[2].args[2].args[2])
+                t1 = (:(($Z)[$indx]))
+                t2 = (:($indx = $indx_set))
+                Z = QuoteNode(ex.args[2].args[1])
+                # t3 = :(Expr(:vect, [:(($$Z)[$i___]) for i___ in $indx_set]...))
+                new = quote
+                    if !isdefined($mod, $Z)
+                        @likelihood($mod, $t1, $t2)
+                    else
+                        # @posterior_probability($mod, $t3, i=1)
+                        t3 = Expr(:vect, [:(($$Z)[$i___]) for i___ in $indx_set]...)
+                        # eval(quote
+                        #    @posterior_probability($$mod, $t3, i=1)
+                        # end)
+                        Base.eval($mod, quote
+                            local X::Vector{$$Observation} = collect(values(X_val))
+                            post = $$posterior_initalize(() -> $t3, X, base_model)
+                            return function ()
+                                v = post()
+                                return (max = $$max_posterior(v)[1], probability = v)
+                                # return (probability = v)
+                            end
+                            # return ff
+                        end)
+                    end
+                end
+                push!(result_expr.args, new)
+            end
+        end
+    end
+    return result_expr
+end
+
 macro Categorical(model, name, K)
     mod = esc(model)
     K_val = esc(K)
@@ -363,7 +499,50 @@ macro Constant(model, main_obj, index_set)
             end
         end)
     end
+end
 
+macro Constant_Init(model, main_obj, index_set)
+    mod = esc(model)
+    s1 = string(main_obj.args[1])
+    s2 = string(main_obj.args[2])
+    st = main_obj.args[1].args[1]
+    param_name = QuoteNode(main_obj.args[1].args[1])
+    param_indx = QuoteNode(main_obj.args[1].args[2])
+    vals_loaded = esc(main_obj.args[2].args[1])
+    vals_loaded_indx = QuoteNode(main_obj.args[2].args[2])
+    indx = QuoteNode(index_set.args[1])
+    set = esc(index_set.args[2])
+    quote
+        if !(typeof($mod) == Module)
+            error("First parameter must be a valid module. Use Parsa_Model function")
+        end
+        if !isdefined($mod, :is_parsa_model)
+            error("First parameter must be a valid module. Use Parsa_Model function")
+        end
+        re_sym = r"^.*\[[a-zA-Z]*\]$"
+        re = r"^[a-zA-Z][a-zA-Z0-9_]*\[[a-zA-Z]*\]$"
+        re2 =r"^[a-zA-Z][a-zA-Z0-9_]*\[([a-zA-Z]*)\]$"
+        re2_sym =r"^.*\[([a-zA-Z]*)\]$"
+        re3 =r"^[a-zA-Z]*$"
+        if (match(re_sym, $s1) == nothing || typeof($st) != Symbol) || match(re, $s2) == nothing
+            error("invalid notation")
+        end
+        if match(re3, string($indx)) == nothing
+            error("Invalid index variable")
+        end
+        if string($indx) != match(re2_sym, $s1)[1]
+            error("unknown " * match(re2, $s1)[1])
+        end
+        if string($indx) != match(re2_sym, $s2)[1]
+            error("unknown " * match(re2, $s2)[1])
+        end
+        Base.eval($mod, quote
+            for j in $$set
+                $$indx = j
+                base_model.parameters[$$param_name][$$param_indx].value.value = $$vals_loaded[$$vals_loaded_indx]
+            end
+        end)
+    end
 end
 
 
@@ -438,8 +617,9 @@ end
 macro posterior_probability(model, conditions, index_set)
     mod = esc(model)
     indx = QuoteNode(index_set.args[1])
-    set = esc(index_set.args[2])
+    sets = esc(index_set.args[2])
     cond = QuoteNode(conditions)
+    println(string(conditions))
     quote
         if !(typeof($mod) == Module)
             error("First parameter must be a valid module. Use Parsa_Model function")
@@ -453,7 +633,7 @@ macro posterior_probability(model, conditions, index_set)
         end
         Base.eval($mod, quote
             post = Dict()
-            for j in $$set
+            for j in $$sets
                 $$indx = j
                 local X::Vector{$$Observation} = collect(values(X_val))
                 post[j] = $$posterior_initalize(() -> $$cond, X, base_model)
@@ -509,15 +689,16 @@ macro likelihood(model, conditions, index_set)
         end
         Base.eval($mod, quote
             local X_collect = Vector{$$Observation}(undef, length($$set))
-            for (i,j) in enumerate($$set)
+            for (i___,j) in enumerate($$set)
                 $$indx = j
-                X_collect[i] = X_val[($$obs, $$indx)]
+                X_collect[i___] = X_val[($$obs, $$indx)]
             end
             LL = $$initialize_density_evaluation(X_collect, base_model, Vector{}())
             return LL
         end)
     end
 end
+
 
 macro likelihood(model)
     mod = esc(model)

@@ -2,7 +2,6 @@ using ParsaModel
 
 using CSV, DataFrames, Clustering, Distances, LinearAlgebra, StatsBase
 
-
 iris = CSV.read("./examples/datasets/Iris.csv", DataFrame)
 iris_matrix = Matrix(iris[:, 2:5])
 iris_m = eachrow(iris_matrix);
@@ -16,14 +15,42 @@ K = 3
 model = Parsa_Model(Normal_Model(p));
 @Categorical(model, Z, K);
 @Observation(model, X[i] = iris_m[i] -> (:mu => Z[i], :cov => Z[i]), i = 1:n)
-EM!(model; n_init=100, n_wild=30)
-
+EM!(model; n_init=100, n_wild=3s0)
 @Parameter(model, :mu)
 @Parameter(model, :cov)
-
 id = @posterior_probability(model, [Z[i]], i = 1:n)()
 id_ = [id[i].max for i in 1:n]
 randindex(id_, class)
+
+
+model = Parsa_Model(Normal_Model(p));
+@| model Z = Categorical(K) iris_m[i=1:n] ~ F(:mu => Z[i], :cov => Z[i])
+EM!(model; n_init=10, n_wild=10)
+@| model Z :mu :cov
+
+new_x = [zeros(p)]
+@| model new_x[i=1] ~ F(:mu => Z[i+150], :cov => Z[i+150]) f(Z[i=(151)])
+id_ = [(new_x[1] = x; ff().max) for x in iris_m]
+randindex(id_, class)
+
+new_x[1] = ones(p)
+model.X_val[("new_x", 1)]
+
+
+x = Dict(:a => 1)
+r = x[:a]
+x[:a] => 2
+r
+
+x = Ref(1)
+y = x
+x[] = 2
+y[]
+
+aa = [10.0]
+bb = aa
+aa[1] = 4.0
+bb
 
 
 iris_hclust = hclust(pairwise(Euclidean(), iris_matrix'), :ward)
@@ -39,11 +66,43 @@ id = @posterior_probability(model, [Z[i]], i = 1:n)();
 id_ = [id[i].max for i in 1:n]
 randindex(id_, class)
 
+
+model = Parsa_Model(Normal_Model(p));
+zz = [ones(p)]
+@|(model,
+    Z = Categorical(K), Z[i=1:n] = init_id[i],
+    iris_m[i=1:n] ~ F(:mu => Z[i], :cov => Z[i]))
+EM!(model; should_initialize=false)
+
+ff = (@| model f(Z[i=1]))
+id_ = [(iris_m[1] = x; ff().max) for x in iris_m]
+randindex(id_, class)
+
+
 K = 3
 model = Parsa_Model(Normal_Parsa_Model(p));
 @Categorical(model, Z, K);
 @Observation(model, X[i] = iris_m[i] = (:mu => Z[i], :a => Z[i], :L => Z[i], :V => 1), i = 1:n)
 EM!(model; n_init=20, n_wild=30)
+id = @posterior_probability(model, [Z[i]], i = 1:n)()
+id_ = [id[i].max for i in 1:n]
+randindex(id_, class)
+
+K = 3
+model = Parsa_Model(Normal_Parsa_Model(p));
+@|( model,
+    Z = Categorical(K)
+    iris_m[i]
+)
+
+st = [1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 3 3 3 2 3 2 2 2 3 2 2 2 3 2 2 3 2 2 3 2 2 3 3 2 3 3 3 3 2 2 2 2 2 2 2 2 3 3 2 2 2 2 2 2 2 2 2 2 2 2 3 2 3 2 3 3 2 3 3 3 3 3 3 2 3 3 2 3 3 2 3 2 3 3 3 3 3 2 3 3 3 3 3 2 2 3 3 2 2 3 3 3 2 3 3 3 3 3 3 2]
+
+K = 3
+model = Parsa_Model(Normal_Parsa_Model(p));
+@Categorical(model, Z, K);
+@Initialize(model, Z[i] = init_id[i], i = 1:n)
+@Observation(model, X[i] = iris_m[i] = (:mu => Z[i], :a => Z[i], :L => 1, :V => 1), i = 1:n)
+EM!(model; should_initialize=false)
 id = @posterior_probability(model, [Z[i]], i = 1:n)()
 id_ = [id[i].max for i in 1:n]
 randindex(id_, class)
@@ -222,11 +281,11 @@ mean(id_ .== class)
 
 # using ParsaModel
 
-# using LinearAlgebra, UnicodePlots, ProgressBars, Distributions, Clustering
-# include("../src/Types.jl")
-# include("../src/Models.jl")
-# include("../src/Core.jl")
-# include("../src/Macros.jl")
+using LinearAlgebra, UnicodePlots, ProgressBars, Distributions, Clustering
+include("../src/Types.jl")
+include("../src/Models.jl")
+include("../src/Core.jl")
+include("../src/Macros.jl")
 
 
 # n = 500
@@ -313,4 +372,63 @@ mean(id_ .== class)
 # randindex(Int.(id_), true_id)
 
 
+model = Parsa_Model(F = Normal_Model(p));
+
+macro |(tt1)
+    println(string(tt1))
+    # println(string(tt2))
+    # println(string(tt3))
+end
+
+K = 3
+model = Parsa_Model(Normal_Model(p));
+@Categorical(model, Z, K);
+@Observation(model, X[i] = iris_m[i] -> [:mu => Z[i], :cov => Z[i]], i = 1:n)
+EM!(model; n_init=100, n_wild=30)
+
+@PM model Z = Categorical(K)
+@PM model X[i=1:n] ~ F(:mu => Z[i], :cov => Z[i])
+EM!(model; n_init=100, n_wild=30)
+
+
+p=4
+K=3
+model = Parsa_Model(Normal_Model(p));
+@| model Z = Categorical(K)
+@| model iris_m[i=1:n] ~ F(:mu => Z[i], :cov => Z[i])
+EM!(model; n_init=100, n_wild=30)
+model.X_val
+
+blocks = Int.(repeat(1:(n/2),inner=2))
+n_blocks = length(unique(blocks))
+true_class_block = [class[i] for i in 1:n if i % 2 == 0]
+
+model = Parsa_Model(Normal_Model(p));
+@Categorical(model, Z, K);
+@Categorical(model, B, n_blocks);
+@Known(model, B[i] = blocks[i], i = 1:n)
+@Observation(model, X[i] = iris_m[i] = (:mu => Z[B[i]], :cov => Z[B[i]]), i = 1:n)
+EM!(model; n_init=20, n_wild=30)
+id = @posterior_probability(model, [Z[i]], i = 1:n_blocks)()
+id_ = [id[i].max for i in 1:n_blocks]
+randindex(id_, true_class_block)
+
+blocks = Int.(repeat(1:(n/2),inner=2))
+n_blocks = length(unique(blocks))
+true_class_block = [class[i] for i in 1:n if i % 2 == 0]
+
+model = Parsa_Model(Normal_Model(p));
+@PM model Z = @Categorical(K)
+@PM model B = @Categorical(n_blocks)
+@PM model X[i=1:n] ~ F(:mu => Z[B[i]], :cov => Z[B[i]])
+EM!(model; n_init=20, n_wild=30)
+@PM model f(Z[i=1:n] | X[i])
+@PM model f(X[i])
+@PM model Z
+@PM model :mu
+@PM model :mu[i=1:n]
+@PM model Z[i=1:n] = known[i]
+@PM model :mu[i=1:n] = zz[i]
+@PM model X[i]
+@PM model Z[i=1:n] -> init[i]
 

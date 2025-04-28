@@ -299,6 +299,7 @@ function zip_package(mapping, X::Vector{Observation}, tau::Vector{Vector{Real}},
 	map = [parameter_map[x_i][p_i] for (x_i, p_i) in mapping]
 	return (x, pr, map)
 end
+
 function M_step_init(X::Vector{Observation}, tau::Vector{Vector{Real}}, parameter_map::Vector{Vector{Any}}, base::Parsa_Base)
 	mappings = Vector{}()
 	for ke in base.parameter_order
@@ -541,7 +542,7 @@ function posterior_initalize(domains, X::Vector{Observation}, density::Parsa_Bas
 	for k in K
 		lv_set(condition, k)
 		if length(domains_left) > 1
-			(tau, pi_params) = posterior_initalize(X_i, X, density, [used_conditions; condition])
+			(tau, pi_params) = posterior_initalize(domains, X, density, [used_conditions; condition])
 			tau_chain = tau_chain ∘ (V) -> (lv_set(condition, k); eval = [tau([]); V]; lv_set(condition, 0); eval)
 			Pi_used = [Pi_used; pi_params]
 		else

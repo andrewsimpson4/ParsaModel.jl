@@ -202,7 +202,7 @@ macro Observation(model, main_obj, index_set)
     obs_name = string(main_obj.args[1].args[1])
     obs_indx = QuoteNode(main_obj.args[1].args[2])
     X_name = main_obj.args[2].args[1].args[1]
-    X_loaded = esc(X_name)
+    X_loaded = esc(esc(X_name))
     map = QuoteNode(main_obj.args[2].args[2])
     indx = QuoteNode(index_set.args[1])
     set = esc(index_set.args[2])

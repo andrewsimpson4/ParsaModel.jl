@@ -3,7 +3,6 @@ using Test, LinearAlgebra, Distributions
 
 @testset "ParsaModel.jl" begin
 
-
     n = 200
     p = 5
     K = 2

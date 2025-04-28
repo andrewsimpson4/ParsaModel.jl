@@ -605,9 +605,9 @@ likelihoods = [ (new_x[n+1].X = x.X; ff()) for x in iris_m]
 
 ## 📖 Package Reference
 
-### `Parsa_Model(base)`
+<!-- ### `Parsa_Model(base)` -->
 
-Setup the model and set the base distributional assumption of the model.
+<!-- Setup the model and set the base distributional assumption of the model. -->
 
 <!-- **Parameters:**
 
@@ -619,9 +619,9 @@ Setup the model and set the base distributional assumption of the model.
 
 Returns a Parsa_Module to build the model -->
 
-### `@Categorical(model, name, K)`
+<!-- ### `@Categorical(model, name, K)` -->
 
-Creates a new categorical distribution inside of `model` with `K` categories with the name of `name`.
+<!-- Creates a new categorical distribution inside of `model` with `K` categories with the name of `name`. -->
 
 <!-- **Parameters:**
 
@@ -632,29 +632,29 @@ Creates a new categorical distribution inside of `model` with `K` categories wit
 | `K`     | Int  | Yes | Number of categories -->
 
 
-### `@Observation(model, X[i] = Y[i] -> (:par => ), i = N)`
+<!-- ### `@Observation(model, X[i] = Y[i] -> (:par => ), i = N)` -->
 
-Adds a new observations named `X` indexed by `i` with the value of `Y[i]` and the mapping `(:par => )`. This is repeated for each `i` in `N`
+<!-- Adds a new observations named `X` indexed by `i` with the value of `Y[i]` and the mapping `(:par => )`. This is repeated for each `i` in `N` -->
 
-### `@Known(model, name[i] = C[i], i = N)`
-Sets the random variables `name[i]` to known with the value of `C[i]`. This is repeated for each `i` in `N`.
+<!-- ### `@Known(model, name[i] = C[i], i = N)` -->
+<!-- Sets the random variables `name[i]` to known with the value of `C[i]`. This is repeated for each `i` in `N`. -->
 
-### `@Initialize(model, name[i] = C[i], i = N)`
-Sets the random variables `name[i]` to the value of `C[i]`. This is repeated for each `i` in `N`.
+<!-- ### `@Initialize(model, name[i] = C[i], i = N)` -->
+<!-- Sets the random variables `name[i]` to the value of `C[i]`. This is repeated for each `i` in `N`. -->
 
-### `@Constant(model, :par[i] = C[i], i = N)`
-Sets the parameter `:par[i]` to be constant with the value of `C[i]`. This is repeated for each `i` in `N`.
+<!-- ### `@Constant(model, :par[i] = C[i], i = N)` -->
+<!-- Sets the parameter `:par[i]` to be constant with the value of `C[i]`. This is repeated for each `i` in `N`. -->
 
-### `@Parameter(model, :par)` or `@Parameter(model, name)`
-Returns either the parameters of `:par` or the probabilities of the categorical distribution `name`.
+<!-- ### `@Parameter(model, :par)` or `@Parameter(model, name)` -->
+<!-- Returns either the parameters of `:par` or the probabilities of the categorical distribution `name`. -->
 
-### `EM!(model; n_init=1, n_wild=1, should_initialize=true, verbose=true)`
-Fits the model by running the EM algorithm and finding parameter estimates.
+<!-- ### `EM!(model; n_init=1, n_wild=1, should_initialize=true, verbose=true)` -->
+<!-- Fits the model by running the EM algorithm and finding parameter estimates. -->
 
-### `@posterior_probability(model, [var1, var2, ...], i=N)`
-Returns a function that returns the posterior probabilities of `[var1, var2, ...]` for each `i` in `N`.
+<!-- ### `@posterior_probability(model, [var1, var2, ...], i=N)` -->
+<!-- Returns a function that returns the posterior probabilities of `[var1, var2, ...]` for each `i` in `N`. -->
 
-### `@BIC(model)`
+<!-- ### `@BIC(model)`
 Returns the bayesian information criterion of the model.
 
 ### `@likelihood(model, X[i], i = N)`
@@ -668,7 +668,7 @@ Returns a function that takes in `$|N|$` observations and will assign them to th
 Returns the base for a `p`-dimensional Gaussian distribution.
 
 ### `Normal_Parsa_Model(p)`
-Returns the base for a `p`-dimensional Gaussian distribution with the parsimonious parameterization.
+Returns the base for a `p`-dimensional Gaussian distribution with the parsimonious parameterization. -->
 
 ---
 <!-- **Parameters:**

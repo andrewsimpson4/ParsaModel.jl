@@ -36,6 +36,8 @@ ff = @| model  new_x[i=(n+1)] ~ F(:mu => Z[i], :cov => Z[i]) f(Z[i=(n+1)]);
 id_ = [ (new_x[n+1].X = x.X; ff().max[1]) for x in iris_m];
 randindex(id_, class)
 
+
+
 iris_hclust = hclust(pairwise(Euclidean(), iris_matrix'), :ward)
 init_id = cutree(iris_hclust, k=3)
 
@@ -464,8 +466,28 @@ include("../src/Models.jl")
 include("../src/Core.jl")
 include("../src/Macros.jl")
 
+n = 200
+p = 5
+K = 2
+mu = [ones(p) .+ i  for i in 1:n];
+cov = [diagm(ones(p)) .+ i^4 for i in 1:2];
+class_id = [Int(ceil(i / 5)) for i in 1:n];
+n_classes = length(unique(class_id))
+true_id = rand(1:2, n_classes);
+X = [Observation(vec(rand(MvNormal(mu[class_id[i]], cov[true_id[class_id[i]]]), 1))) for i in 1:n];
 
-# n = 500
+
+model = Parsa_Model(F=Normal_Model(p));
+@|( model,
+    class = Categorical(n_classes),
+    class[i=1:n] == class_id[i],
+    Z = Categorical(K),
+    X[i=1:n] ~ F(:mu => class[i], :cov => Z[class[i]]))
+EM!(model; n_init=10, n_wild=10)
+@| model Z :mu :cov
+
+
+n = 500
 # p = 8
 # K = 2
 # mu = [ones(p) .+ i  for i in 1:n];

@@ -20,10 +20,14 @@ macro |(model, expr...)
     result_expr = quote end
     mod = esc(model)
     # expr = collect(expr)
-    for ex in expr
+    for (ex_i, ex) in enumerate(expr)
         if typeof(ex) == QuoteNode || typeof(ex) == Symbol
             new = quote
-                display(@Parameter(model, $ex))
+                if $ex_i == length($expr)
+                    (@Parameter(model, $ex))
+                else
+                    display(@Parameter(model, $ex))
+                end
             end
             push!(result_expr.args, new)
             continue

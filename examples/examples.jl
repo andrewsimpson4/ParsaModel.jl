@@ -484,20 +484,22 @@ model = Parsa_Model(F=Normal_Model(p));
     Z = Categorical(K),
     X[i=1:n] ~ F(:mu => class[i], :cov => Z[class[i]]));
 EM!(model; n_init=10, n_wild=10)
-@| model Z :mu :cov
+@| model :mu Z
 
 
-n = 500
-# p = 8
+# n = 40
+# p = 30
 # K = 2
 # mu = [ones(p) .+ i  for i in 1:n];
 # cov = [diagm(ones(p)) .+ i^4 for i in 1:2];
 # class_id = [Int(ceil(i / 5)) for i in 1:n];
 # n_classes = length(unique(class_id))
 # true_id = rand(1:2, n_classes);
-# X = [vec(rand(MvNormal(mu[class_id[i]], cov[true_id[class_id[i]]]), 1)) for i in 1:n];
+# X = Observation.([vec(rand(MvNormal(mu[class_id[i]], cov[true_id[class_id[i]]]), 1)) for i in 1:n]);
 
-# model_test = Parsa_Model(Normal_Model(p));
+
+
+model_test = Parsa_Model(Normal_Model(p));
 # @Categorical(model_test, class, n_classes)
 # @Known(model_test, class[i] = class_id[i], i=1:n)
 # @Categorical(model_test, Z, K)
@@ -510,15 +512,38 @@ n = 500
 # gen = @likelihood_generator(model_test, X[i] = (:mu => class[i], :cov => Z[class[i]]), i=1:5)
 
 
-# p = 4
-# K = 3
-# n = 1000000
-# true_id = rand(1:K, n);
-# mu = [ones(p), ones(p) .+ 6, ones(p) .- 6];
-# cov = [diagm(ones(p)), diagm(ones(p)), diagm(ones(p)) .+ 1];
-# X = [vec(rand(MvNormal((mu[true_id[i]], cov[true_id[i]])...), 1)) for i in 1:n];
+p = 8
+K = 3
+n = 100
+true_id = rand(1:K, n);
+mu = [ones(p), ones(p) .+ 0.1, ones(p) .- 0.1];
+cov = [diagm(ones(p)), diagm(ones(p)), diagm(ones(p)) .+ 1];
+X = Observation.([vec(rand(MvNormal((mu[true_id[i]], cov[true_id[i]])...), 1)) for i in 1:n]);
 
-# model_test = Parsa_Model(Normal_Model(p));
+model = Parsa_Model(F=Normal_Model_DM(p, 2));
+CC = [ones(2, p)]
+@|( model,
+    Z = Categorical(K),
+    Z[i=1:n] = true_id[i],
+    X[i=1:n] ~ F(:mu => Z[i], :cov => Z[i], :A => 1),
+    :A[i=1] == CC[i])
+EM!(model; should_initialize=false, verbose=true)
+@| model :cov
+@| model :A
+
+id = [(@| model f(Z[i=j]))().max[1] for j in 1:n]
+randindex(id, true_id)
+
+model_test = Parsa_Model(Normal_Model(p));
+
+M = ones(5,5)
+
+eigvecs(M) * diagm(eigvals(M)) * eigvecs(M)'
+
+eigvals(M)
+
+pinv(M)
+ee
 # @Categorical(model_test, Z, K);
 # @Observation(model_test, Y[i] = X[i] -> (:mu => Z[i], :cov => Z[i]), i = 1:n);
 # EM!(model_test; n_init=1, n_wild=1, should_initialize=true, eps=10^-10);

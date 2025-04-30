@@ -84,7 +84,9 @@ This is a minimal example of how to define and fit a $p$-dimensional Gaussian mi
 #### Julia
 ```julia
 model = Parsa_Model(F=Normal_Model(p));
-@| model Z = Categorical(K) X[i=1:n] ~ F(:mu => Z[i], :cov => Z[i])
+@|( model,
+    Z = Categorical(K),
+    X[i=1:n] ~ F(:mu => Z[i], :cov => Z[i]))
 EM!(model; n_init=10, n_wild=10)
 ```
 - Observations to be clustered are stores in `X` which is a vector of vectors

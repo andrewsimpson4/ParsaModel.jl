@@ -243,3 +243,59 @@ Normal_Parsa_Model(p) = Parsa_density(normal_parsa_pdf_2, normal_parsa_pdf_log_2
         :L => parsa_L(p),
         :V => parsa_V_opt(p))
 
+
+## DM Normal
+
+function normal_A_update(param, package_index, log_pdf)
+    func = get_objective_function(param, package_index, log_pdf)
+    model = Model(Ipopt.Optimizer)
+    set_optimizer_attribute(model, "max_iter", 3)
+    set_silent(model)
+    p = size(param)
+    @variable(model, V[i=1:p[1], j=1:p[2]], start=param[i,j]);
+    @objective(model, Max, func(V))
+    optimize!(model)
+    return value.(V)
+
+end
+
+function normal_pdf_DM(X, params)
+    p = length(X)
+    y = params[:cov] \ ( params[:A] * X - params[:mu])
+    (2pi)^(-p/2) * det(params[:cov])^(-1) * exp(-1/2 * y' * y)
+end
+
+function normal_pdf_log_DM(X, params)
+    p = length(X)
+    xx = (params[:A] * X - params[:mu])
+    (2pi)^(-p/2) * det(params[:cov])^(-1) * exp(-1/2 * xx' * inv(params[:cov]) * xx)
+end
+
+
+function normal_mean_update_DM(value, index_package, log_pdf)
+    mu_new = zeros(length(value))
+    for (x, pr, params) in index_package
+        mu_new += pr * params[:A] * x
+    end
+    taus = [d[2] for d in index_package]
+    mu_new /= sum(taus)
+    return mu_new
+end
+
+function normal_covariance_update_DM(value, index_package, log_pdf)
+    cov_new = zeros(size(value))
+    for (x, pr, params) in index_package
+        cov_new += pr * ((params[:A]*x - (params[:mu])) * (params[:A]*x - (params[:mu]))')
+    end
+    taus = [d[2] for d in index_package]
+    cov_new ./= sum(taus)
+    return cov_new
+end
+
+Normal_Model_DM(p, d) = Parsa_density(normal_pdf_DM, normal_pdf_log_DM, (x) -> normal_input(x, p),
+                                :mu => Parsa_Parameter(zeros(d), normal_mean_update_DM),
+                                :cov => Parsa_Parameter(diagm(ones(d)), d * (d + 1) / 2, normal_covariance_update_DM),
+                                :A =>  Parsa_Parameter(ones(d, p), normal_A_update))
+
+
+

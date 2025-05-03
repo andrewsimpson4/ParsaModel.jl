@@ -510,10 +510,10 @@ macro Constant_Init(model, main_obj, index_set)
     st = main_obj.args[1].args[1]
     param_name = QuoteNode(main_obj.args[1].args[1])
     param_indx = QuoteNode(main_obj.args[1].args[2])
-    vals_loaded = esc(main_obj.args[2].args[1])
+    vals_loaded = esc(esc(main_obj.args[2].args[1]))
     vals_loaded_indx = QuoteNode(main_obj.args[2].args[2])
     indx = QuoteNode(index_set.args[1])
-    set = esc(index_set.args[2])
+    set = esc(esc(index_set.args[2]))
     quote
         if !(typeof($mod) == Module)
             error("First parameter must be a valid module. Use Parsa_Model function")

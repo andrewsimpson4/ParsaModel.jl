@@ -77,7 +77,7 @@ macro |(model, expr...)
                 push!(result_expr.args, new)
             elseif string(ex.args[1]) == "=="
                 Z = (ex.args[2].args[1])
-                if typeof(Z) == Symbol
+                if typeof(Z) == Symbol || typeof(Z) == QuoteNode
                     indx = (ex.args[2].args[2].args[1])
                     indx_set = ex.args[2].args[2].args[2]
                     new_set = (ex.args[3])

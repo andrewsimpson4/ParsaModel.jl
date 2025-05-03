@@ -420,10 +420,10 @@ macro Initialize(model, eq, index_set)
     vals = eq.args[2]
     s1 = string(name)
     s2 = string(vals)
-    loaded_vals = esc(vals.args[1])
+    loaded_vals = esc(esc(vals.args[1]))
     indx = QuoteNode(index_set.args[1])
     indx_2 = QuoteNode(name.args[2])
-    set = esc(index_set.args[2])
+    set = esc(esc(index_set.args[2]))
     Z = QuoteNode(name.args[1])
     quote
         if !(typeof($mod) == Module)

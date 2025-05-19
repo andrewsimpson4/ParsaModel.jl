@@ -549,7 +549,7 @@ end
 
 
 macro Parameter(model, main_obj)
-    mod = esc(esc(model))
+    mod = esc(model)
     param_name = QuoteNode(main_obj)
     # s_tmp = main_obj
     s1 = string(main_obj)

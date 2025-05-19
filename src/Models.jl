@@ -4,15 +4,15 @@ using JuMP: Model, set_silent, @variable, @constraint, @objective, optimize!, va
 ##### Normal Model #######
 
 
-function normal_mean_update(value, index_package, log_pdf)
-    mu_new = zeros(length(value))
-    for (x, pr,) in index_package
-        mu_new += pr * x
-    end
-    taus = [d[2] for d in index_package]
-    mu_new /= sum(taus)
-    return mu_new
-end
+# function normal_mean_update(value, index_package, log_pdf)
+#     mu_new = zeros(length(value))
+#     for (x, pr,) in index_package
+#         mu_new += pr * x
+#     end
+#     taus = [d[2] for d in index_package]
+#     mu_new /= sum(taus)
+#     return mu_new
+# end
 
 # function normal_covariance_update(value, index_package, log_pdf)
 #     cov_new = zeros(size(value))

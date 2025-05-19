@@ -24,9 +24,9 @@ macro |(model, expr...)
         if typeof(ex) == QuoteNode || typeof(ex) == Symbol
             new = quote
                 if $ex_i == length($expr)
-                    (@Parameter(model, $ex))
+                    (@Parameter($mod, $ex))
                 else
-                    display(@Parameter(model, $ex))
+                    display(@Parameter($mod, $ex))
                 end
             end
             push!(result_expr.args, new)

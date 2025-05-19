@@ -14,6 +14,42 @@ function normal_mean_update(value, index_package, log_pdf)
     return mu_new
 end
 
+# function normal_covariance_update(value, index_package, log_pdf)
+#     cov_new = zeros(size(value))
+#     for (x, pr, params) in index_package
+#         cov_new += pr * ((x - (params[:mu])) * (x - (params[:mu]))')
+#     end
+#     taus = [d[2] for d in index_package]
+#     cov_new ./= sum(taus)
+#     # return cov_new
+#     return cholesky(Hermitian(cov_new)).L
+# end
+
+# function normal_pdf(X, params)
+#     # N = MvNormal(params[:mu], params[:cov])
+#     # pdf(N, X)
+#     p = length(X)
+#     y = params[:cov] \ (X - params[:mu])
+#     (2pi)^(-p/2) * det(params[:cov])^(-1) * exp(-1/2 * y' * y)
+# end
+
+
+function normal_mean_update(value, index_package, log_pdf)
+    mu_new = zeros(length(value))
+    cov = zeros(length(value), length(value))
+    for (_, pr, params) in index_package
+        cov += pr * params[:cov]
+    end
+    for (x, pr, params) in index_package
+        mu_new += pr * params[:cov] * x
+    end
+    # taus = [d[2] for d in index_package]
+    # mu_new /= sum(taus)
+    # mu_new = inv(cov) * mu_new
+    mu_new = cov \ mu_new
+    return mu_new
+end
+
 function normal_covariance_update(value, index_package, log_pdf)
     cov_new = zeros(size(value))
     for (x, pr, params) in index_package
@@ -22,15 +58,14 @@ function normal_covariance_update(value, index_package, log_pdf)
     taus = [d[2] for d in index_package]
     cov_new ./= sum(taus)
     # return cov_new
-    return cholesky(Hermitian(cov_new)).L
+    return inv(cov_new)
 end
 
 function normal_pdf(X, params)
     # N = MvNormal(params[:mu], params[:cov])
     # pdf(N, X)
     p = length(X)
-    y = params[:cov] \ (X - params[:mu])
-    (2pi)^(-p/2) * det(params[:cov])^(-1) * exp(-1/2 * y' * y)
+    (2pi)^(-p/2) * det(params[:cov])^(1/2) * exp(-1/2 * (X - params[:mu])' * params[:cov] * (X - params[:mu]))
 end
 
 function normal_pdf_log(X, params)
@@ -220,6 +255,24 @@ parsa_V_opt(p) = Parsa_Parameter(diagm(ones(p)), optimizeOrthogonal)
 parsa_L(p) = Parameter(value = ParameterValue(value = ones(p)), update = normal_parsa_L_update)
 parsa_a() = Parameter(value = ParameterValue(value = 1), update = normal_parsa_a_update)
 
+
+function parsa_mean_update(value, index_package, log_pdf)
+    mu_new = zeros(length(value))
+    cov = zeros(length(value), length(value))
+    for (_, pr, params) in index_package
+        cov_inv = 1/ params[:a] * params[:V] * diagm(1 ./ params[:L]) * params[:V]'
+        cov += pr * cov_inv
+    end
+    for (x, pr, params) in index_package
+        cov_inv = 1/ params[:a] * params[:V] * diagm(1 ./ params[:L]) * params[:V]'
+        mu_new += pr * cov_inv * x
+    end
+    # taus = [d[2] for d in index_package]
+    # mu_new /= sum(taus)
+    mu_new = inv(cov) * mu_new
+    return mu_new
+end
+
 function normal_parsa_pdf_2(X, params)
     N = MvNormal(params[:mu], Symmetric(params[:a] .* params[:V] * diagm(params[:L]) * params[:V]'))
     pdf(N, X)
@@ -237,7 +290,7 @@ end
 
 
 Normal_Parsa_Model(p) = Parsa_density(normal_parsa_pdf_2, normal_parsa_pdf_log_2, (x) -> normal_input(x, p),
-        :mu=> Parsa_Parameter(zeros(p), normal_mean_update),
+        :mu=> Parsa_Parameter(zeros(p), parsa_mean_update),
         :a => parsa_a(),
         :L => parsa_L(p),
         :V => parsa_V_opt(p))

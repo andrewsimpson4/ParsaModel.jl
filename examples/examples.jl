@@ -1,12 +1,18 @@
 using ParsaModel
 
-using CSV, DataFrames, Clustering, Distances, LinearAlgebra, StatsBase
+using CSV, DataFrames, Clustering, Distances, LinearAlgebra, StatsBase, ProgressBars
+
+include("../src/Types.jl")
+include("../src/Models.jl")
+include("../src/Core.jl")
+include("../src/Macros.jl")
+
 
 iris = CSV.read("./examples/datasets/Iris.csv", DataFrame)
 iris_matrix = Matrix(iris[:, 2:5])
 iris_m = Observation.(eachrow(iris_matrix));
 n=size(iris_m)[1];
-p=length(iris_m[1]);
+p=length(iris_m[1].X);
 class_string = vec(iris[:,6]);
 mapping = Dict(val => i for (i, val) in enumerate(unique(class_string)));
 class = [mapping[val] for val in class_string];
@@ -52,7 +58,7 @@ id_ = [id[i].max for i in 1:n]
 randindex(id_, class)
 
 
-model = Parsa_Model(Normal_Model(p));
+model = Parsa_Model(F=Normal_Model(p));
 @|(model,
     Z = Categorical(K),
     Z[i=1:n] = init_id[i],
@@ -408,7 +414,7 @@ for (key, M) in G
     @| model cov[i=[key]] == mm[i]
 end
 new_obs = Dict([(i+n) => Observation(x.X) for (i,x) in enumerate(iris_m)])
-@| model new_obs[i=((1:n) .+ n)] ~ F(:mu => [class[i], Z[class[i]][i]], :cov => [class[i], Z[class[i]][i]])
+@| model new_obs[i=((1:n) .+ n)] ~ F(:mu => [class[i], Z[class[i]][i]], :cov => cov[class[i], Z[class[i]][i]])
 id_ = [(@| model f(class[i=j]))().max[1] for j in (1:n).+n];
 mean(id_ .== class)
 

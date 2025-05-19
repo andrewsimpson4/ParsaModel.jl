@@ -34,7 +34,6 @@ export Parsa_Model,
       Normal_Model,
       Double_Normal_Model,
       Normal_Parsa_Model,
-      Normal_Model_singular,
       Parsa_Parameter,
       Parsa_density
       #  @Categorical,

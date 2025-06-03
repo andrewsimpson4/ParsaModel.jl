@@ -91,7 +91,7 @@ randindex(id_, class)
 
 
 K = 3
-model = Parsa_Model(Normal_Parsa_Model(p));
+model = Parsa_Model(F=Normal_Parsa_Model(p));
 @Categorical(model, Z, K);
 @Observation(model, X[i] = iris_m[i] = (:mu => Z[i], :a => Z[i], :L => Z[i], :V => 1), i = 1:n)
 EM!(model; n_init=20, n_wild=30)

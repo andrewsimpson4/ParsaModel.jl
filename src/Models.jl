@@ -160,20 +160,20 @@ Double_Normal_Model(p) = LMMM_Base(pdf=normal_pdf_2, pdf_log=normal_pdf_log_2, (
 
 function get_objective_function(param, package_index, pdf_func)
     X = [p[1] for p in package_index]
-    paramter_map = [p[3] for p in package_index]
+    paramter_map = [Dict([ke => p_v(va) for (ke, va) in p[3]]) for p in package_index]
     tau_map = [p[2] for p in package_index]
     N_keys = Vector{}(undef, length(X))
     for i in eachindex(X)
         pars = paramter_map[i]
         par_search = [t for t in values(pars)]
-        param_index = [i for i in 1:length(par_search) if par_search[i] == param][1]
+        param_index = [i for i in 1:length(par_search) if (par_search[i]) == param][1]
         N_keys[i] = collect(keys(pars))[param_index]
     end
     function(ve)
         res = 0.0
         for i in eachindex(X)
             pars = paramter_map[i]
-            x = X[i]
+            x = x_v(X[i])
             tau = tau_map[i]
             pars[N_keys[i]] = ve
             res = res + tau * pdf_func(x, pars)
@@ -199,10 +199,11 @@ end
 
 
 function normal_parsa_a_update(a, package_index, log_pdf)
-    p = length(collect(package_index)[1][1])
+    p = length(x_v(collect(package_index)[1][1]))
     a_new = 0
     for (x, pr, params) in package_index
-        a_new += pr *  ((x - params[:mu])' * params[:V] * diagm(1 ./ params[:L]) * params[:V]' * (x - params[:mu]))
+        y = (x_v(x) - p_v(params[:mu]))
+        a_new += pr *  (y' * p_v(params[:V]) * diagm(1 ./ p_v(params[:L])) * p_v(params[:V])' * y)
     end
     taus = [d[2] for d in package_index]
     a_new = a_new / (sum(taus) * p )
@@ -210,10 +211,11 @@ function normal_parsa_a_update(a, package_index, log_pdf)
 end
 
 function normal_parsa_L_update(L, package_index, log_pdf)
-    p = length(collect(package_index)[1][1])
+    p = length(x_v(collect(package_index)[1][1]))
     L_new = zeros(size(diagm(L)))
     for (x, pr, params) in package_index
-        L_new += pr * ( params[:V]' * (x - params[:mu]) * (x - params[:mu])' * params[:V] * params[:a]^(-1))
+        y = (x_v(x) - p_v(params[:mu]))
+        L_new += pr * ( p_v(params[:V])' * y * y' * p_v(params[:V]) * p_v(params[:a])^(-1))
     end
     L_new = diag(L_new) / prod(diag(L_new))^(1 / p)
     return L_new
@@ -261,12 +263,12 @@ function parsa_mean_update(value, index_package, log_pdf)
     mu_new = zeros(length(value))
     cov = zeros(length(value), length(value))
     for (_, pr, params) in index_package
-        cov_inv = 1/ params[:a] * params[:V] * diagm(1 ./ params[:L]) * params[:V]'
+        cov_inv = 1/ p_v(params[:a]) * p_v(params[:V]) * diagm(1 ./ p_v(params[:L])) * p_v(params[:V])'
         cov += pr * cov_inv
     end
     for (x, pr, params) in index_package
-        cov_inv = 1/ params[:a] * params[:V] * diagm(1 ./ params[:L]) * params[:V]'
-        mu_new += pr * cov_inv * x
+        cov_inv = 1/ p_v(params[:a]) * p_v(params[:V]) * diagm(1 ./ p_v(params[:L])) * p_v(params[:V])'
+        mu_new += pr * cov_inv * x_v(x)
     end
     # taus = [d[2] for d in index_package]
     # mu_new /= sum(taus)
@@ -275,15 +277,16 @@ function parsa_mean_update(value, index_package, log_pdf)
 end
 
 function normal_parsa_pdf_2(X, params)
-    N = MvNormal(params[:mu], Symmetric(params[:a] .* params[:V] * diagm(params[:L]) * params[:V]'))
+    N = MvNormal(p_v(params[:mu]), Symmetric(p_v(params[:a]) .* p_v(params[:V]) * diagm(p_v(params[:L])) * p_v(params[:V])'))
     pdf(N, X)
 end
+
 function normal_parsa_pdf_log_2(X, params)
-    p = length(params[:mu])
-    a = params[:a]
-    eigval = params[:L]
-    mu = params[:mu]
-    V = params[:V]
+    p = length((params[:mu]))
+    a = (params[:a])
+    eigval = (params[:L])
+    mu = (params[:mu])
+    V = (params[:V])
     cov_inv = 1 / a .* V * diagm(1 ./ eigval) * V'
     l = -p * log(a) - ((X - mu)' * cov_inv * (X - mu))
     return l

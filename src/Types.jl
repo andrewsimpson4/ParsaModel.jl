@@ -205,7 +205,7 @@ end
 Base.@kwdef mutable struct Parameter
     value::ParameterValue
     update::Function
-    run_update::Function = (X, taus, parameter_maps, log_pdf) -> value.value = update(value.value, compress_package(X, taus, parameter_maps), log_pdf)
+    run_update::Function = (X, taus, parameter_maps, log_pdf) -> value.value = update(value.value, zip(X, taus, parameter_maps), log_pdf)
     is_const::Bool = false
     post_processing = nothing
 end
@@ -280,8 +280,10 @@ Base.@kwdef mutable struct Parsa_Base
     parameters::Dict
     parameter_order :: Vector
     is_valid_input :: Function
-    evaluate::Function = (X, p) -> pdf(X.X, index_to_parameter_values(p, parameters))
-    # evaluate::Function = (X, p) -> pdf(X.X, p)
+    # evaluate::Function = (X, p) -> pdf(X.X, index_to_parameter_values(p, parameters))
+    # evaluate::Function = (X, p) -> pdf(X.X, Dict([ke => va.value.value for (ke, va) in p]))
+    evaluate::Function = (X, p) -> pdf(X.X, p)
+
     eval_catch = Dict()
 end
 
@@ -302,3 +304,12 @@ mutable struct Observation
 end
 
 Observation(x) = Observation(x, T([], () -> ()))
+
+
+function p_v(p::Parameter)
+    p.value.value
+end
+
+function x_v(X::Observation)
+    X.X
+end

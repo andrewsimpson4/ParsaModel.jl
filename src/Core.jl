@@ -1,4 +1,3 @@
-
 using UnicodePlots
 
 
@@ -120,11 +119,24 @@ function initialize_density_evaluation(X::Vector{Observation}, conditioned_domai
 				sum_list[i_k] = () -> (lv_set(next_condition, k); eval = next_condition.Z.Pi[k] * lik_new(); lv_set(next_condition, 0); eval)
 				lv_set(next_condition, 0)
 			end
-			mult_list = [mult_list; () -> sum([t() for t in sum_list])]
+			ff = function()
+				pp::BigFloat = 0
+				for t in sum_list
+					pp += t()
+				end
+				return pp
+			end
+			# mult_list = [mult_list; () -> sum([t() for t in sum_list])]
+			push!(mult_list, ff)
+
+
 		else
 			for g in G
-				mm = g.T.map()
-				mult_list = [mult_list; () -> BigFloat(density.evaluate(g,  mm)[1])]
+				# mm = g.T.map()
+				mm = index_to_parameters(g.T.map(), density.parameters)
+				# mult_list = [mult_list; () -> BigFloat(density.evaluate(g,  mm)[1])]
+				push!(mult_list, () -> BigFloat(density.evaluate(g,  mm)[1]))
+
 			end
 
 		end
@@ -132,49 +144,56 @@ function initialize_density_evaluation(X::Vector{Observation}, conditioned_domai
 	end
 	# density.eval_catch[(X, current_condition)] = 1
 	# return () -> (ll = prod([t() for t in mult_list]); density.eval_catch[(X, current_condition)] = ll; return ll)
-	return () -> prod([t() for t in mult_list])
-end
-
-
-function initialize_density_evaluation_ind(X::Vector{Observation}, density::Parsa_Base, independent_by)
-	D = Vector{Any}()
-	return (initialize_density_evaluation_ind(X, D, density, independent_by))
-end
-
-
-function initialize_density_evaluation_ind(X::Vector{Observation}, conditioned_domains::Vector, density::Parsa_Base, independent_by)
-	current_condition = [(LV, LV.v()) for LV in conditioned_domains if typeof(LV.value_) == Unknown]
-	if haskey(density.eval_catch, (X, current_condition))
-	    return () -> density.eval_catch[(X, current_condition)]
-	end
-	# independent_sets, _ = independent_sets_from_independent_by(X, independent_by)
-    independent_sets = [collect(values(LV.dependent_X)) for (_, LV) in independent_by[1].LV]
-	mult_list = Vector{}()
-	for G in independent_sets
-		domains = (flattenConditionalDomain(reduce(vcat, [x.T.domain for x in G])))
-		next_conditions = setdiff(domains, conditioned_domains)
-		if length(next_conditions) != 0
-			next_condition = next_conditions[1]
-			K = typeof(next_condition.value_) == Unknown ? (1:next_condition.Z.K) : lv_v(next_condition)
-			sum_list = Vector{}()
-			for k in K
-				lv_set(next_condition, k)
-				new_conditions = [conditioned_domains; next_condition]
-				lik_new = initialize_density_evaluation(G, new_conditions, density)
-				sum_list = [sum_list; () -> (lv_set(next_condition, k); eval = next_condition.Z.Pi[k] * lik_new(); lv_set(next_condition, 0); eval)]
-				lv_set(next_condition, 0)
-			end
-			mult_list = [mult_list; () -> sum([t() for t in sum_list])]
-		else
-			mm = G.T.map()
-			mult_list = [mult_list; () -> BigFloat(density.evaluate(G, mm)[1])]
-		end
-
-	end
-	density.eval_catch[(X, current_condition)] = 1
-	return () -> (ll = prod([t() for t in mult_list]); density.eval_catch[(X, current_condition)] = ll; return ll)
 	# return () -> prod([t() for t in mult_list])
+	return function()
+		pp::BigFloat = 1
+		for t in mult_list
+			pp *= t()
+		end
+		return pp
+	end
 end
+
+
+# function initialize_density_evaluation_ind(X::Vector{Observation}, density::Parsa_Base, independent_by)
+# 	D = Vector{Any}()
+# 	return (initialize_density_evaluation_ind(X, D, density, independent_by))
+# end
+
+
+# function initialize_density_evaluation_ind(X::Vector{Observation}, conditioned_domains::Vector, density::Parsa_Base, independent_by)
+# 	current_condition = [(LV, LV.v()) for LV in conditioned_domains if typeof(LV.value_) == Unknown]
+# 	if haskey(density.eval_catch, (X, current_condition))
+# 	    return () -> density.eval_catch[(X, current_condition)]
+# 	end
+# 	# independent_sets, _ = independent_sets_from_independent_by(X, independent_by)
+#     independent_sets = [collect(values(LV.dependent_X)) for (_, LV) in independent_by[1].LV]
+# 	mult_list = Vector{}()
+# 	for G in independent_sets
+# 		domains = (flattenConditionalDomain(reduce(vcat, [x.T.domain for x in G])))
+# 		next_conditions = setdiff(domains, conditioned_domains)
+# 		if length(next_conditions) != 0
+# 			next_condition = next_conditions[1]
+# 			K = typeof(next_condition.value_) == Unknown ? (1:next_condition.Z.K) : lv_v(next_condition)
+# 			sum_list = Vector{}()
+# 			for k in K
+# 				lv_set(next_condition, k)
+# 				new_conditions = [conditioned_domains; next_condition]
+# 				lik_new = initialize_density_evaluation(G, new_conditions, density)
+# 				sum_list = [sum_list; () -> (lv_set(next_condition, k); eval = next_condition.Z.Pi[k] * lik_new(); lv_set(next_condition, 0); eval)]
+# 				lv_set(next_condition, 0)
+# 			end
+# 			mult_list = [mult_list; () -> sum([t() for t in sum_list])]
+# 		else
+# 			mm = G.T.map()
+# 			mult_list = [mult_list; () -> BigFloat(density.evaluate(G, mm)[1])]
+# 		end
+
+# 	end
+# 	density.eval_catch[(X, current_condition)] = 1
+# 	return () -> (ll = prod([t() for t in mult_list]); density.eval_catch[(X, current_condition)] = ll; return ll)
+# 	# return () -> prod([t() for t in mult_list])
+# end
 
 function LMEM(X::Vector{Observation}, base::Parsa_Base;
 	eps = 10^-6,

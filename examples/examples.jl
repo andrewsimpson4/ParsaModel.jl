@@ -7,6 +7,22 @@ include("../src/Models.jl")
 include("../src/Core.jl")
 include("../src/Macros.jl")
 
+p = 4
+K = 3
+n = 1000000
+true_id = rand(1:K, n);
+mu = [ones(p), ones(p) .+ 6, ones(p) .- 6];
+cov = [diagm(ones(p)), diagm(ones(p)), diagm(ones(p)) .+ 1];
+X = [Observation(vec(rand(MvNormal(mu[true_id[i]], cov[true_id[i]]), 1))) for i in 1:n];
+
+model = Parsa_Model(F=Normal_Model(p));
+@| model Z = Categorical([1 => 2, 2 => 2]) X[i=1:n] ~ F(:mu => Z[i], :cov => Z[i])
+EM!(model; n_init=1, n_wild=1)
+
+new_x = Dict(n+1 => Observation(zeros(p)));
+ff = @| model  new_x[i=(n+1)] ~ F(:mu => Z[i], :cov => Z[i]) f(new_x[i=(n+1)]);
+gen(x) = (new_x[n+1].X = x; ff())
+@time [gen(x.X) for x in X]
 
 iris = CSV.read("./examples/datasets/Iris.csv", DataFrame)
 iris_matrix = Matrix(iris[:, 2:5])
@@ -21,7 +37,7 @@ K = 3
 model = Parsa_Model(Normal_Model(p));
 @Categorical(model, Z, K);
 @Observation(model, X[i] = iris_m[i] -> (:mu => Z[i], :cov => Z[i]), i = 1:n)
-EM!(model; n_init=100, n_wild=3s0)
+EM!(model; n_init=100, n_wild=30)
 @Parameter(model, :mu)
 @Parameter(model, :cov)
 id = @posterior_probability(model, [Z[i]], i = 1:n)()

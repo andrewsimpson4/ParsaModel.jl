@@ -178,24 +178,30 @@ macro Categorical_Set(model, name, K)
     na = QuoteNode(name)
     K_val = esc(K)
     quote
-        if !(typeof($mod) == Module)
-            error("First parameter must be a valid module. Use Parsa_Model function")
-        end
-        if !isdefined($mod, :is_parsa_model)
-            error("First parameter must be a valid module. Use Parsa_Model function")
-        end
-        if !(typeof($K_val) == Vector{Int})
-            error("Third parameter must be a vector of integers.")
-        end
+        # if !(typeof($mod) == Module)
+        #     error("First parameter must be a valid module. Use Parsa_Model function")
+        # end
+        # if !isdefined($mod, :is_parsa_model)
+        #     error("First parameter must be a valid module. Use Parsa_Model function")
+        # end
+        # if !(typeof($K_val) == Vector{Int})
+        #     error("Third parameter must be a vector of integers.")
+        # end
         # if !(typeof($K_val) == Vector{Vector})
         #     error("Third parameter must be a vector of vectors")
         # end
+        # Base.eval($mod, quote
+        #     $$na = $$CategoricalZset()
+        #     for (ind, k) in zip(1:length($$K_val), $$K_val)
+        #         $$na.set[[ind]] = $$CategoricalZ(K = k)
+        #     end
+        # end)
         Base.eval($mod, quote
-            $$na = $$CategoricalZset()
-            for (ind, k) in zip(1:length($$K_val), $$K_val)
-                $$na.set[[ind]] = $$CategoricalZ(K = k)
-            end
-        end)
+        $$na = $$CategoricalZset()
+        for (ind, k) in $$K_val
+            $$na.set[[ind]] = $$CategoricalZ(K = k)
+        end
+    end)
     end
 end
 

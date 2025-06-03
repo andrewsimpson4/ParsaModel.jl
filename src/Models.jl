@@ -38,10 +38,10 @@ function normal_mean_update(value, index_package, log_pdf)
     mu_new = zeros(length(value))
     cov = zeros(length(value), length(value))
     for (_, pr, params) in index_package
-        cov += pr * params[:cov]
+        cov += pr * p_v(params[:cov]).inv
     end
     for (x, pr, params) in index_package
-        mu_new += pr * params[:cov] * x
+        mu_new += pr * p_v(params[:cov]).inv * x_v(x)
     end
     # taus = [d[2] for d in index_package]
     # mu_new /= sum(taus)
@@ -51,21 +51,22 @@ function normal_mean_update(value, index_package, log_pdf)
 end
 
 function normal_covariance_update(value, index_package, log_pdf)
-    cov_new = zeros(size(value))
+    cov_new = zeros(size(value.inv))
     for (x, pr, params) in index_package
-        cov_new += pr * ((x - (params[:mu])) * (x - (params[:mu]))')
+        y = x_v(x) - p_v(params[:mu])
+        cov_new += pr * (y * y')
     end
     taus = [d[2] for d in index_package]
     cov_new ./= sum(taus)
     # return cov_new
-    return inv(cov_new)
+    return (inv = inv(cov_new), det = det(cov_new))
 end
 
 function normal_pdf(X, params)
     # N = MvNormal(params[:mu], params[:cov])
     # pdf(N, X)
     p = length(X)
-    (2pi)^(-p/2) * det(params[:cov])^(1/2) * exp(-1/2 * (X - params[:mu])' * params[:cov] * (X - params[:mu]))
+    (2pi)^(-p/2) * params[:cov].value.value.det^(-1/2) * exp(-1/2 * (X - params[:mu].value.value)' * params[:cov].value.value.inv * (X - params[:mu].value.value))
 end
 
 function normal_pdf_log(X, params)
@@ -81,7 +82,7 @@ normal_input(x, p) = length(x) == p && all(isa.(x, Real))
 
 Normal_Model(p) = Parsa_density(normal_pdf, normal_pdf_log, (x) -> normal_input(x, p),
                                 :mu => Parsa_Parameter(zeros(p), normal_mean_update),
-                                :cov => Parsa_Parameter(diagm(ones(p)), p * (p + 1) / 2, normal_covariance_update, normal_cov_post))
+                                :cov => Parsa_Parameter((inv = diagm(ones(p)), det = 1), p * (p + 1) / 2, normal_covariance_update, normal_cov_post))
 
 
 

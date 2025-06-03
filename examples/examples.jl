@@ -19,6 +19,7 @@ model = Parsa_Model(F=Normal_Model(p));
 @| model Z = Categorical([1 => 2, 2 => 2]) X[i=1:n] ~ F(:mu => Z[i], :cov => Z[i])
 EM!(model; n_init=1, n_wild=1)
 
+
 new_x = Dict(n+1 => Observation(zeros(p)));
 ff = @| model  new_x[i=(n+1)] ~ F(:mu => Z[i], :cov => Z[i]) f(new_x[i=(n+1)]);
 gen(x) = (new_x[n+1].X = x; ff())
@@ -269,7 +270,7 @@ model = Parsa_Model(F = Normal_Model(p));
     Z = Categorical(K),
     B = Categorical(n_blocks),
     B[i=1:n] == blocks[i],
-    P = Categorical(Int.([repeat([2], length(perms))][1])),
+    P = Categorical([i => 2 for i in 1:6]),
     P[i=1:6][j=1:2] == perms[i][j],
     I = Categorical(2),
     I[i=1:n] == II[i],
@@ -358,7 +359,7 @@ model = Parsa_Model(F = Normal_Model(p));
 @|( model,
     class = Categorical(K),
     class[i=1:n] == class[i],
-    Z = Categorical([2,2,2]),
+    Z = Categorical([1=>2,2=>2,3=>2]),
     iris_m[i=1:n] ~ F(:mu => [class[i], Z[class[i]][i]], :cov => [class[i], Z[class[i]][i]]))
 EM!(model; n_init=1, n_wild=1)
 
@@ -386,7 +387,7 @@ const_V = [diagm(ones(4))];
 @|( model,
     class = Categorical(K),
     class[i=1:n] == class[i],
-    Z = Categorical([2,2,2]),
+    Z = Categorical([1=>2,2=>2,3=>2]),
     iris_m[i=1:n] ~ F(:mu => [class[i], Z[class[i]][i]], :a => [class[i], Z[class[i]][i]], :L => [class[i], Z[class[i]][i]], :V => 1),
     :V[i=1]=const_V[i])
 EM!(model; n_init=1, n_wild=1)
@@ -420,10 +421,11 @@ model = Parsa_Model(F = Normal_Model(p));
 @|( model,
     class = Categorical(K),
     class[i=1:n] == class[i],
-    Z = Categorical([2,2,2]),
+    Z = Categorical([1=>2,2=>2,3=>2]),
     cov = Categorical(2),
     iris_m[i=1:n] ~ F(:mu => [class[i], Z[class[i]][i]], :cov => cov[class[i], Z[class[i]][i]]))
 EM!(model; n_init=1, n_wild=1)
+
 G = Dict([j => (@| model f(cov[i=[j]]))() for j in reduce(vcat, [[[i,j] for i in 1:K] for j in 1:2])]);
 for (key, M) in G
     mm = Dict(key => M.max[1])

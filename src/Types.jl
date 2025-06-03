@@ -153,7 +153,11 @@ function Base.getindex(PG::CategoricalZset, indx...)
     # println(all_indx)
     LV = Vector{CategoricalZ}(undef, length(all_indx))
     for (i, v) in enumerate(all_indx)
-        LV[i] = PG.set[v]
+        if length(v) == 1
+            LV[i] = PG.set[v[1]]
+        else
+            LV[i] = PG.set[v]
+        end
     end
     # println(length(LV))
     inside = extra_LV

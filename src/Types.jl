@@ -160,7 +160,7 @@ function Base.getindex(PG::CategoricalZset, indx...)
         end
     end
     # println(length(LV))
-    inside = extra_LV
+    inside = Vector{}()#extra_LV
     outside = LV
     # LV = [LV; extra_LV]
     # println(length(LV))

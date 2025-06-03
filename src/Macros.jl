@@ -199,7 +199,7 @@ macro Categorical_Set(model, name, K)
         Base.eval($mod, quote
         $$na = $$CategoricalZset()
         for (ind, k) in $$K_val
-            $$na.set[[ind]] = $$CategoricalZ(K = k)
+            $$na.set[ind] = $$CategoricalZ(K = k)
         end
     end)
     end

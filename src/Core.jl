@@ -390,12 +390,6 @@ function E_step_initalize(X::Vector{Observation}, density::Parsa_Base, independe
 	pi_parameters_used = Vector{Vector{Any}}(undef, n)
 	all_domains = [flattenConditionalDomain(x.T.domain) for x in X]
    for i in 1:n
-	for LV in all_domains[i]
-		lll = (length(collect(values(LV.dependent_X))))
-		if lll > 1
-			println(((collect(keys(LV.dependent_X)))))
-		end
-	end
 		dependent_observations = unique(reduce(vcat, [collect(values(LV.dependent_X)) for LV in all_domains[i]]))
 		tau_init_i = E_step_i_initalize_initzial_values(X[i], dependent_observations, density, Vector{}())
         (tau_i, parameters_used_i, pi_parameters_used_i, tau_i_pre_set, pi_chain_i) = E_step_i_initalize(X[i], dependent_observations, density, Vector{}())

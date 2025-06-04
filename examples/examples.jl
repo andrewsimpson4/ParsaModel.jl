@@ -21,7 +21,7 @@ EM!(model; n_init=1, n_wild=1)
 
 
 new_x = Dict(n+1 => Observation(zeros(p)));
-ff = @| model  new_x[i=(n+1)] ~ F(:mu => Z[i], :cov => Z[i]) f(new_x[i=(n+1)]);
+ff = @| model  new_x[i=(n+1)] ~ F(:mu => Z[i], :cov => Z[i]) f(Z[i=(n+1)]);
 gen(x) = (new_x[n+1].X = x; ff())
 @time [gen(x.X) for x in X]
 

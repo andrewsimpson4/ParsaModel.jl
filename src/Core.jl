@@ -37,7 +37,7 @@ function flattenConditionalDomain(Domain)
 end
 
 function flattenConditionalDomainSimple(Domain)
-	dd = [d() for d in Domain]
+	dd = reduce(vcat, [[dd.outside for dd in d()] for d in Domain])
 	R = (reduce(vcat, dd))
 	return R
 end

@@ -11,10 +11,29 @@ end
 
 joint_CatSet(D) = typeof(D) == CategoricalZVec ? [D.inside; D.outside] : D
 function flattenConditionalDomain(Domain)
-	dd = [unique(reduce(vcat, ([joint_CatSet(v) for v in reduce(vcat, values(d()))]))) for d in Domain]
-	R = (reduce(vcat, dd))
-	G = reduce(vcat, [r for r in R if typeof(r) != Int64])
-	typeof(G) == LatentVaraible ? [G] : G
+	# dd = [unique(reduce(vcat, ([joint_CatSet(v) for v in reduce(vcat, values(d()))]))) for d in Domain]
+	# R = (reduce(vcat, dd))
+	# G = reduce(vcat, [r for r in R if typeof(r) != Int64])
+	# typeof(G) == LatentVaraible ? [G] : G
+
+	# dd = [unique(reduce(vcat, ([length(v.inside) == 1 ? v.inside[1] : v.inside for v in reduce(vcat, values(d()))]))) for d in Domain]
+	LV = Vector{LatentVaraible}()
+	for d in Domain
+		for LV_set in reduce(vcat, values(d()))
+			if typeof(LV_set) != Int
+				for lv in LV_set.inside
+					# println(lv)
+					push!(LV, lv)
+				end
+			end
+		end
+	end
+	return LV
+	# dd = [unique(reduce(vcat, ([v.inside for v in reduce(vcat, values(d()))]))) for d in Domain]
+	# R = (reduce(vcat, dd))
+	# G = reduce(vcat, [r for r in R if typeof(r) != Int64])
+	# println(typeof(typeof(G) == LatentVaraible ? [G] : G))
+	# typeof(G) == LatentVaraible ? [G] : G
 end
 
 function flattenConditionalDomainSimple(Domain)
@@ -99,6 +118,7 @@ function initialize_density_evaluation(X::Vector{Observation}, conditioned_domai
 	#     # println("found??")
 	#     return () -> density.eval_catch[(X, current_condition)]
 	# end
+	# println("###")
 	independent_sets = getIndependentSets(X, conditioned_domains)
 	mult_list = Vector{}()
 	for G in independent_sets
@@ -107,6 +127,11 @@ function initialize_density_evaluation(X::Vector{Observation}, conditioned_domai
 		next_conditions = setdiff(domains, conditioned_domains)
 		lv_freq_map = filter(x -> x[1] in next_conditions, lv_freq_map)
 		top_order = sortperm(collect(values(lv_freq_map)); rev=true)
+		# println("--")
+		# println(collect(values(lv_freq_map)))
+		# println([length(lv.dependent_X) for lv in next_conditions])
+		# println(length(conditioned_domains))
+		# sleep(1)
 		next_conditions = collect(keys(lv_freq_map))[top_order]
 		if length(next_conditions) != 0
 			next_condition = next_conditions[1]
@@ -282,7 +307,6 @@ function LMEM(X::Vector{Observation}, base::Parsa_Base;
 end
 
 function plotit(lines, final_lines)
-	println("---")
 	println("\33[H")
 	print("\33c\e[3J")
 	terminal = displaysize(stdout)
@@ -366,6 +390,12 @@ function E_step_initalize(X::Vector{Observation}, density::Parsa_Base, independe
 	pi_parameters_used = Vector{Vector{Any}}(undef, n)
 	all_domains = [flattenConditionalDomain(x.T.domain) for x in X]
    for i in 1:n
+	for LV in all_domains[i]
+		lll = (length(collect(values(LV.dependent_X))))
+		if lll > 1
+			println(((collect(keys(LV.dependent_X)))))
+		end
+	end
 		dependent_observations = unique(reduce(vcat, [collect(values(LV.dependent_X)) for LV in all_domains[i]]))
 		tau_init_i = E_step_i_initalize_initzial_values(X[i], dependent_observations, density, Vector{}())
         (tau_i, parameters_used_i, pi_parameters_used_i, tau_i_pre_set, pi_chain_i) = E_step_i_initalize(X[i], dependent_observations, density, Vector{}())

@@ -58,7 +58,18 @@ end
 
 function Base.getindex(PG::CategoricalZVec, indx...)
     indx = collect(indx)
-    CategoricalZVec(PG.inside, [typeof(P) == CategoricalZ ? P[indx...] : P for P in PG.outside])
+    # CategoricalZVec(PG.inside, [typeof(P) == CategoricalZ ? P[indx...] : P for P in PG.outside])
+    outside = [typeof(P) == CategoricalZ ? P[indx...].outside[1] : P for P in PG.outside]
+    inside = PG.inside
+    for P in PG.outside
+        for lv in P[indx...].inside
+            # if lv_v(lv) == 0
+                inside = [inside; lv]
+            # end
+        end
+    end
+    (inside = unique(inside), outside = unique(outside))
+
 end
 
 function Base.getindex(PG::CategoricalZ, indx...)
@@ -74,46 +85,66 @@ function Base.getindex(PG::CategoricalZ, indx...)
     end
     indx = indx_new
     V = Vector{Any}(undef, length(indx))
-    extras = []
+    extras = Vector{}()
     for (i, ix) in enumerate(indx)
-        if typeof(ix) == LatentVaraible
-            if lv_v(ix) == 0
-                extras = [extras; ix]
-                V[i] = 1:ix.Z.K
-            else
-                V[i] = lv_v(ix)
-            end
-        elseif typeof(ix) == CategoricalZVec
-            for ii in ix.inside
-                if typeof(ii) == LatentVaraible
-                    if lv_v(ii) == 0
-                        extras = [extras; ii]
-                    end
-                end
-            end
+        if typeof(ix) == Int
+            V[i] = ix
+        else
+            ranges = Vector{}()
             for ii in ix.outside
                 if typeof(ii) == LatentVaraible
                     if lv_v(ii) == 0
-                        extras = [extras; ii]
+                        push!(ranges, 1)
+                        push!(ranges, ii.Z.K)
+                        push!(extras, ii)
+                    else
+                        push!(ranges, lv_v(ii))
                     end
                 end
             end
-            ma = -Inf
-            for ix2 in ix.outside
-                mv = 0
-                if lv_v(ix2) == 0
-                    mv = ix2.Z.K
-                else
-                    mv = lv_v(ix2)
-                end
-                if mv > ma
-                    ma = mv
-                end
-            end
-            V[i] = 1:ma
-        else
-            V[i] = ix
+            V[i] = minimum(ranges):maximum(ranges)
+            # push!(extras, ix.inside)
+            extras = [extras; ix.inside]
+            # push!(extras, ix.outside)
         end
+        # if typeof(ix) == LatentVaraible
+        #     if lv_v(ix) == 0
+        #         extras = [extras; ix]
+        #         V[i] = 1:ix.Z.K
+        #     else
+        #         V[i] = lv_v(ix)
+        #     end
+        # elseif typeof(ix) == CategoricalZVec
+        #     for ii in ix.inside
+        #         if typeof(ii) == LatentVaraible
+        #             if lv_v(ii) == 0
+        #                 extras = [extras; ii]
+        #             end
+        #         end
+        #     end
+        #     for ii in ix.outside
+        #         if typeof(ii) == LatentVaraible
+        #             if lv_v(ii) == 0
+        #                 extras = [extras; ii]
+        #             end
+        #         end
+        #     end
+        #     ma = -Inf
+        #     for ix2 in ix.outside
+        #         mv = 0
+        #         if lv_v(ix2) == 0
+        #             mv = ix2.Z.K
+        #         else
+        #             mv = lv_v(ix2)
+        #         end
+        #         if mv > ma
+        #             ma = mv
+        #         end
+        #     end
+        #     V[i] = 1:ma
+        # else
+        #     V[i] = ix
+        # end
     end
     all_indx = get_possible_indexes(V, 1)
     LV = Vector{LatentVaraible}(undef, length(all_indx))
@@ -125,12 +156,21 @@ function Base.getindex(PG::CategoricalZ, indx...)
             LV[i] = PG.LV[v]
         end
     end
-    LV::Vector{LatentVaraible} = [LV; extras]
-    if length(LV) == 1
-        return LV[1]
-    else
-        return LV
+    LV::Vector{LatentVaraible} = LV
+    for lv in LV
+        # extras = [extras; lv]
+        # if lv_v(lv) == 0
+            extras = [extras; lv]
+        # end
+        #     extras = [extras; lv_v(lv)]
+        # end
     end
+    return (inside = unique(extras), outside = unique(LV))
+    # if length(LV) == 1
+    #     return (inside = extras, outside = LV[1])
+    # else
+    #     return (inside = extras, outside = LV)
+    # end
 end
 
 function Base.getindex(PG::CategoricalZset, indx...)
@@ -138,15 +178,28 @@ function Base.getindex(PG::CategoricalZset, indx...)
     V = Vector{Any}(undef, length(indx))
     extra_LV = Vector{LatentVaraible}()
     for (i, ix) in enumerate(indx)
-        if typeof(ix) == LatentVaraible
-            extra_LV = [extra_LV; ix]
-            if lv_v(ix) == 0
-                V[i] = 1:ix.Z.K
-            else
-                V[i] = lv_v(ix)
-            end
-        else
+        if typeof(ix) == Int
             V[i] = indx
+        else
+            ranges = Vector{}()
+            for ii in ix.outside
+                if typeof(ii) == LatentVaraible
+                    if lv_v(ii) == 0
+                        push!(ranges, 1)
+                        push!(ranges, ii.Z.K)
+                        push!(extra_LV, ii)
+                    else
+                        push!(ranges, lv_v(ii))
+                    end
+                end
+            end
+            V[i] = minimum(ranges):maximum(ranges)
+            extra_LV = [extra_LV; ix.inside]
+            # if lv_v(ix) == 0
+            #     V[i] = 1:ix.Z.K
+            # else
+            #     V[i] = lv_v(ix)
+            # end
         end
     end
     all_indx = get_possible_indexes(V, 1)
@@ -159,16 +212,18 @@ function Base.getindex(PG::CategoricalZset, indx...)
             LV[i] = PG.set[v]
         end
     end
+
     # println(length(LV))
-    inside = Vector{}()#extra_LV
+    inside = extra_LV
     outside = LV
     # LV = [LV; extra_LV]
     # println(length(LV))
-    if length(LV) == 1
-        return LV[1]
-    else
-        return CategoricalZVec(inside, outside)
-    end
+    CategoricalZVec(inside, outside)
+    # if length(LV) == 1
+    #     return LV[1]
+    # else
+    #     return CategoricalZVec(inside, outside)
+    # end
 end
 
 
@@ -242,30 +297,51 @@ function Base.getindex(PG::ParameterGenerator, indx...)
     end
 end
 
-function index_to_parameter_values(p, parameters)
-    new = Dict()
-    for (key, indx) in p
-        V = indx
-        if typeof(V) == LatentVaraible
-            V = lv_v(indx)
-        else
-            V = [typeof(v) == LatentVaraible ? lv_v(v) : v for v in indx]
-        end
-        new[key] = parameters[key][V].value.value
-    end
-    return new
-end
+# function index_to_parameter_values(p, parameters)
+#     new = Dict()
+#     for (key, indx) in p
+#         V = indx
+#         if !isa(indx, AbstractVector)
+#             V = indx.outside
+#             V = typeof(V[1]) == LatentVaraible ? lv_v(V[1]) : V[1]
+#         else
+#             V = indx
+#             V = [typeof(v.outside[1]) == LatentVaraible ? lv_v(v.outside[1]) : v for v in V]
+#             println(V)
+#         end
+#         # if typeof(V) == LatentVaraible
+#         #     V = lv_v(indx)
+#         # else
+#         #     V = [typeof(v) == LatentVaraible ? lv_v(v) : v for v in indx]
+#         # end
+#         new[key] = parameters[key][V].value.value
+#     end
+#     return new
+# end
 
 function index_to_parameters(p, parameters)
     new = Dict()
     for (key, indx) in p
         V = indx
-        if typeof(V) == LatentVaraible
-            V = lv_v(indx)
-        else
-            V = [typeof(v) == LatentVaraible ? lv_v(v) : v for v in indx]
+        if !isa(indx, AbstractVector) && !isa(indx, Int)
+
+            V = indx.outside
+            V = typeof(V[1]) == LatentVaraible ? lv_v(V[1]) : V[1]
+
+        elseif !isa(indx, Int)
+            # println("here")
+            V = indx
+            V = [typeof(v.outside[1]) == LatentVaraible ? lv_v(v.outside[1]) : v for v in V]
+            # for v in V
+            #     println(typeof(v))
+            # end
         end
-        new[key] = parameters[key][V]
+        # if typeof(V) == LatentVaraible
+        #     V = lv_v(V)
+        # else
+        #     V = [typeof(v) == LatentVaraible ? lv_v(v) : v for v in V]
+        # end
+        new[key] = parameters[key][V...]
     end
     return new
 end

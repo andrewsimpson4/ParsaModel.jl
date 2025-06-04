@@ -251,18 +251,18 @@ macro Observation(model, main_obj, index_set)
                 ob = va
                 ob.T = tt
                 domains = $$flattenConditionalDomain(tt.domain)
-                if typeof(domains) != Vector{$$LatentVaraible}
-                    domains = reduce(vcat, domains)
-                    domains_new = []
-                    for D in domains
-                        if typeof(D) == $$CategoricalZVec
-                            domains_new = [domains_new; D.inside; D.outside]
-                        else
-                            domains_new = [domains_new; D]
-                        end
-                    end
-                    domains = domains_new
-                end
+                # if typeof(domains) != Vector{$$LatentVaraible}
+                #     domains = reduce(vcat, domains)
+                #     domains_new = []
+                #     for D in domains
+                #         if typeof(D) == $$CatsegoricalZVec
+                #             domains_new = [domains_new; D.inside; D.outside]
+                #         else
+                #             domains_new = [domains_new; D]
+                #         end
+                #     end
+                #     domains = domains_new
+                # end
                 for LV in domains
                     LV.dependent_X[($$obs_name, j)] = ob
                 end
@@ -411,7 +411,7 @@ macro Known(model, eq, index_set, index_set2)
                     $$indx2 = j_within_it2
                     z = $$Z
                     va = $$loaded_vals[$$vals_indx1][$$vals_indx2]
-                    zz = z[$$indx_2...]
+                    zz = z[$$indx...].outside[1]
                     zz[$$indx2_2...] = $$LatentVaraible(zz, va)
                 end
             end
@@ -458,7 +458,7 @@ macro Initialize(model, eq, index_set)
                 $$indx = j
                 z = $$Z
                 va = $$loaded_vals[j]
-                $$lv_set(z[$$indx_2], va)
+                $$lv_set(z[$$indx_2].outside[1], va)
             end
         end)
     end

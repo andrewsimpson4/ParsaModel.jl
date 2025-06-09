@@ -9,31 +9,18 @@ function getRelaventTausIndex(parameter::Parameter, X::Vector{Observation}, tau:
 	reduce(vcat, [[(x_i, p_i) for (p_i, (pr, param)) in enumerate(zip(tau_x, params_x)) if parameter in values(param)] for (x_i, (x, tau_x, params_x)) in enumerate(zip(X, tau, parameter_map))])
 end
 
-joint_CatSet(D) = typeof(D) == CategoricalZVec ? [D.inside; D.outside] : D
 function flattenConditionalDomain(Domain)
-	# dd = [unique(reduce(vcat, ([joint_CatSet(v) for v in reduce(vcat, values(d()))]))) for d in Domain]
-	# R = (reduce(vcat, dd))
-	# G = reduce(vcat, [r for r in R if typeof(r) != Int64])
-	# typeof(G) == LatentVaraible ? [G] : G
-
-	# dd = [unique(reduce(vcat, ([length(v.inside) == 1 ? v.inside[1] : v.inside for v in reduce(vcat, values(d()))]))) for d in Domain]
 	LV = Vector{LatentVaraible}()
 	for d in Domain
 		for LV_set in reduce(vcat, values(d()))
 			if typeof(LV_set) != Int
 				for lv in LV_set.inside
-					# println(lv)
 					push!(LV, lv)
 				end
 			end
 		end
 	end
 	return LV
-	# dd = [unique(reduce(vcat, ([v.inside for v in reduce(vcat, values(d()))]))) for d in Domain]
-	# R = (reduce(vcat, dd))
-	# G = reduce(vcat, [r for r in R if typeof(r) != Int64])
-	# println(typeof(typeof(G) == LatentVaraible ? [G] : G))
-	# typeof(G) == LatentVaraible ? [G] : G
 end
 
 function flattenConditionalDomainSimple(Domain)
@@ -388,11 +375,11 @@ function E_step_initalize(X::Vector{Observation}, density::Parsa_Base, independe
 	tau_init = Vector{Function}(undef, n)
 	parameters_used = Vector{Vector{Any}}(undef, n)
 	pi_parameters_used = Vector{Vector{Any}}(undef, n)
-	all_domains = [flattenConditionalDomain(x.T.domain) for x in X]
+	all_domains = [unique(flattenConditionalDomain(x.T.domain)) for x in X]
    for i in 1:n
 		dependent_observations = unique(reduce(vcat, [collect(values(LV.dependent_X)) for LV in all_domains[i]]))
 		tau_init_i = E_step_i_initalize_initzial_values(X[i], dependent_observations, density, Vector{}())
-        (tau_i, parameters_used_i, pi_parameters_used_i, tau_i_pre_set, pi_chain_i) = E_step_i_initalize(X[i], dependent_observations, density, Vector{}())
+        (tau_i, parameters_used_i, pi_parameters_used_i, tau_i_pre_set, pi_chain_i) = E_step_i_initalize(X[i], dependent_observations, density, Vector{}(), all_domains[i])
         tau_i_func = () -> (tau_eval = tau_i([]); Float64.(tau_eval / sum(tau_eval)))
 		Q_i = () -> (tau_eval = tau_i([]); pp = pi_chain_i([]); probs = (tau_eval / sum(tau_eval)); sum(probs .* log.(tau_eval)))
 		tau_i_pre_set_func = () -> (tau_eval = tau_i_pre_set([]); (tau_eval / sum(tau_eval)))
@@ -420,8 +407,8 @@ function get_pre_set_factor(condition::Vector{LatentVaraible}, k_list)
 	end
 end
 
-function E_step_i_initalize(X_i::Observation, X::Vector{Observation}, density::Parsa_Base, used_conditions::Vector)
-	domains = flattenConditionalDomain(X_i.T.domain)
+function E_step_i_initalize(X_i::Observation, X::Vector{Observation}, density::Parsa_Base, used_conditions::Vector, domains::Vector)
+	domains = reverse(flattenConditionalDomain(X_i.T.domain))
 	domains_left = setdiff(domains, used_conditions)
 	condition = domains_left[1]
 
@@ -435,7 +422,7 @@ function E_step_i_initalize(X_i::Observation, X::Vector{Observation}, density::P
 		known_correction = () -> typeof(condition.value_) != Unknown ? (lv_v(condition) == k ? 1 : 0) : 1
 		lv_set(condition, k)
 		if length(domains_left) > 1
-			(tau, params, pi_params, tau_pre_set, pi_c) = E_step_i_initalize(X_i, X, density, [used_conditions; condition])
+			(tau, params, pi_params, tau_pre_set, pi_c) = E_step_i_initalize(X_i, X, density, [used_conditions; condition], domains)
 			tau_chain = tau_chain ∘ (V) -> (lv_set(condition, k); eval = [tau([]); V]; lv_set(condition, 0); eval)
 			pi_chain = pi_chain ∘ (V) -> (lv_set(condition, k); eval = [pi_c([]); V]; lv_set(condition, 0); eval)
 			tau_chain_pre_set = tau_chain_pre_set ∘ (V) -> ([tau_pre_set([]); V])

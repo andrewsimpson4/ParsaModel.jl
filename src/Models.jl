@@ -43,9 +43,6 @@ function normal_mean_update(value, index_package, log_pdf)
     for (x, pr, params) in index_package
         mu_new += pr * p_v(params[:cov]).inv * x_v(x)
     end
-    # taus = [d[2] for d in index_package]
-    # mu_new /= sum(taus)
-    # mu_new = inv(cov) * mu_new
     mu_new = cov \ mu_new
     return mu_new
 end
@@ -58,13 +55,10 @@ function normal_covariance_update(value, index_package, log_pdf)
     end
     taus = [d[2] for d in index_package]
     cov_new ./= sum(taus)
-    # return cov_new
     return (inv = inv(cov_new), det = det(cov_new))
 end
 
 function normal_pdf(X, params)
-    # N = MvNormal(params[:mu], params[:cov])
-    # pdf(N, X)
     p = length(X)
     (2pi)^(-p/2) * params[:cov].value.value.det^(-1/2) * exp(-1/2 * (X - params[:mu].value.value)' * params[:cov].value.value.inv * (X - params[:mu].value.value))
 end
@@ -75,7 +69,7 @@ function normal_pdf_log(X, params)
 end
 
 function normal_cov_post(L)
-    L #L * L'
+    inv(L.inv)
 end
 
 normal_input(x, p) = length(x) == p && all(isa.(x, Real))

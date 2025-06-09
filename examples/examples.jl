@@ -394,7 +394,6 @@ new_obs = Dict([(i+n) => Observation(x.X) for (i,x) in enumerate(iris_m)])
 id_ = [(@| model f(class[i=j]))().max[1] for j in (1:n).+n];
 mean(id_ .== class)
 
-ttt = (a = 1, b = 2)
 
 K = 3
 model = Parsa_Model(Normal_Parsa_Model(p));
@@ -453,7 +452,7 @@ model = Parsa_Model(F = Normal_Model(p));
     iris_m[i=1:n] ~ F(:mu => [class[i], Z[class[i]][i]], :cov => cov[class[i], Z[class[i]][i]]))
 EM!(model; n_init=1, n_wild=1)
 
-unique(model.cov[model.class[1], model.Z[model.class[1]][1]].inside)[3].dependent_X
+unique(model.cov[model.class[1], model.Z[model.class[1]][1]].inside)
 
 model.cov[model.class[1], model.Z[model.class[1]][1]].inside
 

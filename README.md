@@ -354,7 +354,7 @@ model = Parsa_Model(F = Normal_Model(p));
 @|( model,
     class = Categorical(K),
     class[i=1:n] == class[i],
-    Z = Categorical([2,2,2]),
+    Z = Categorical([1=>2,2=>2,3=>2]),
     iris_m[i=1:n] ~ F(:mu => [class[i], Z[class[i]][i]], :cov => [class[i], Z[class[i]][i]]))
 EM!(model; n_init=1, n_wild=1)
 @| model :mu
@@ -364,7 +364,7 @@ new_obs = Dict([(i+n) => Observation(x.X) for (i,x) in enumerate(iris_m)])
 id_ = [(@| model f(class[i=j]))().max[1] for j in (1:n).+n];
 mean(id_ .== class)
 ```
-- `Z = Categorical([2,2,2])` creates a set of three categorical distributions each which has two categories. This is to set up a different categorical distribution for each class.
+- `Z = Categorical([1=>2,2=>2,3=>2])` creates a set of three categorical distributions each which has two categories. These categorical distributions are indexed by `1,2, and 3` respectively. This is to set up a different categorical distribution for each class.
 - `[class[i], Z[class[i]][i]]` ensures that our parameters are index by two variables. The first indicates the class and the second indicates the component of the mixture model within that class.
 - Note that `Z[class[i]]` returns the categorical distribution of class `class[i]` at which point `Z[class[i]][i]` gets the random variable of  categorical distribution `Z[class[i]]`
 - Take note of the output from `@| model :mu`
@@ -381,7 +381,7 @@ model = Parsa_Model(F = Normal_Parsa_Model(p));
 @|( model,
     class = Categorical(K),
     class[i=1:n] == class[i],
-    Z = Categorical([2,2,2]),
+    Z = Categorical([1=>2,2=>2,3=>2]),
     iris_m[i=1:n] ~ F(:mu => [class[i], Z[class[i]][i]],
                                         :a => [class[i], Z[class[i]][i]],
                                         :L => [class[i], Z[class[i]][i]],
@@ -407,7 +407,7 @@ model = Parsa_Model(F = Normal_Parsa_Model(p));
 @|( model,
     class = Categorical(K),
     class[i=1:n] == class[i],
-    Z = Categorical([2,2,2]),
+    Z = Categorical([1=>2,2=>2,3=>2]),
     iris_m[i=1:n] ~ F(:mu => [class[i], Z[class[i]][i]],
                                         :a => [class[i], Z[class[i]][i]],
                                         :L => [class[i], Z[class[i]][i]],
@@ -432,7 +432,7 @@ model = Parsa_Model(F = Normal_Model(p));
 @|( model,
     class = Categorical(K),
     class[i=1:n] == class[i],
-    Z = Categorical([2,2,2]),
+    Z = Categorical([1=>2,2=>2,3=>2]),
     cov = Categorical(2),
     iris_m[i=1:n] ~ F(:mu => [class[i], Z[class[i]][i]], :cov => cov[class[i], Z[class[i]][i]]))
 EM!(model; n_init=1, n_wild=1)
@@ -470,7 +470,7 @@ model = Parsa_Model(F = Normal_Parsa_Model(p));
 @|( model,
     class = Categorical(K),
     class[i=1:n] == class[i],
-    Z = Categorical([2,2,2]),
+    Z = Categorical([1=>2,2=>2,3=>2]),
     cov = Categorical(2),
     iris_m[i=1:n] ~ F(:mu => [class[i], Z[class[i]][i]],
                       :a => cov[class[i], Z[class[i]][i]],

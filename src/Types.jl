@@ -17,6 +17,7 @@ Base.@kwdef mutable struct CategoricalZ
 	K::Int
 	LV = Dict{Any, LatentVaraible}()
 	Pi::Vector{Real} = ones(K) ./ K
+    name::String
 end
 
 
@@ -24,6 +25,7 @@ Base.@kwdef mutable struct LatentVaraible
 	value_::Union{Int, Unknown}
 	Z::CategoricalZ
 	dependent_X = Dict{Any, Observation}()
+    index::Any
 end
 
 Base.@kwdef mutable struct CategoricalZVec
@@ -54,6 +56,14 @@ function get_possible_indexes(V::Vector{Any}, i::Int)
 	end
 
 	return ve
+end
+
+function Base.display(LV::LatentVaraible)
+    println(LV.Z.name * "[" * string(LV.index) * "]")
+end
+
+function Base.display(Z::CategoricalZ)
+    println(Z.name)
 end
 
 function Base.getindex(PG::CategoricalZVec, indx...)
@@ -113,7 +123,7 @@ function Base.getindex(PG::CategoricalZ, indx...)
 		if haskey(PG.LV, v)
 			LV[i] = PG.LV[v]
 		else
-			PG.LV[v] = LatentVaraible(PG)
+			PG.LV[v] = LatentVaraible(PG, v)
 			LV[i] = PG.LV[v]
 		end
 	end
@@ -130,7 +140,7 @@ function Base.getindex(PG::CategoricalZset, indx...)
 	extra_LV = Vector{LatentVaraible}()
 	for (i, ix) in enumerate(indx)
 		if typeof(ix) == Int
-			V[i] = indx
+			V[i] = indx[1]
 		else
 			ranges = Vector{}()
 			for ii in ix.outside
@@ -151,11 +161,12 @@ function Base.getindex(PG::CategoricalZset, indx...)
 	all_indx = get_possible_indexes(V, 1)
 	LV = Vector{CategoricalZ}(undef, length(all_indx))
 	for (i, v) in enumerate(all_indx)
-		if length(v) == 1
-			LV[i] = PG.set[v[1]]
-		else
-			LV[i] = PG.set[v]
-		end
+		# if length(v) == 1
+		# 	LV[i] = PG.set[v[1]]
+		# else
+		# 	LV[i] = PG.set[v]
+		# end
+        LV[i] = PG.set[v]
 	end
 
 	inside = extra_LV
@@ -169,16 +180,16 @@ function Base.setindex!(Z::CategoricalZ, LV::LatentVaraible, i::Int64...)
 	Z.LV[collect(i)] = LV
 end
 
-LatentVaraible(Z::CategoricalZ) = LatentVaraible(value_ = Unknown(), Z = Z)
-LatentVaraible(Z::CategoricalZ, value::Int) = LatentVaraible(value_ = value, Z = Z)
+LatentVaraible(Z::CategoricalZ, index) = LatentVaraible(value_ = Unknown(), Z = Z, index=index)
+LatentVaraible(Z::CategoricalZ, value::Int, index) = LatentVaraible(value_ = value, Z = Z,index=index)
 
-function sampleZ(Z::CategoricalZ; value = nothing)
-	if isnothing(value)
-		LatentVaraible(Z)
-	else
-		LatentVaraible(Z, value)
-	end
-end
+# function sampleZ(Z::CategoricalZ; value = nothing)
+# 	if isnothing(value)
+# 		LatentVaraible(Z)
+# 	else
+# 		LatentVaraible(Z, value)
+# 	end
+# end
 
 Base.@kwdef mutable struct ParameterValue
 	value::Any
@@ -248,6 +259,24 @@ function index_to_parameters(p, parameters)
 			V = [typeof(v.outside[1]) == LatentVaraible ? lv_v(v.outside[1]) : v for v in V]
 		end
 		new[key] = parameters[key][V...]
+	end
+	return new
+end
+
+function index_to_parameters_index(p)
+	new = Dict()
+	for (key, indx) in p
+		V = indx
+		if !isa(indx, AbstractVector) && !isa(indx, Int)
+
+			V = indx.outside
+			V = typeof(V[1]) == LatentVaraible ? lv_v(V[1]) : V[1]
+
+		elseif !isa(indx, Int)
+			V = indx
+			V = [typeof(v.outside[1]) == LatentVaraible ? lv_v(v.outside[1]) : v for v in V]
+		end
+		new[key] = V
 	end
 	return new
 end

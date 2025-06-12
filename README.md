@@ -547,22 +547,22 @@ Suppose we know that the first two observations are from different components or
 
 ```julia
 blocks = [1;1:(n-1)]
-I = [1;2; repeat([1], 148)]
+II = [1;2; repeat([1], 148)]
 n_blocks = length(unique(blocks))
 perms = reduce(vcat, [[[i,j] for i in 1:K if i != j] for j in 1:K])
 model = Parsa_Model(F = Normal_Model(p));
 @|( model,
-    Z = Categorical(K),
     B = Categorical(n_blocks),
     B[i=1:n] == blocks[i],
-    P = Categorical(Int.([repeat([2], length(perms))][1])),
+    P = Categorical([i => 3 for i in 1:6]),
     P[i=1:6][j=1:2] == perms[i][j],
     I = Categorical(2),
     I[i=1:n] == II[i],
     PP = Categorical(6),
-    iris_m[i=1:n] ~ F(:mu => Z[P[PP[B[i]]][I[i]], i], :cov => Z[P[PP[B[i]]][I[i]], i])
+    iris_m[i=1:n] ~ F(:mu => P[PP[B[i]]][I[i]], :cov => P[PP[B[i]]][I[i]])
     )
 EM!(model; n_init=1, n_wild=1)
+@| model :mu :cov
 perms[(@| model f(PP[i=1]))().max[1]]
 ```
 - The final line outputs the predicted species of the first and second observation in the iris dataset. Notice that they are not the same as was enforced.

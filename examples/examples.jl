@@ -19,6 +19,7 @@ model = Parsa_Model(F=Normal_Model(p));
 @| model Z = Categorical(3) X[i=1:n] ~ F(:mu => Z[i], :cov => Z[i])
 EM!(model; n_init=1, n_wild=1)
 
+model.Z[1].inside[1]
 
 new_x = Dict(n+1 => Observation(zeros(p)));
 ff = @| model  new_x[i=(n+1)] ~ F(:mu => Z[i], :cov => Z[i]) f(Z[i=(n+1)]);
@@ -148,7 +149,9 @@ ff = @| model  new_x[i=(n+1)] ~ F(:mu => Z[i], :cov => Z[i]) f(Z[i=(n+1)]);
 id_ = [(new_x[n+1].X = x.X; ff().max[1]) for x in iris_m];
 randindex(id_, class)
 
-
+blocks = Int.(repeat(1:(n/2),inner=2))
+n_blocks = length(unique(blocks))
+true_class_block = [class[i] for i in 1:n if i % 2 == 0]
 model = Parsa_Model(F = Normal_Model(p));
 @|( model,
     Z = Categorical(K),
@@ -166,24 +169,27 @@ ff = @| model  new_x[i=(n+1)] ~ F(:mu => Z[B[i]], :cov => Z[B[i]]) f(Z[i=(n+1)])
 id_ = [(new_x[n+1].X = x.X; ff().max[1]) for x in iris_m];
 randindex(id_, class)
 
+
 blocks = [1;1:(n-1)]
 II = [1;2; repeat([1], 148)]
 n_blocks = length(unique(blocks))
 perms = reduce(vcat, [[[i,j] for i in 1:K if i != j] for j in 1:K])
 model = Parsa_Model(F = Normal_Model(p));
 @|( model,
-    Z = Categorical(K),
     B = Categorical(n_blocks),
     B[i=1:n] == blocks[i],
-    P = Categorical([i => 2 for i in 1:6]),
+    P = Categorical([i => 3 for i in 1:6]),
     P[i=1:6][j=1:2] == perms[i][j],
     I = Categorical(2),
     I[i=1:n] == II[i],
     PP = Categorical(6),
-    iris_m[i=1:n] ~ F(:mu => Z[P[PP[B[i]]][I[i]], i], :cov => Z[P[PP[B[i]]][I[i]], i])
+    iris_m[i=1:n] ~ F(:mu => P[PP[B[i]]][I[i]], :cov => P[PP[B[i]]][I[i]])
     )
 EM!(model; n_init=1, n_wild=1)
+@| model :mu :cov
 perms[(@| model f(PP[i=1]))().max[1]]
+
+
 
 K = 3
 model = Parsa_Model(F = Normal_Model(p));
@@ -216,18 +222,6 @@ mean(id_ .== class)
 
 
 K = 3
-model = Parsa_Model(Normal_Model(p));
-@Categorical(model, class, K);
-@Known(model, class[i] = class[i], i = 1:n)
-@Categorical(model, Z, [2,2,2]);
-@Observation(model, X[i] = iris_m[i] = (:mu => [class[i], Z[class[i]][i]], :cov => [class[i], Z[class[i]][i]]), i = 1:n)
-EM!(model; n_init=10, n_wild=10)
-@Observation(model, X_new[i] = iris_m[i] = (:mu => [class[i, "T"], Z[class[i, "T"]][i, "T"]], :cov => [class[i, "T"], Z[class[i, "T"]][i, "T"]]), i = 1:n)
-id = @posterior_probability(model, [class[i, "T"]], i = 1:n)();
-id_ = [id[i].max for i in 1:n]
-mean(id_ .== class)
-@Parameter(model, :cov)
-
 model = Parsa_Model(F = Normal_Model(p));
 @|( model,
     class = Categorical(K),
@@ -279,8 +273,7 @@ new_obs = Dict([(i+n) => Observation(x.X) for (i,x) in enumerate(iris_m)])
 id_ = [(@| model f(class[i=j]))().max[1] for j in (1:n).+n];
 mean(id_ .== class)
 
-
-
+countmap([lv_v(v) for (cc, v) in model.class.LV])
 
 K = 3
 model = Parsa_Model(F = Normal_Parsa_Model(p));

@@ -153,6 +153,7 @@ macro Categorical(model, name, K)
     mod = esc(model)
     K_val = esc(K)
     na = QuoteNode(name)
+    str = string(name)
     quote
         if length($K_val) == 1
             if !(typeof($mod) == Module)
@@ -165,7 +166,7 @@ macro Categorical(model, name, K)
                 error("Third parameter must be an integer.")
             end
             Base.eval($mod, quote
-                $$na = $$CategoricalZ(K = $$K_val)
+                $$na = $$CategoricalZ(K = $$K_val, name=$$str)
             end)
         else
             @Categorical_Set($mod, $name, $K_val)
@@ -176,6 +177,7 @@ end
 macro Categorical_Set(model, name, K)
     mod = esc(model)
     na = QuoteNode(name)
+    name = string(name)
     K_val = esc(K)
     quote
         # if !(typeof($mod) == Module)
@@ -199,7 +201,10 @@ macro Categorical_Set(model, name, K)
         Base.eval($mod, quote
         $$na = $$CategoricalZset()
         for (ind, k) in $$K_val
-            $$na.set[ind] = $$CategoricalZ(K = k)
+            if !isa(ind, AbstractVector)
+                ind = [ind]
+            end
+            $$na.set[ind] = $$CategoricalZ(K = k, name=$$name*"["*string(ind)*"]")
         end
     end)
     end
@@ -353,7 +358,11 @@ macro Known(model, eq, index_set)
                 $$indx = j
                 z = $$Z
                 va = $$loaded_vals[$$vals_indx]
-                z[$$indx_2...] = $$LatentVaraible(z, va)
+                ind = $$indx_2
+                if !isa(ind, AbstractVector)
+                    ind = [ind]
+                end
+                z[ind...] = $$LatentVaraible(z, va, ind)
             end
         end)
     end
@@ -409,10 +418,22 @@ macro Known(model, eq, index_set, index_set2)
                 $$indx = j_within_it
                 for j_within_it2 in $$set2
                     $$indx2 = j_within_it2
+                    ind = j_within_it
+                    if !isa(ind, AbstractVector)
+                        ind = [ind]
+                    end
+                    ind2 = j_within_it2
+                    if !isa(ind2, AbstractVector)
+                        ind2 = [ind2]
+                    end
                     z = $$Z
                     va = $$loaded_vals[$$vals_indx1][$$vals_indx2]
-                    zz = z[$$indx...].outside[1]
-                    zz[$$indx2_2...] = $$LatentVaraible(zz, va)
+                    zz = z[ind...].outside[1]
+                    zz[ind2...] = $$LatentVaraible(zz, va, ind2)
+                    # z = $$Z
+                    # va = $$loaded_vals[$$vals_indx1][$$vals_indx2]
+                    # zz = z[$$indx...].outside[1]
+                    # zz[$$indx2_2...] = $$LatentVaraible(zz, va)
                 end
             end
         end)

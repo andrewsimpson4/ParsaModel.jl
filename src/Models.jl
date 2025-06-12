@@ -60,7 +60,7 @@ end
 
 function normal_pdf(X, params)
     p = length(X)
-    (2pi)^(-p/2) * params[:cov].value.value.det^(-1/2) * exp(-1/2 * (X - params[:mu].value.value)' * params[:cov].value.value.inv * (X - params[:mu].value.value))
+    (2pi)^(-p/2) * params[:cov].value.value.det^(-1/2) * exp((-1/2 * (X - params[:mu].value.value)' * params[:cov].value.value.inv * (X - params[:mu].value.value)))
 end
 
 function normal_pdf_log(X, params)
@@ -69,7 +69,8 @@ function normal_pdf_log(X, params)
 end
 
 function normal_cov_post(L)
-    inv(L.inv)
+    # inv(L.inv)
+    L
 end
 
 normal_input(x, p) = length(x) == p && all(isa.(x, Real))

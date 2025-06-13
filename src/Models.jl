@@ -1,4 +1,4 @@
-using Ipopt, StatsBase, Distributions
+using Ipopt, StatsBase
 using JuMP: Model, set_silent, @variable, @constraint, @objective, optimize!, value, set_optimizer_attribute, @operator
 
 ##### Normal Model #######
@@ -76,7 +76,7 @@ end
 
 normal_input(x, p) = length(x) == p && all(isa.(x, Real))
 
-Normal(p) = ParsaDensity(normal_pdf, normal_pdf_log, (x) -> normal_input(x, p),
+MtvNormal(p) = ParsaDensity(normal_pdf, normal_pdf_log, (x) -> normal_input(x, p),
                                 :mu => Parameter(zeros(p), normal_mean_update),
                                 :cov => Parameter((inv = diagm(ones(p)), det = 1), p * (p + 1) / 2, normal_covariance_update))
 

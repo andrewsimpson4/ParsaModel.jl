@@ -1,6 +1,6 @@
 using ParsaModel
 
-using CSV, DataFrames, Clustering, Distances, LinearAlgebra, StatsBase, ProgressBars
+using CSV, DataFrames, Clustering, Distances, LinearAlgebra, StatsBase, ProgressBars, Distributions
 
 include("../src/Types.jl")
 include("../src/Models.jl")
@@ -15,7 +15,7 @@ mu = [ones(p), ones(p) .+ 6, ones(p) .- 6];
 cov = [diagm(ones(p)), diagm(ones(p)), diagm(ones(p)) .+ 1];
 X = [Observation(vec(rand(MvNormal(mu[true_id[i]], cov[true_id[i]]), 1))) for i in 1:n];
 
-model = ParsaModel(F=Normal(p));
+model = ParsaBase(F=MtvNormal(p));
 @| model Z = Categorical(3) X[i=1:n] ~ F(:mu => Z[i], :cov => Z[i])
 EM!(model; n_init=1, n_wild=1)
 
@@ -36,7 +36,7 @@ mapping = Dict(val => i for (i, val) in enumerate(unique(class_string)));
 class = [mapping[val] for val in class_string];
 
 K = 3
-model = ParsaModel(F=Normal(p));
+model = ParsaBase(F=MtvNormal(p));
 @| model Z = Categorical(K) iris_m[i=1:n] ~ F(:mu => Z[i], :cov => Z[i])
 EM!(model; n_init=10, n_wild=10)
 @| model Z :mu :cov
@@ -55,7 +55,7 @@ iris_hclust = hclust(pairwise(Euclidean(), iris_matrix'), :ward)
 init_id = cutree(iris_hclust, k=3)
 
 K = 3
-model = ParsaModel(F=Normal(p));
+model = ParsaBase(F=MtvNormal(p));
 @|(model,
     Z = Categorical(K),
     Z[i=1:n] = init_id[i],
@@ -72,7 +72,7 @@ randindex(id_, class)
 
 
 K = 3
-model = ParsaModel(F = ParsimoniousNormal(p));
+model = ParsaBase(F = ParsimoniousNormal(p));
 @|( model,
     Z = Categorical(K),
     iris_m[i=1:n] ~ F(:mu => Z[i], :a => Z[i], :L => Z[i], :V => 1))
@@ -89,7 +89,7 @@ randindex(id_, class)
 
 
 K = 3
-model = ParsaModel(F = ParsimoniousNormal(p));
+model = ParsaBase(F = ParsimoniousNormal(p));
 const_V = [diagm(ones(4))];
 @|( model,
     Z = Categorical(K),
@@ -110,7 +110,7 @@ randindex(id_, class)
 
 
 K = 3
-model = ParsaModel(F = ParsimoniousNormal(p));
+model = ParsaBase(F = ParsimoniousNormal(p));
 const_V = [diagm(ones(4))];
 @|( model,
     Z = Categorical(K),
@@ -133,7 +133,7 @@ randindex(id_, class)
 known_samples = sample(1:n, 30; replace=false)
 known_map = Dict([s => class[s] for s in known_samples])
 K = 3
-model = ParsaModel(F = Normal(p));
+model = ParsaBase(F = MtvNormal(p));
 @|( model,
     Z = Categorical(K),
     Z[i=known_samples] == known_map[i],
@@ -152,7 +152,7 @@ randindex(id_, class)
 blocks = Int.(repeat(1:(n/2),inner=2))
 n_blocks = length(unique(blocks))
 true_class_block = [class[i] for i in 1:n if i % 2 == 0]
-model = ParsaModel(F = Normal(p));
+model = ParsaBase(F = MtvNormal(p));
 @|( model,
     Z = Categorical(K),
     B = Categorical(n_blocks),
@@ -174,7 +174,7 @@ blocks = [1;1:(n-1)]
 II = [1;2; repeat([1], 148)]
 n_blocks = length(unique(blocks))
 perms = reduce(vcat, [[[i,j] for i in 1:K if i != j] for j in 1:K])
-model = ParsaModel(F = Normal(p));
+model = ParsaBase(F = MtvNormal(p));
 @|( model,
     B = Categorical(n_blocks),
     B[i=1:n] == blocks[i],
@@ -192,7 +192,7 @@ perms[(@| model f(PP[i=1]))().max[1]]
 
 
 K = 3
-model = ParsaModel(F = Normal(p));
+model = ParsaBase(F = MtvNormal(p));
 @|( model,
     class = Categorical(K),
     class[i=1:n] == class[i],
@@ -206,7 +206,7 @@ mean(id_ .== class)
 
 
 K = 3
-model = ParsaModel(F = ParsimoniousNormal(p));
+model = ParsaBase(F = ParsimoniousNormal(p));
 const_V = [diagm(ones(4))];
 @|( model,
     class = Categorical(K),
@@ -222,7 +222,7 @@ mean(id_ .== class)
 
 
 K = 3
-model = ParsaModel(F = Normal(p));
+model = ParsaBase(F = MtvNormal(p));
 @|( model,
     class = Categorical(K),
     class[i=1:n] == class[i],
@@ -238,7 +238,7 @@ mean(id_ .== class)
 
 
 K = 3
-model = ParsaModel(F = ParsimoniousNormal(p));
+model = ParsaBase(F = ParsimoniousNormal(p));
 const_V = [diagm(ones(4))];
 @|( model,
     class = Categorical(K),
@@ -255,7 +255,7 @@ mean(id_ .== class)
 
 
 K = 3
-model = ParsaModel(F = Normal(p));
+model = ParsaBase(F = MtvNormal(p));
 @|( model,
     class = Categorical(K),
     class[i=1:n] == class[i],
@@ -276,7 +276,7 @@ mean(id_ .== class)
 countmap([lv_v(v) for (cc, v) in model.class.LV])
 
 K = 3
-model = ParsaModel(F = ParsimoniousNormal(p));
+model = ParsaBase(F = ParsimoniousNormal(p));
 @|( model,
     class = Categorical(K),
     class[i=1:n] == class[i],

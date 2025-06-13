@@ -26,11 +26,11 @@ function __init__()
 
 end
 
-export ParsaModel,
+export ParsaBase,
       Observation,
       @|,
       EM!,
-      Normal,
+      MtvNormal,
       ParsimoniousNormal,
       Parameter,
       ParsaDensity,

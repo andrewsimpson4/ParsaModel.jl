@@ -26,9 +26,7 @@ For a quick intuition on what this package does, ParsaBase is to model-based clu
 - [Installation](#installation)
 - [Quick Start](#quick-start)
 - [Usage Tutorial](#usage-examples)
-<!-- - [Package Reference](#api-reference) -->
 - [License](#license)
-- [Acknowledgements](#acknowledgements)
 
 <div id='features'/>
 
@@ -797,17 +795,3 @@ Returns the base for a `p`-dimensional Gaussian distribution with the parsimonio
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-<div id='acknowledgements'/>
-
-## 👏 Acknowledgements
-
-- [JuMP](https://jump.dev/JuMP.jl/stable/) - Much of the syntax was inspired from this domain-specific modeling language inside Julia for numerical optimization.
-
-- [Mclust](https://cran.r-project.org/web/packages/mclust/index.html) - A clustering library in R which greatly inspired this package.
-
-<!-- - [Library Name](https://github.com/user/repo) - For inspiration and some code patterns
-- [Another Library](https://github.com/user/repo) - For the excellent algorithms
-- All our contributors and users -->
-
----

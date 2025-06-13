@@ -10,7 +10,7 @@ function ParsaModel(;F::Parsa_Base)
     return space
 end
 
-# ParsaModel(Parsa_Base) = ParsaModel(;F = ParsaModel)
+ParsaModel(Parsa_Base) = ParsaModel(;F = ParsaModel)
 
 macro |(model, expr...)
     result_expr = quote end

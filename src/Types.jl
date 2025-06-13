@@ -328,3 +328,11 @@ end
 function x_v(X::Observation)
 	X.X
 end
+
+function val(p::Parameter)
+	p.value.value
+end
+
+function val(X::Observation)
+	X.X
+end

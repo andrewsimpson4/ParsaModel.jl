@@ -26,7 +26,7 @@ For a quick intuition on what this package does, ParsaModel is to model-based cl
 - [Installation](#installation)
 - [Quick Start](#quick-start)
 - [Usage Tutorial](#usage-examples)
-- [Package Reference](#api-reference)
+<!-- - [Package Reference](#api-reference) -->
 - [License](#license)
 - [Acknowledgements](#acknowledgements)
 
@@ -50,13 +50,12 @@ For a quick intuition on what this package does, ParsaModel is to model-based cl
 ] add https://<token>@github.com/andrewsimpson4/ParsaModel.jl.git
 ``` -->
 
-If you are reading this, the repository is currently private. To install the package, you must generate a personal token and paste it into the `<token>` spot below. To get a token in github, `settings -> Developer settings -> Personal access tokens -> Tokens (classic)` and click `Generate new token`.
-
+If you are reading this, the repository is currently private. Use the following code to install.
 #### Julia
 
 ```julia
 using Pkg
-Pkg.add(url="https://<token>@github.com/andrewsimpson4/ParsaModel.jl.git")
+Pkg.add(url="https://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@github.com/andrewsimpson4/ParsaModel.jl.git")
 ```
 
 #### R
@@ -101,20 +100,27 @@ For the examples listed below, $16$ different categorical parsimonious models ar
 For this example, the packages `CSV`, `DataFrames`, `Clustering`, `Distances`, `LinearAlgebra`, and `StatsBase` are required.
 
 ### Setup the iris dataset
+
+Download the [iris](./examples/datasets/Iris.csv) dataset.
+
 First the iris dataset is processed into the correct format for the package.
 ```julia
 using CSV, DataFrames, Clustering, Distances, LinearAlgebra, StatsBase
 
-iris = CSV.read("./examples/datasets/Iris.csv", DataFrame)
+iris = CSV.read("path/to/iris/dataset", DataFrame)
 iris_matrix = Matrix(iris[:, 2:5])
 iris_m = Observation.(eachrow(iris_matrix));
-n=size(iris_m)[1];
-p=length(iris_m[1]);
+n=length(iris_m);
+p=length(iris[1, 2:5]);
 class_string = vec(iris[:,6]);
 mapping = Dict(val => i for (i, val) in enumerate(unique(class_string)));
 class = [mapping[val] for val in class_string];
 ```
 Here we have a vector of vectors `iris_m` where each element is one of the observations from the dataset. Next is `class` which is a vector containing the species of the respective elements in `iris_m`. We also define `n`, the number of observations, as well as `p` which is the dimension of each observation. Note that each observation is of the type `Observation`.
+
+### ParsaModel Macro
+
+Since ParsaModel is a domain-specific modeling language inside Julia, it used a macro to allow a customized notation. The general macro notation for ParsaModel is `@| <model> <expressions>`. A large set of examples are given for teh different `<expressions>` that can be used.
 
 ### Gaussian Mixture Model
 
@@ -601,11 +607,35 @@ ff = @| model  new_x[i=(n+1)] ~ F(:mu => Z[i], :cov => Z[i]) f(new_x[i=(n+1)]);
 likelihoods = [ (new_x[n+1].X = x.X; ff()) for x in iris_m]
 ```
 
+### Adding a custom base density
+
+Following the [paper](apple.com), one may wish to add a different base distribution $F$ other than the default normal distribution. To show how this this can be done, an example is given using a normal distribution.
+
+We first define the likelihood and log-likelihood functions. These are function parameters take `(::Observation, ::Dict)`. For the normal distribution we have
+```julia
+function normal_pdf(X, params)
+    p = length(val(X))
+    y = (val(X) - val(params[:mu]))
+    (2pi)^(-p/2) * val(params[:cov]).det^(-1/2) * exp((-1/2 * y' * val(params[:cov]).inv * y))
+end
+normal_pdf_log(X, params) -> ()
+```
+
+Note the log-likelihood is empty as it is not needed for the normal distribution. Next we define a function that takes in an observation and checks if it is of the required type for the base distribution. For the normal distribution this a vector of length $p$ where $p$ is the dimensions of the normal distribution.
+
+```julia
+normal_input(x, p) = length(x) == p && all(isa.(x, Real))
+```
+
+Next we need to define the functions for updating the estimates of each parameters. This is done
+
+Nest we need to define the parameters of the normal distribution this is done using the `Parsa_Parameter` function/type which takes in an initial value for the paramter
+
 ---
 
-<div id='api-reference'/>
+<!-- <div id='api-reference'/>
 
-## 📖 Package Reference
+## 📖 Package Reference -->
 
 <!-- ### `Parsa_Model(base)` -->
 

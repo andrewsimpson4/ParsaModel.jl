@@ -169,7 +169,7 @@ ff = @| model  new_x[i=(n+1)] ~ F(:mu => Z[B[i]], :cov => Z[B[i]]) f(Z[i=(n+1)])
 id_ = [(new_x[n+1].X = x.X; ff().max[1]) for x in iris_m];
 randindex(id_, class)
 
-
+K=3
 blocks = [1;1:(n-1)]
 II = [1;2; repeat([1], 148)]
 n_blocks = length(unique(blocks))

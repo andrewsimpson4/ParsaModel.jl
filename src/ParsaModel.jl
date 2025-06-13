@@ -32,22 +32,8 @@ export Parsa_Model,
       @|,
       EM!,
       Normal_Model,
-      Double_Normal_Model,
       Normal_Parsa_Model,
       Parsa_Parameter,
-      Parsa_density
-      #  @Categorical,
-      #  @Observation,
-      #  @Known,
-      #  @Initialize,
-      #  @Constant,
-      #  @Parameter,
-      #  EM!,
-      #  @posterior_probability,
-      #  @BIC,
-      #  @likelihood,
-      #  @ObservationUpdater,
+      Parsa_density,
+      val
 end
-
-
-

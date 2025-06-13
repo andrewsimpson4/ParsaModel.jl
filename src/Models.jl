@@ -38,10 +38,10 @@ function normal_mean_update(value, index_package, log_pdf)
     mu_new = zeros(length(value))
     cov = zeros(length(value), length(value))
     for (_, pr, params) in index_package
-        cov += pr * p_v(params[:cov]).inv
+        cov += pr * val(params[:cov]).inv
     end
     for (x, pr, params) in index_package
-        mu_new += pr * p_v(params[:cov]).inv * x_v(x)
+        mu_new += pr * val(params[:cov]).inv * val(x)
     end
     mu_new = cov \ mu_new
     return mu_new
@@ -50,7 +50,7 @@ end
 function normal_covariance_update(value, index_package, log_pdf)
     cov_new = zeros(size(value.inv))
     for (x, pr, params) in index_package
-        y = x_v(x) - p_v(params[:mu])
+        y = val(x) - val(params[:mu])
         cov_new += pr * (y * y')
     end
     taus = [d[2] for d in index_package]
@@ -60,7 +60,8 @@ end
 
 function normal_pdf(X, params)
     p = length(X)
-    (2pi)^(-p/2) * params[:cov].value.value.det^(-1/2) * exp((-1/2 * (X - params[:mu].value.value)' * params[:cov].value.value.inv * (X - params[:mu].value.value)))
+    y = (X - val(params[:mu]))
+    (2pi)^(-p/2) * val(params[:cov]).det^(-1/2) * exp((-1/2 * y' * val(params[:cov]).inv * y))
 end
 
 function normal_pdf_log(X, params)
@@ -77,7 +78,7 @@ normal_input(x, p) = length(x) == p && all(isa.(x, Real))
 
 Normal_Model(p) = Parsa_density(normal_pdf, normal_pdf_log, (x) -> normal_input(x, p),
                                 :mu => Parsa_Parameter(zeros(p), normal_mean_update),
-                                :cov => Parsa_Parameter((inv = diagm(ones(p)), det = 1), p * (p + 1) / 2, normal_covariance_update, normal_cov_post))
+                                :cov => Parsa_Parameter((inv = diagm(ones(p)), det = 1), p * (p + 1) / 2, normal_covariance_update))
 
 
 

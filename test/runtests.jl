@@ -13,7 +13,7 @@ using Test, LinearAlgebra, Distributions
 	true_id = rand(1:2, n_classes);
 	X = Observation.([vec(rand(MvNormal(mu[class_id[i]], cov[true_id[class_id[i]]]), 1)) for i in 1:n]);
 
-	model = Parsa_Model(F = Normal_Model(p));
+	model = Parsa_Model(F = MtvNormal(p));
 	@|(model,
 		class = Categorical(n_classes),
 		class[i=1:n] == class_id[i],
@@ -22,7 +22,7 @@ using Test, LinearAlgebra, Distributions
 	EM!(model; n_init = 10, n_wild = 10)
 	@| model Z :mu :cov
 
-	model = Parsa_Model(F = Normal_Parsa_Model(p));
+	model = Parsa_Model(F = ParsimoniousNormal(p));
 	@|(model,
 		class = Categorical(n_classes),
 		class[i=1:n] == class_id[i],

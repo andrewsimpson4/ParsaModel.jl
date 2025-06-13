@@ -216,12 +216,20 @@ Base.@kwdef mutable struct Parameter
 	post_processing = nothing
 end
 
-Parsa_Parameter(initial_value, update_function::Function) = Parameter(value = ParameterValue(value = initial_value), update = update_function)
-Parsa_Parameter(initial_value, number_of_parameters, update_function::Function) = Parameter(value = ParameterValue(value = initial_value, n_parameters = number_of_parameters), update = update_function)
+# ParsaParameter(initial_value, update_function::Function) = Parameter(value = ParameterValue(value = initial_value), update = update_function)
+# ParsaParameter(initial_value, number_of_parameters, update_function::Function) = Parameter(value = ParameterValue(value = initial_value, n_parameters = number_of_parameters), update = update_function)
 
-Parsa_Parameter(initial_value, update_function::Function, post_processing::Function) = Parameter(value = ParameterValue(value = initial_value), update = update_function, post_processing = post_processing)
-Parsa_Parameter(initial_value, number_of_parameters, update_function::Function, post_processing::Function) =
+# ParsaParameter(initial_value, update_function::Function, post_processing::Function) = Parameter(value = ParameterValue(value = initial_value), update = update_function, post_processing = post_processing)
+# ParsaParameter(initial_value, number_of_parameters, update_function::Function, post_processing::Function) =
+# 	Parameter(value = ParameterValue(value = initial_value, n_parameters = number_of_parameters), update = update_function, post_processing = post_processing)
+
+Parameter(initial_value, update_function::Function) = Parameter(value = ParameterValue(value = initial_value), update = update_function)
+Parameter(initial_value, number_of_parameters, update_function::Function) = Parameter(value = ParameterValue(value = initial_value, n_parameters = number_of_parameters), update = update_function)
+
+Parameter(initial_value, update_function::Function, post_processing::Function) = Parameter(value = ParameterValue(value = initial_value), update = update_function, post_processing = post_processing)
+Parameter(initial_value, number_of_parameters, update_function::Function, post_processing::Function) =
 	Parameter(value = ParameterValue(value = initial_value, n_parameters = number_of_parameters), update = update_function, post_processing = post_processing)
+
 
 
 Base.@kwdef mutable struct ParameterGenerator
@@ -303,7 +311,7 @@ Base.@kwdef mutable struct Parsa_Base
 end
 
 
-Parsa_density(pdf, log_pdf, is_valid_input, params...) = Parsa_Base(pdf = pdf, log_pdf = log_pdf, is_valid_input = is_valid_input,
+ParsaDensity(pdf, log_pdf, is_valid_input, params...) = Parsa_Base(pdf = pdf, log_pdf = log_pdf, is_valid_input = is_valid_input,
 	parameter_order = [k for (k, _) in collect(params)],
 	parameters = Dict([key => ParameterGenerator(parameter_base = vv) for (key, vv) in Dict(params...)]))
 
@@ -336,3 +344,6 @@ end
 function val(X::Observation)
 	X.X
 end
+
+
+SummationPackage = Base.Iterators.Zip{Tuple{Vector{Observation}, Vector{Real}, Vector{Dict{Any, Any}}}}

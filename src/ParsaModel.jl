@@ -27,13 +27,13 @@ function __init__()
 
 end
 
-export Parsa_Model,
+export ParsaModel,
       Observation,
       @|,
       EM!,
-      Normal_Model,
-      Normal_Parsa_Model,
-      Parsa_Parameter,
-      Parsa_density,
+      Normal,
+      ParsimoniousNormal,
+      ParsaParameter,
+      ParsaDensity,
       val
 end

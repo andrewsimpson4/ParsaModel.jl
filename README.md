@@ -82,7 +82,7 @@ This is a minimal example of how to define and fit a $p$-dimensional Gaussian mi
 
 #### Julia
 ```julia
-model = Parsa_Model(F=Normal_Model(p));
+model = ParsaModel(F=Normal(p));
 @|( model,
     Z = Categorical(K),
     X[i=1:n] ~ F(:mu => Z[i], :cov => Z[i]))
@@ -128,16 +128,16 @@ The first example is how to implement a Gaussian mixture model using ParsaModel.
 
 ```julia
 K = 3
-model = Parsa_Model(F=Normal_Model(p));
+model = ParsaModel(F=Normal(p));
 @| model Z = Categorical(K) iris_m[i=1:n] ~ F(:mu => Z[i], :cov => Z[i])
 EM!(model; n_init=10, n_wild=10)
 ```
 The following is a description of what each function above is doing.
 - The macro `@|` starts the notation and is followed by first the model we are building, in this case `model`, and then is followed by commands to build the model.
-- `Normal_Model(p)` defines the base distributional assumption we are making for the data. In this case, a $p$-dimensional multivariate normal distribution.
-- `Parsa_Model` returns an isolated "space" where we will build the rest of the model.
+- `Normal(p)` defines the base distributional assumption we are making for the data. In this case, a $p$-dimensional multivariate normal distribution.
+- `ParsaModel` returns an isolated "space" where we will build the rest of the model.
 - `Z = Categorical(K)` creates a new categorical distribution named `Z` with `K` categories inside of our space `model`.
-- `iris_m[i=1:n] ~ F(:mu => Z[i], :cov => Z[i])` loops through `i` from $1$ to `n` and assigns `iris_m[i]` inside of `model` with the mapping `(:mu => Z[i], :cov => Z[i])`. The parameters `:mu` and `:cov` are exposed by `Normal_Model` and different base models will have different associated parameters. `Z[i]` represents a random variable sampled from `Z` which can take on values from $1$ to `K`.
+- `iris_m[i=1:n] ~ F(:mu => Z[i], :cov => Z[i])` loops through `i` from $1$ to `n` and assigns `iris_m[i]` inside of `model` with the mapping `(:mu => Z[i], :cov => Z[i])`. The parameters `:mu` and `:cov` are exposed by `Normal` and different base models will have different associated parameters. `Z[i]` represents a random variable sampled from `Z` which can take on values from $1$ to `K`.
 - `EM!(model; n_init=100, n_wild=30)` simply fits the model! `n_init` is the number of initializations to run and `n_wild` is the number of steps per initializations run.
 
 ⚠️ This package currently uses random initialization by default. This can have mixed results for finding the maximum likelihood estimates but allows for package to fit ANY model which can be defined using the package. Just proceed with caution and watch the likelihood plot output for incite.
@@ -150,7 +150,7 @@ Note: A alternate mathematical notation for the model that may better align with
 
 The purple lines here are each of the initialization runs and the final green line is taking the best initialization and running the algorithm until convergence is reached.
 
-Now that the model has been fit, we can look at the parameter estimates of the model. Since we used `Normal_Model` as the base, we have parameters for `:mu` and `:cov`. This can be viewed with the following.
+Now that the model has been fit, we can look at the parameter estimates of the model. Since we used `Normal` as the base, we have parameters for `:mu` and `:cov`. This can be viewed with the following.
 
 ```julia
 @| model :mu :cov Z
@@ -188,7 +188,7 @@ init_id = cutree(iris_hclust, k=3)
 We can now build and run the model which is the same as above with a few small changes.
 
 ```julia
-model = Parsa_Model(F=Normal_Model(p));
+model = ParsaModel(F=Normal(p));
 @|(model,
     Z = Categorical(K),
     Z[i=1:n] = init_id[i],
@@ -211,13 +211,13 @@ Notice here there are no purple lines since we did pre-initialize the algorithm.
 
 ### Parsimonious Gaussian Mixture Models
 
-A common method in finite mixture models is to consider the parsimonious parameterization of the multivariate normal distribution. In particular we are considering the parameterization $N(\mu, a V\Lambda V')$. This is implemented in `R` using the very well known package `mclust`. We can do a similar thing in this package but because of the generalization of the method, we have the ability to implement far more models than existing packages. In the previous parameterization using the `Normal_Model` function we had access to two parameters. With this parameterization we have four.
+A common method in finite mixture models is to consider the parsimonious parameterization of the multivariate normal distribution. In particular we are considering the parameterization $N(\mu, a V\Lambda V')$. This is implemented in `R` using the very well known package `mclust`. We can do a similar thing in this package but because of the generalization of the method, we have the ability to implement far more models than existing packages. In the previous parameterization using the `Normal` function we had access to two parameters. With this parameterization we have four.
 
 #### Shared eigenvectors between components
 Suppose we wish to fit a finite mixture model like before except where every component has the same eigenvector structure. This is implemented with the following.
 ```julia
 K = 3
-model = Parsa_Model(F=Normal_Parsa_Model(p));
+model = ParsaModel(F=ParsimoniousNormal(p));
 @|( model,
     Z = Categorical(K),
     iris_m[i=1:n] ~ F(:mu => Z[i],
@@ -229,14 +229,14 @@ EM!(model; n_init=20, n_wild=30)
 id_ = [(@| model f(Z[i=j]))().max[1] for j in 1:n];
 randindex(id_, class)
 ```
-- `Normal_Parsa_Model` gives the Parsimonious Gaussian parameterization as the base distributional assumption.
+- `ParsimoniousNormal` gives the Parsimonious Gaussian parameterization as the base distributional assumption.
 - `:V => 1` enforces that every component from the mixture has the same $V_1$ parameter.
 
 #### Diagonal covariance matrices
 Suppose we wish to enforce that each covariance matrix is diagonal in the mixture.
 
 ```julia
-model = Parsa_Model(F = Normal_Parsa_Model(p));
+model = ParsaModel(F = ParsimoniousNormal(p));
 const_V = [diagm(ones(4))];
 @|( model,
     Z = Categorical(K),
@@ -260,7 +260,7 @@ randindex(id_, class)
 We can extend this further to a model where we assume diagonal covariance matrices and assume that each covariance matrix has the same eigenvalues.
 
 ```julia
-model = Parsa_Model(F = Normal_Parsa_Model(p));
+model = ParsaModel(F = ParsimoniousNormal(p));
 const_V = [diagm(ones(4))];
 @|( model,
     Z = Categorical(K),
@@ -288,7 +288,7 @@ To implement LDA using this package, it will look similar to a mixture model but
 
 ```julia
 K = 3
-model = Parsa_Model(F = Normal_Model(p));
+model = ParsaModel(F = Normal(p));
 @|( model,
     class = Categorical(K),
     class[i=1:n] == class[i],
@@ -315,7 +315,7 @@ For QDA we simply have
 
 ```julia
 K = 3
-model = Parsa_Model(F = Normal_Model(p));
+model = ParsaModel(F = Normal(p));
 @|( model,
     class = Categorical(K),
     class[i=1:n] == class[i],
@@ -332,7 +332,7 @@ mean(id_ .== class)
 Suppose we wish to do a model like LDA and QDA but where each component shares the same covariance matrix. This can be done as follows.
 
 ```julia
-model = Parsa_Model(F = Normal_Parsa_Model(p));
+model = ParsaModel(F = ParsimoniousNormal(p));
 const_V = [diagm(ones(4))];
 @|( model,
     class = Categorical(K),
@@ -356,7 +356,7 @@ Suppose we wish to assume that each class follows Gaussian mixture model. This c
 
 ```julia
 K = 3
-model = Parsa_Model(F = Normal_Model(p));
+model = ParsaModel(F = Normal(p));
 @|( model,
     class = Categorical(K),
     class[i=1:n] == class[i],
@@ -383,7 +383,7 @@ To do the same except assume the covariance matrices for the components within e
 
 ```julia
 K = 3
-model = Parsa_Model(F = Normal_Parsa_Model(p));
+model = ParsaModel(F = ParsimoniousNormal(p));
 @|( model,
     class = Categorical(K),
     class[i=1:n] == class[i],
@@ -409,7 +409,7 @@ What is we wish to do the same but now assume there is a single set of eigenvect
 
 ```julia
 K = 3
-model = Parsa_Model(F = Normal_Parsa_Model(p));
+model = ParsaModel(F = ParsimoniousNormal(p));
 @|( model,
     class = Categorical(K),
     class[i=1:n] == class[i],
@@ -434,7 +434,7 @@ mean(id_ .== class)
 This model is much more complicated but allows for a dramatic reduce is the number of parameters in the model. We again assume that each class follows a mixture model but now assume that each covariance matrix of each component is one of two possible covariance matrices
 
 ```julia
-model = Parsa_Model(F = Normal_Model(p));
+model = ParsaModel(F = Normal(p));
 @|( model,
     class = Categorical(K),
     class[i=1:n] == class[i],
@@ -472,7 +472,7 @@ We can now do something a little crazy and assume that the two covariance matric
 
 ```julia
 K = 3
-model = Parsa_Model(F = Normal_Parsa_Model(p));
+model = ParsaModel(F = ParsimoniousNormal(p));
 @|( model,
     class = Categorical(K),
     class[i=1:n] == class[i],
@@ -510,7 +510,7 @@ known_map = Dict([s => class[s] for s in known_samples])
 
 We can now run the model which is similar to before but with one additional line.
 ```julia
-model = Parsa_Model(F = Normal_Model(p));
+model = ParsaModel(F = Normal(p));
 @|( model,
     Z = Categorical(K),
     Z[i=known_samples] == known_map[i],
@@ -534,7 +534,7 @@ true_class_block = [class[i] for i in 1:n if i % 2 == 0]
 ```
 We can now setup the model as follows
 ```julia
-model = Parsa_Model(F = Normal_Model(p));
+model = ParsaModel(F = Normal(p));
 @|( model,
     Z = Categorical(K),
     B = Categorical(n_blocks),
@@ -556,7 +556,7 @@ blocks = [1;1:(n-1)]
 II = [1;2; repeat([1], 148)]
 n_blocks = length(unique(blocks))
 perms = reduce(vcat, [[[i,j] for i in 1:K if i != j] for j in 1:K])
-model = Parsa_Model(F = Normal_Model(p));
+model = ParsaModel(F = Normal(p));
 @|( model,
     B = Categorical(n_blocks),
     B[i=1:n] == blocks[i],
@@ -579,7 +579,7 @@ Consider the simple finite mixture model
 
 ```julia
 K = 3
-model = Parsa_Model(F=Normal_Model(p));
+model = ParsaModel(F=Normal(p));
 @| model Z = Categorical(K) iris_m[i=1:n] ~ F(:mu => Z[i], :cov => Z[i])
 EM!(model; n_init=10, n_wild=10)
 ```
@@ -611,25 +611,106 @@ likelihoods = [ (new_x[n+1].X = x.X; ff()) for x in iris_m]
 
 Following the [paper](apple.com), one may wish to add a different base distribution $F$ other than the default normal distribution. To show how this this can be done, an example is given using a normal distribution.
 
-We first define the likelihood and log-likelihood functions. These are function parameters take `(::Observation, ::Dict)`. For the normal distribution we have
+#### General sketch and structure
+The general sketch and structure of adding a new base density is as follows. First a function is defined which is the M-step for the parameter.
+
 ```julia
-function normal_pdf(X, params)
-    p = length(val(X))
-    y = (val(X) - val(params[:mu]))
+function parameter_M_step(value::Any, index_package::SummationPackage, logPdf::Function)
+    # code for updating the parameter
+    for (x, prop, params) in index_package
+       # to access the values of x you must use val(x)
+       # to access a parameter you must use val(params[:param1])
+    end
+end
+```
+
+- `value` is the parameter estimate from the previous step
+- `index_package` of type `SummationPackage` is a zipped tuple each each element contains an Observations, a probability, and a set of parameters
+- This structure is meant to match the notation found in the paper.
+
+Next the pdf and log pdf are defined.
+
+```julia
+function pdf(X::Any, params::Dict)
+    # pdf for the density
+end
+
+function logPdf(X::Any, params::Dict)
+    # log pdf for the density
+end
+
+```
+
+A function is defined which checks that the user inputs the correct data type.
+
+```julia
+input_check(x::Any;) = # checks if x is of the right type for the density
+
+```
+
+Finally a new `ParsaDensity` is defined with the following structure.
+
+```julia
+Distribution_name(;) = ParsaDensity(pdf, logPdf, input_check, :param1 => Parameter(init_value, parameter_M_step),
+                                                              :param2 => Parameter(init_value_2, num_of_parameters, parameter_M_step_2))
+
+```
+
+- `Parameter` defines a new parameter with an initial value and a function which is the M-step for that function
+- Note that an arbitrary number of parameters can be added in the same manure
+
+After that is implemented simply do
+
+```julia
+model = ParsaModel(F=Distribution_name(p));
+```
+
+and start modeling!
+
+#### Normal example
+
+```julia
+function normal_mean_update(value::Any, index_package::SummationPackage, log_pdf::Function)
+    mu_new = zeros(length(value))
+    cov = zeros(length(value), length(value))
+    for (_, pr, params) in index_package
+        cov += pr * val(params[:cov]).inv
+    end
+    for (x, pr, params) in index_package
+        mu_new += pr * val(params[:cov]).inv * val(x)
+    end
+    mu_new = cov \ mu_new
+    return mu_new
+end
+
+function normal_covariance_update(value::Any, index_package::SummationPackage, log_pdf::Function)
+    cov_new = zeros(size(value.inv))
+    for (x, pr, params) in index_package
+        y = val(x) - val(params[:mu])
+        cov_new += pr * (y * y')
+    end
+    taus = [d[2] for d in index_package]
+    cov_new ./= sum(taus)
+    return (inv = inv(cov_new), det = det(cov_new))
+end
+
+function normal_pdf(X::Any, params::Dict)
+    p = length(X)
+    y = (X - val(params[:mu]))
     (2pi)^(-p/2) * val(params[:cov]).det^(-1/2) * exp((-1/2 * y' * val(params[:cov]).inv * y))
 end
-normal_pdf_log(X, params) -> ()
-```
 
-Note the log-likelihood is empty as it is not needed for the normal distribution. Next we define a function that takes in an observation and checks if it is of the required type for the base distribution. For the normal distribution this a vector of length $p$ where $p$ is the dimensions of the normal distribution.
+function normal_pdf_log(X::Any, params::Dict)
+    N = MvNormal(params[:mu], params[:cov])
+    logpdf(N, X)
+end
 
-```julia
 normal_input(x, p) = length(x) == p && all(isa.(x, Real))
+
+Normal(p) = ParsaDensity(normal_pdf, normal_pdf_log, (x) -> normal_input(x, p),
+                                :mu => Parameter(zeros(p), normal_mean_update),
+                                :cov => Parameter((inv = diagm(ones(p)), det = 1), p * (p + 1) / 2, normal_covariance_update))
 ```
-
-Next we need to define the functions for updating the estimates of each parameters. This is done
-
-Nest we need to define the parameters of the normal distribution this is done using the `Parsa_Parameter` function/type which takes in an initial value for the paramter
 
 ---
 
@@ -637,7 +718,7 @@ Nest we need to define the parameters of the normal distribution this is done us
 
 ## 📖 Package Reference -->
 
-<!-- ### `Parsa_Model(base)` -->
+<!-- ### `ParsaModel(base)` -->
 
 <!-- Setup the model and set the base distributional assumption of the model. -->
 
@@ -696,10 +777,10 @@ Returns a function that returns the likelihood $f(X[N_1], X[N_2], \dots, X[N_m])
 ### `@ObservationUpdater(model, X[i], i=N)`
 Returns a function that takes in `$|N|$` observations and will assign them to the corresponding `X[i]`.
 
-### `Normal_Model(p)`
+### `Normal(p)`
 Returns the base for a `p`-dimensional Gaussian distribution.
 
-### `Normal_Parsa_Model(p)`
+### `ParsimoniousNormal(p)`
 Returns the base for a `p`-dimensional Gaussian distribution with the parsimonious parameterization. -->
 
 ---

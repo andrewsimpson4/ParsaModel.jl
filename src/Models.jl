@@ -34,7 +34,7 @@ using JuMP: Model, set_silent, @variable, @constraint, @objective, optimize!, va
 # end
 
 
-function normal_mean_update(value, index_package, log_pdf)
+function normal_mean_update(value::Any, index_package::SummationPackage, log_pdf::Function)
     mu_new = zeros(length(value))
     cov = zeros(length(value), length(value))
     for (_, pr, params) in index_package
@@ -47,7 +47,7 @@ function normal_mean_update(value, index_package, log_pdf)
     return mu_new
 end
 
-function normal_covariance_update(value, index_package, log_pdf)
+function normal_covariance_update(value::Any, index_package::SummationPackage, log_pdf::Function)
     cov_new = zeros(size(value.inv))
     for (x, pr, params) in index_package
         y = val(x) - val(params[:mu])
@@ -58,13 +58,13 @@ function normal_covariance_update(value, index_package, log_pdf)
     return (inv = inv(cov_new), det = det(cov_new))
 end
 
-function normal_pdf(X, params)
+function normal_pdf(X::Any, params::Dict)
     p = length(X)
     y = (X - val(params[:mu]))
     (2pi)^(-p/2) * val(params[:cov]).det^(-1/2) * exp((-1/2 * y' * val(params[:cov]).inv * y))
 end
 
-function normal_pdf_log(X, params)
+function normal_pdf_log(X::Any, params::Dict)
     N = MvNormal(params[:mu], params[:cov])
     logpdf(N, X)
 end
@@ -76,11 +76,9 @@ end
 
 normal_input(x, p) = length(x) == p && all(isa.(x, Real))
 
-Normal_Model(p) = Parsa_density(normal_pdf, normal_pdf_log, (x) -> normal_input(x, p),
-                                :mu => Parsa_Parameter(zeros(p), normal_mean_update),
-                                :cov => Parsa_Parameter((inv = diagm(ones(p)), det = 1), p * (p + 1) / 2, normal_covariance_update))
-
-
+Normal(p) = ParsaDensity(normal_pdf, normal_pdf_log, (x) -> normal_input(x, p),
+                                :mu => Parameter(zeros(p), normal_mean_update),
+                                :cov => Parameter((inv = diagm(ones(p)), det = 1), p * (p + 1) / 2, normal_covariance_update))
 
 
 ### Normal singular
@@ -98,9 +96,9 @@ function normal_covariance_update_singular(value, index_package, log_pdf)
 end
 
 
-Normal_Model_singular(p) = Parsa_density(normal_pdf, normal_pdf_log, (x) -> normal_input(x, p),
-                                :mu => Parsa_Parameter(zeros(p), normal_mean_update),
-                                :cov => Parsa_Parameter(diagm(ones(p)), p * (p + 1) / 2, normal_covariance_update_singular, normal_cov_post))
+Normal_Model_singular(p) = ParsaDensity(normal_pdf, normal_pdf_log, (x) -> normal_input(x, p),
+                                :mu => Parameter(zeros(p), normal_mean_update),
+                                :cov => Parameter(diagm(ones(p)), p * (p + 1) / 2, normal_covariance_update_singular, normal_cov_post))
 
 
 
@@ -146,9 +144,9 @@ function normal_pdf_log_2(X, params)
 end
 
 Double_Normal_Model(p) = LMMM_Base(pdf=normal_pdf_2, pdf_log=normal_pdf_log_2, (x) -> normal_input(x, p),
-                            :mu1 => Parsa_Parameter(ones(p), normal_mean_update_2_1),
-                            :mu2 => Parsa_Parameter(ones(p), normal_mean_update_2_2),
-                            :cov => Parsa_Parameter(diagm(ones(p)), p * (p + 1) / 2, normal_covariance_update_2))
+                            :mu1 => Parameter(ones(p), normal_mean_update_2_1),
+                            :mu2 => Parameter(ones(p), normal_mean_update_2_2),
+                            :cov => Parameter(diagm(ones(p)), p * (p + 1) / 2, normal_covariance_update_2))
 
 
 ####### Normal Parsa #########
@@ -250,7 +248,7 @@ function normal_parsa_V_update(V, package_index, log_pdf)
 end
 
 parsa_V(p) = Parameter(value = ParameterValue(value = diagm(ones(p))), update = normal_parsa_V_update)
-parsa_V_opt(p) = Parsa_Parameter(diagm(ones(p)), optimizeOrthogonal)
+parsa_V_opt(p) = Parameter(diagm(ones(p)), optimizeOrthogonal)
 parsa_L(p) = Parameter(value = ParameterValue(value = ones(p)), update = normal_parsa_L_update)
 parsa_a() = Parameter(value = ParameterValue(value = 1), update = normal_parsa_a_update)
 
@@ -289,8 +287,8 @@ function normal_parsa_pdf_log_2(X, params)
 end
 
 
-Normal_Parsa_Model(p) = Parsa_density(normal_parsa_pdf_2, normal_parsa_pdf_log_2, (x) -> normal_input(x, p),
-        :mu=> Parsa_Parameter(zeros(p), parsa_mean_update),
+ParsimoniousNormal(p) = ParsaDensity(normal_parsa_pdf_2, normal_parsa_pdf_log_2, (x) -> normal_input(x, p),
+        :mu=> Parameter(zeros(p), parsa_mean_update),
         :a => parsa_a(),
         :L => parsa_L(p),
         :V => parsa_V_opt(p))

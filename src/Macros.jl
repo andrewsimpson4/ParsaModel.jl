@@ -1,8 +1,4 @@
-
-
-
-
-function Parsa_Model(;F::Parsa_Base)
+function ParsaModel(;F::Parsa_Base)
     space = Module()
     Base.eval(space, quote
         base_model = $F
@@ -14,7 +10,7 @@ function Parsa_Model(;F::Parsa_Base)
     return space
 end
 
-Parsa_Model(Parsa_Base) = Parsa_Model(F = Parsa_Model)
+# ParsaModel(Parsa_Base) = ParsaModel(;F = ParsaModel)
 
 macro |(model, expr...)
     result_expr = quote end
@@ -157,10 +153,10 @@ macro Categorical(model, name, K)
     quote
         if length($K_val) == 1
             if !(typeof($mod) == Module)
-                error("First parameter must be a valid module. Use Parsa_Model function")
+                error("First parameter must be a valid module. Use ParsaModel function")
             end
             if !isdefined($mod, :is_parsa_model)
-                error("First parameter must be a valid module. Use Parsa_Model function")
+                error("First parameter must be a valid module. Use ParsaModel function")
             end
             if !(typeof($K_val) == Int)
                 error("Third parameter must be an integer.")
@@ -181,10 +177,10 @@ macro Categorical_Set(model, name, K)
     K_val = esc(K)
     quote
         # if !(typeof($mod) == Module)
-        #     error("First parameter must be a valid module. Use Parsa_Model function")
+        #     error("First parameter must be a valid module. Use ParsaModel function")
         # end
         # if !isdefined($mod, :is_parsa_model)
-        #     error("First parameter must be a valid module. Use Parsa_Model function")
+        #     error("First parameter must be a valid module. Use ParsaModel function")
         # end
         # if !(typeof($K_val) == Vector{Int})
         #     error("Third parameter must be a vector of integers.")
@@ -224,10 +220,10 @@ macro Observation(model, main_obj, index_set)
 
     quote
         if !(typeof($mod) == Module)
-            error("First parameter must be a valid module. Use Parsa_Model function")
+            error("First parameter must be a valid module. Use ParsaModel function")
         end
         if !isdefined($mod, :is_parsa_model)
-            error("First parameter must be a valid module. Use Parsa_Model function")
+            error("First parameter must be a valid module. Use ParsaModel function")
         end
         re = r"^[a-zA-Z][a-zA-Z0-9_]*\[[a-zA-Z]*\]$"
         re2 =r"^[a-zA-Z][a-zA-Z0-9_]*\[([a-zA-Z]*)\]$"
@@ -286,10 +282,10 @@ macro ObservationUpdater(model, main_obj, index_set)
     set = esc(index_set.args[2])
     quote
         if !(typeof($mod) == Module)
-            error("First parameter must be a valid module. Use Parsa_Model function")
+            error("First parameter must be a valid module. Use ParsaModel function")
         end
         if !isdefined($mod, :is_parsa_model)
-            error("First parameter must be a valid module. Use Parsa_Model function")
+            error("First parameter must be a valid module. Use ParsaModel function")
         end
         re = r"^[a-zA-Z][a-zA-Z0-9_]*\[[a-zA-Z]*\]$"
         re2 =r"^[a-zA-Z][a-zA-Z0-9_]*\[([a-zA-Z]*)\]$"
@@ -332,10 +328,10 @@ macro Known(model, eq, index_set)
     Z = QuoteNode(name.args[1])
     quote
         if !(typeof($mod) == Module)
-            error("First parameter must be a valid module. Use Parsa_Model function")
+            error("First parameter must be a valid module. Use ParsaModel function")
         end
         if !isdefined($mod, :is_parsa_model)
-            error("First parameter must be a valid module. Use Parsa_Model function")
+            error("First parameter must be a valid module. Use ParsaModel function")
         end
         re = r"^[a-zA-Z][a-zA-Z0-9_]*\[[a-zA-Z]*\]$"
         re2 =r"^[a-zA-Z][a-zA-Z0-9_]*\[([a-zA-Z]*)\]$"
@@ -386,10 +382,10 @@ macro Known(model, eq, index_set, index_set2)
     Z = QuoteNode(name.args[1].args[1])
     quote
         if !(typeof($mod) == Module)
-            error("First parameter must be a valid module. Use Parsa_Model function")
+            error("First parameter must be a valid module. Use ParsaModel function")
         end
         if !isdefined($mod, :is_parsa_model)
-            error("First parameter must be a valid module. Use Parsa_Model function")
+            error("First parameter must be a valid module. Use ParsaModel function")
         end
         re = r"^[(][a-zA-Z][a-zA-Z0-9_]*\[[a-zA-Z]*\][)]\[[a-zA-Z]*\]$"
         re2 = r"^[(][a-zA-Z][a-zA-Z0-9_]*\[([a-zA-Z]*)\][)]\[[a-zA-Z]*\]$"
@@ -454,10 +450,10 @@ macro Initialize(model, eq, index_set)
     Z = QuoteNode(name.args[1])
     quote
         if !(typeof($mod) == Module)
-            error("First parameter must be a valid module. Use Parsa_Model function")
+            error("First parameter must be a valid module. Use ParsaModel function")
         end
         if !isdefined($mod, :is_parsa_model)
-            error("First parameter must be a valid module. Use Parsa_Model function")
+            error("First parameter must be a valid module. Use ParsaModel function")
         end
         re = r"^[a-zA-Z][a-zA-Z0-9_]*\[[a-zA-Z]*\]$"
         re2 =r"^[a-zA-Z][a-zA-Z0-9_]*\[([a-zA-Z]*)\]$"
@@ -498,10 +494,10 @@ macro Constant(model, main_obj, index_set)
     set = esc(esc(index_set.args[2]))
     quote
         if !(typeof($mod) == Module)
-            error("First parameter must be a valid module. Use Parsa_Model function")
+            error("First parameter must be a valid module. Use ParsaModel function")
         end
         if !isdefined($mod, :is_parsa_model)
-            error("First parameter must be a valid module. Use Parsa_Model function")
+            error("First parameter must be a valid module. Use ParsaModel function")
         end
         re_sym = r"^.*\[[a-zA-Z]*\]$"
         re = r"^[a-zA-Z][a-zA-Z0-9_]*\[[a-zA-Z]*\]$"
@@ -543,10 +539,10 @@ macro Constant_Init(model, main_obj, index_set)
     set = esc(esc(index_set.args[2]))
     quote
         if !(typeof($mod) == Module)
-            error("First parameter must be a valid module. Use Parsa_Model function")
+            error("First parameter must be a valid module. Use ParsaModel function")
         end
         if !isdefined($mod, :is_parsa_model)
-            error("First parameter must be a valid module. Use Parsa_Model function")
+            error("First parameter must be a valid module. Use ParsaModel function")
         end
         re_sym = r"^.*\[[a-zA-Z]*\]$"
         re = r"^[a-zA-Z][a-zA-Z0-9_]*\[[a-zA-Z]*\]$"
@@ -582,10 +578,10 @@ macro Parameter(model, main_obj)
     s1 = string(main_obj)
     quote
         if !(typeof($mod) == Module)
-            error("First parameter must be a valid module. Use Parsa_Model function")
+            error("First parameter must be a valid module. Use ParsaModel function")
         end
         if !isdefined($mod, :is_parsa_model)
-            error("First parameter must be a valid module. Use Parsa_Model function")
+            error("First parameter must be a valid module. Use ParsaModel function")
         end
         re = r"^[a-zA-Z][a-zA-Z0-9_]*$"
         if $s1[1] != ':' && match(re, $s1) == nothing
@@ -618,10 +614,10 @@ macro IndependentBy(model, name)
     na = (name)
     quote
         if !(typeof($mod) == Module)
-            error("First parameter must be a valid module. Use Parsa_Model function")
+            error("First parameter must be a valid module. Use ParsaModel function")
         end
         if !isdefined($mod, :is_parsa_model)
-            error("First parameter must be a valid module. Use Parsa_Model function")
+            error("First parameter must be a valid module. Use ParsaModel function")
         end
         $mod.independent_by = [$mod.independent_by ;$mod.$na]
     end
@@ -631,10 +627,10 @@ end
 function EM!(model; args...)
     space = eval(:($model))
     if !(typeof(space) == Module)
-        error("First parameter must be a valid module. Use Parsa_Model function")
+        error("First parameter must be a valid module. Use ParsaModel function")
     end
     if !isdefined(space, :is_parsa_model)
-        error("First parameter must be a valid module. Use Parsa_Model function")
+        error("First parameter must be a valid module. Use ParsaModel function")
     end
     Base.eval(space, quote
        local X::Vector{$Observation} = collect(values(X_val))
@@ -650,10 +646,10 @@ macro posterior_probability(model, conditions, index_set)
     cond = QuoteNode(conditions)
     quote
         if !(typeof($mod) == Module)
-            error("First parameter must be a valid module. Use Parsa_Model function")
+            error("First parameter must be a valid module. Use ParsaModel function")
         end
         if !isdefined($mod, :is_parsa_model)
-            error("First parameter must be a valid module. Use Parsa_Model function")
+            error("First parameter must be a valid module. Use ParsaModel function")
         end
         re3 =r"^[a-zA-Z]*$"
         if match(re3, string($indx)) == nothing
@@ -682,10 +678,10 @@ macro BIC(model)
     mod = esc(model)
     quote
         if !(typeof($mod) == Module)
-            error("First parameter must be a valid module. Use Parsa_Model function")
+            error("First parameter must be a valid module. Use ParsaModel function")
         end
         if !isdefined($mod, :is_parsa_model)
-            error("First parameter must be a valid module. Use Parsa_Model function")
+            error("First parameter must be a valid module. Use ParsaModel function")
         end
         Base.eval($mod, quote
           log_lik = fit_model.log_likelihood()
@@ -710,10 +706,10 @@ macro likelihood(model, conditions, index_set)
     obs = string(conditions.args[1])
     quote
         if !(typeof($mod) == Module)
-            error("First parameter must be a valid module. Use Parsa_Model function")
+            error("First parameter must be a valid module. Use ParsaModel function")
         end
         if !isdefined($mod, :is_parsa_model)
-            error("First parameter must be a valid module. Use Parsa_Model function")
+            error("First parameter must be a valid module. Use ParsaModel function")
         end
         Base.eval($mod, quote
             local X_collect = Vector{$$Observation}(undef, length($$set))
@@ -732,10 +728,10 @@ macro likelihood(model)
     mod = esc(model)
     quote
         if !(typeof($mod) == Module)
-            error("First parameter must be a valid module. Use Parsa_Model function")
+            error("First parameter must be a valid module. Use ParsaModel function")
         end
         if !isdefined($mod, :is_parsa_model)
-            error("First parameter must be a valid module. Use Parsa_Model function")
+            error("First parameter must be a valid module. Use ParsaModel function")
         end
         Base.eval($mod, quote
           log_lik = fit_model.log_likelihood()

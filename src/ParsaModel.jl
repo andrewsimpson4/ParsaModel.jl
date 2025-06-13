@@ -33,7 +33,7 @@ export ParsaModel,
       EM!,
       Normal,
       ParsimoniousNormal,
-      ParsaParameter,
+      Parameter,
       ParsaDensity,
       val
 end

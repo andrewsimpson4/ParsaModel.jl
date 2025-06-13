@@ -1,5 +1,4 @@
-using UnicodePlots
-
+using UnicodePlots, Distributions
 
 function getRelaventTaus(parameter::Parameter, X::Vector{Observation}, tau::Vector{Vector{Real}}, parameter_map::Vector{Vector{Any}})
 	reduce(vcat, [[(x, pr, param) for (pr, param) in zip(tau_x, params_x) if parameter in values(param)] for (x, tau_x, params_x) in zip(X, tau, parameter_map)])

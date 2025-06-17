@@ -34,5 +34,6 @@ export ParsaBase,
       ParsimoniousNormal,
       Parameter,
       ParsaDensity,
-      val
+      val,
+      BIC
 end

@@ -698,6 +698,18 @@ macro BIC(model)
     end
 end
 
+function BIC(model)
+    log_lik = model.fit_model.log_likelihood()
+    local M = 0
+    for (_, gen) in model.base_model.parameters
+        for (_, par) in gen.parameter_map
+            if !par.is_const
+                M = M + par.value.n_parameters
+            end
+        end
+    end
+    Float64(M * log(model.fit_model.n) - 2 * log_lik)
+end
 
 macro likelihood(model, conditions, index_set)
     mod = esc(model)

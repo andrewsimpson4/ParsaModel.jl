@@ -53,7 +53,7 @@ If you are reading this, the repository is currently private. Use the following 
 
 ```julia
 using Pkg
-Pkg.add(url="https://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@github.com/andrewsimpson4/ParsaBase.jl.git")
+Pkg.add(url="https://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@github.com/andrewsimpson4/ParsaModel.jl.git")
 ```
 
 #### R
@@ -660,12 +660,14 @@ Distribution_name(;) = ParsaDensity(pdf, logPdf, input_check, :param1 => Paramet
 After that is implemented simply do
 
 ```julia
-model = ParsaBase(F=Distribution_name(p));
+model = ParsaBase(F=Distribution_name(;));
 ```
 
 and start modeling!
 
 #### MtvNormal example
+
+For an example, the implementation for a multivariate normal distribution is given.
 
 ```julia
 function normal_mean_update(value::Any, index_package::SummationPackage, log_pdf::Function)

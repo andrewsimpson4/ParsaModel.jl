@@ -519,8 +519,8 @@ macro Constant(model, main_obj, index_set)
         Base.eval($mod, quote
             for j in $$set
                 $$indx = j
-                base_model.parameters[$$param_name][$$param_indx].is_const = true
-                base_model.parameters[$$param_name][$$param_indx].value.value = $$vals_loaded[$$vals_loaded_indx]
+                base_model.parameters[$$param_name][$$param_indx...].is_const = true
+                base_model.parameters[$$param_name][$$param_indx...].value.value = $$vals_loaded[$$vals_loaded_indx]
             end
         end)
     end

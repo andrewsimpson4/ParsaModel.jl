@@ -1,5 +1,6 @@
-using Ipopt, StatsBase
-using JuMP: Model, set_silent, @variable, @constraint, @objective, optimize!, value, set_optimizer_attribute, @operator
+# using Ipopt, StatsBase
+# using JuMP: Model, set_silent, @variable, @constraint, @objective, optimize!, value, set_optimizer_attribute, @operator
+using StatsBase
 
 ##### Normal Model #######
 
@@ -152,52 +153,50 @@ Double_Normal_Model(p) = LMMM_Base(pdf=normal_pdf_2, pdf_log=normal_pdf_log_2, (
 ####### Normal Parsa #########
 
 
-function get_objective_function(param, package_index, pdf_func)
-    X = [p[1] for p in package_index]
-    paramter_map = [Dict([ke => p_v(va) for (ke, va) in p[3]]) for p in package_index]
-    tau_map = [p[2] for p in package_index]
-    N_keys = Vector{}(undef, length(X))
-    for i in eachindex(X)
-        pars = paramter_map[i]
-        par_search = [t for t in values(pars)]
-        param_index = [i for i in 1:length(par_search) if (par_search[i]) == param][1]
-        N_keys[i] = collect(keys(pars))[param_index]
-    end
-    function(ve)
-        res = 0.0
-        for i in eachindex(X)
-            pars = paramter_map[i]
-            x = x_v(X[i])
-            tau = tau_map[i]
-            pars[N_keys[i]] = ve
-            res = res + tau * pdf_func(x, pars)
-        end
-        return res
-    end
-end
+# function get_objective_function(param, package_index, pdf_func)
+#     X = [p[1] for p in package_index]
+#     paramter_map = [Dict([ke => p_v(va) for (ke, va) in p[3]]) for p in package_index]
+#     tau_map = [p[2] for p in package_index]
+#     N_keys = Vector{}(undef, length(X))
+#     for i in eachindex(X)
+#         pars = paramter_map[i]
+#         par_search = [t for t in values(pars)]
+#         param_index = [i for i in 1:length(par_search) if (par_search[i]) == param][1]
+#         N_keys[i] = collect(keys(pars))[param_index]
+#     end
+#     function(ve)
+#         res = 0.0
+#         for i in eachindex(X)
+#             pars = paramter_map[i]
+#             x = x_v(X[i])
+#             tau = tau_map[i]
+#             pars[N_keys[i]] = ve
+#             res = res + tau * pdf_func(x, pars)
+#         end
+#         return res
+#     end
+# end
 
-function optimizeOrthogonal(param, package_index, log_pdf)
-    func = get_objective_function(param, package_index, log_pdf)
-    model = Model(Ipopt.Optimizer)
-    set_optimizer_attribute(model, "max_iter", 3)
-    set_silent(model)
-    p = size(param)[1]
-    @variable(model, V[i=1:p, j=1:p], start=param[i,j]);
-    @constraint(model, V*V' - I == zeros(p,p));
-    @objective(model, Max, func(V))
-    optimize!(model)
-    return value.(V)
+# function optimizeOrthogonal(param, package_index, log_pdf)
+#     func = get_objective_function(param, package_index, log_pdf)
+#     model = Model(Ipopt.Optimizer)
+#     set_optimizer_attribute(model, "max_iter", 3)
+#     set_silent(model)
+#     p = size(param)[1]
+#     @variable(model, V[i=1:p, j=1:p], start=param[i,j]);
+#     @constraint(model, V*V' - I == zeros(p,p));
+#     @objective(model, Max, func(V))
+#     optimize!(model)
+#     return value.(V)
 
-end
-
-
+# end
 
 function normal_parsa_a_update(a, package_index, log_pdf)
-    p = length(x_v(collect(package_index)[1][1]))
+    p = length(val(collect(package_index)[1][1]))
     a_new = 0
     for (x, pr, params) in package_index
-        y = (x_v(x) - p_v(params[:mu]))
-        a_new += pr *  (y' * p_v(params[:V]) * diagm(1 ./ p_v(params[:L])) * p_v(params[:V])' * y)
+        y = (val(x) - val(params[:mu]))
+        a_new += pr *  (y' * val(params[:V]) * diagm(1 ./ val(params[:L])) * val(params[:V])' * y)
     end
     taus = [d[2] for d in package_index]
     a_new = a_new / (sum(taus) * p )
@@ -205,11 +204,11 @@ function normal_parsa_a_update(a, package_index, log_pdf)
 end
 
 function normal_parsa_L_update(L, package_index, log_pdf)
-    p = length(x_v(collect(package_index)[1][1]))
+    p = length(val(collect(package_index)[1][1]))
     L_new = zeros(size(diagm(L)))
     for (x, pr, params) in package_index
-        y = (x_v(x) - p_v(params[:mu]))
-        L_new += pr * ( p_v(params[:V])' * y * y' * p_v(params[:V]) * p_v(params[:a])^(-1))
+        y = (val(x) - val(params[:mu]))
+        L_new += pr * ( val(params[:V])' * y * y' * val(params[:V]) * val(params[:a])^(-1))
     end
     L_new = diag(L_new) / prod(diag(L_new))^(1 / p)
     return L_new
@@ -218,40 +217,34 @@ end
 function normal_parsa_V_update(V, package_index, log_pdf)
     opt_new = sum(V)
     opt_old = sum(V) + 10
+    AA = Vector{}()
+    ZZ = Vector{}()
+    for (x, pr, params) in package_index
+        push!(AA, val(params[:L]) * val(params[:a]))
+        push!(ZZ, pr * (val(x) - val(params[:mu])) * (val(x) - val(params[:mu]))')
+    end
+    zipped_az = zip(AA, ZZ)
     while abs(sum(opt_new .- opt_old)) / abs(sum(opt_old)) > 10^-10
-        opt_old = opt_new
-        # i,j = sample(1:p, 2; replace=false)
         for i in 1:p
             for j in 1:p
                 if i != j
                     d1 = V[:,i]
                     d2 = V[:,j]
                     D = zeros(size(2,2))
-                    for (x, pr, params) in package_index
-                        A =  sort(params[:L]; rev=true) * params[:a]
-                        Z = [d1 d2]' * pr * (x - params[:mu]) * (x - params[:mu])' * [d1 d2]
-                        # D = D .+ ((1 / A[i] - 1 / A[j]) .* Z)
-                        D = D .+ Z
-                        # println((1 / A[i] - 1 / A[j]))
+                    for (A, Zz) in zipped_az
+                        Z = [d1 d2]' * Zz * [d1 d2]
+                        D = D .+ ((1 / A[i] - 1 / A[j]) .* Z)
                     end
-                    V[:,i] = [d1 d2] * eigvecs(D)[:,2]
-                    V[:,j] = [d1 d2] * eigvecs(D)[:,1]
-                    opt_new = 0
-                    for (x, pr, params) in package_index
-                        opt_new = opt_new + pr * tr(V * diagm(1 ./ (params[:L] * params[:a])) * V' * (x - params[:mu]) * (x - params[:mu])')
-                    end
+                    V[:,i] = [d1 d2] * eigvecs(D)[:,1]
+                    V[:,j] = [d1 d2] * eigvecs(D)[:,2]
                 end
             end
         end
+        opt_old = opt_new
+        opt_new = sum(V)
     end
     return V
 end
-
-parsa_V(p) = Parameter(value = ParameterValue(value = diagm(ones(p))), update = normal_parsa_V_update)
-parsa_V_opt(p) = Parameter(diagm(ones(p)), optimizeOrthogonal)
-parsa_L(p) = Parameter(value = ParameterValue(value = ones(p)), update = normal_parsa_L_update)
-parsa_a() = Parameter(value = ParameterValue(value = 1), update = normal_parsa_a_update)
-
 
 function parsa_mean_update(value, index_package, log_pdf)
     mu_new = zeros(length(value))
@@ -264,8 +257,6 @@ function parsa_mean_update(value, index_package, log_pdf)
         cov_inv = 1/ p_v(params[:a]) * p_v(params[:V]) * diagm(1 ./ p_v(params[:L])) * p_v(params[:V])'
         mu_new += pr * cov_inv * x_v(x)
     end
-    # taus = [d[2] for d in index_package]
-    # mu_new /= sum(taus)
     mu_new = inv(cov) * mu_new
     return mu_new
 end
@@ -287,9 +278,19 @@ function normal_parsa_pdf_log_2(X, params)
 end
 
 
+parsa_V(p) = Parameter(value = ParameterValue(value = diagm(ones(p))), update = normal_parsa_V_update)
+# parsa_V_opt(p) = Parameter(diagm(ones(p)), optimizeOrthogonal)
+parsa_L(p) = Parameter(value = ParameterValue(value = ones(p)), update = normal_parsa_L_update)
+parsa_a() = Parameter(value = ParameterValue(value = 1), update = normal_parsa_a_update)
+
+# ParsimoniousNormal(p) = ParsaDensity(normal_parsa_pdf_2, normal_parsa_pdf_log_2, (x) -> normal_input(x, p),
+#         :mu=> Parameter(zeros(p), parsa_mean_update),
+#         :a => parsa_a(),
+#         :L => parsa_L(p),
+#         :V => parsa_V_opt(p))
+
 ParsimoniousNormal(p) = ParsaDensity(normal_parsa_pdf_2, normal_parsa_pdf_log_2, (x) -> normal_input(x, p),
         :mu=> Parameter(zeros(p), parsa_mean_update),
         :a => parsa_a(),
         :L => parsa_L(p),
-        :V => parsa_V_opt(p))
-
+        :V => parsa_V(p))

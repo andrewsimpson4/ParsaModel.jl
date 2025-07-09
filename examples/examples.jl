@@ -75,8 +75,10 @@ K = 3
 model = ParsaBase(F = ParsimoniousNormal(p));
 @|( model,
     Z = Categorical(K),
+    Z[i=1:n] = init_id[i],
     iris_m[i=1:n] ~ F(:mu => Z[i], :a => Z[i], :L => Z[i], :V => 1))
-EM!(model; n_init=20, n_wild=30)
+EM!(model; should_initialize=false)
+@| model :V
 
 id_ = [(@| model f(Z[i=j]))().max[1] for j in 1:n];
 randindex(id_, class)

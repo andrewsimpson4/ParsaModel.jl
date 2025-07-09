@@ -219,6 +219,7 @@ function normal_parsa_V_update(V, package_index, log_pdf)
     opt_old = sum(V) + 10
     AA = Vector{}()
     ZZ = Vector{}()
+    p = length(val(collect(package_index)[1][1]))
     for (x, pr, params) in package_index
         push!(AA, val(params[:L]) * val(params[:a]))
         push!(ZZ, pr * (val(x) - val(params[:mu])) * (val(x) - val(params[:mu]))')

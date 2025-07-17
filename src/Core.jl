@@ -522,7 +522,7 @@ function posterior_initalize(conditions, X::Vector{Observation}, density::Parsa_
 	(tau, Pi) = posterior_initalize(domains, X_sub, density, Vector{}())
 	function ()
 		tt = tau([])
-		tau_vec = Float64.(tt ./ sum(tt))
+		tau_vec = (tt ./ sum(tt))
 		Pi_val = [[y for (_, y) in pi_i] for pi_i in Pi]
 		PV = collect(zip(Pi_val, tau_vec))
 		return (max = max_posterior(PV), probability = PV)

@@ -11,7 +11,7 @@ X_i | Z = \gamma \sim F(T^i_{1}(\gamma), \dots, T^i_{G}(\gamma); \Psi)
 ```
 where $Z_{mj} \sim \text{Categorical}(\pi_{m1}, \pi_{m2}, \dots, \pi_{mK_m})$. See the [paper](https://apple.com) for more details on categorical parsimonious models. The package has $8$ core functions and $6$ additions functions which in totality allow one to define a large class of different models for model-based clustering, classification, and general patter recognition problems.
 
-For a quick intuition on what this package does, ParsaBase is to model-based clustering and discriminant analysis as [STAN](https://en.wikipedia.org/wiki/Stan_(software)) and [JAGS](https://en.wikipedia.org/wiki/Just_another_Gibbs_sampler) is to bayesian inference.
+For a quick intuition on what this package does, ParsaModel is to model-based clustering and discriminant analysis as [STAN](https://en.wikipedia.org/wiki/Stan_(software)) and [JAGS](https://en.wikipedia.org/wiki/Just_another_Gibbs_sampler) is to bayesian inference.
 
 ---
  ⚠️ This package assumes a moderate understanding and discriminant analysis and mixture models. Checkout this [book](https://math.univ-cotedazur.fr/~cbouveyr/MBCbook/) on Model-Based Clustering and Classification for more information on this class of models.
@@ -70,6 +70,7 @@ julia_command("using Pkg;")
 julia_command('Pkg.add(url="https://<token>@github.com/andrewsimpson4/ParsaBase.jl.git")')
 
 ```
+At this point the code below can be called using `julia_command` and `julia_assign`.
 
 <div id='quick-start'/>
 
@@ -86,7 +87,7 @@ model = ParsaBase(F=MtvNormal(p));
     X[i=1:n] ~ F(:mu => Z[i], :cov => Z[i]))
 EM!(model; n_init=10, n_wild=10)
 ```
-- Observations to be clustered are stores in `X` which is a vector of vectors
+- Observations to be clustered are stores in `X` which is a vector where the elements are of type `Observation`
 ---
 
 <div id='usage-examples'/>
@@ -116,13 +117,13 @@ class = [mapping[val] for val in class_string];
 ```
 Here we have a vector of vectors `iris_m` where each element is one of the observations from the dataset. Next is `class` which is a vector containing the species of the respective elements in `iris_m`. We also define `n`, the number of observations, as well as `p` which is the dimension of each observation. Note that each observation is of the type `Observation`.
 
-### ParsaBase Macro
+### ParsaModel Macro
 
-Since ParsaBase is a domain-specific modeling language inside Julia, it used a macro to allow a customized notation. The general macro notation for ParsaBase is `@| <model> <expressions>`. A large set of examples are given for teh different `<expressions>` that can be used.
+Since ParsaModel is a domain-specific modeling language inside Julia, it used a macro to allow a customized notation. The general macro notation for ParsaModel is `@| <model> <expressions>`. A large set of examples are given for teh different `<expressions>` that can be used.
 
 ### Gaussian Mixture Model
 
-The first example is how to implement a Gaussian mixture model using ParsaBase. In particular we are looking at the model $X_i | Z_i = k \sim N(\mu_k, \Sigma_k)$. This package is manly interacted with via macros which allows for a custom and minimal syntax. Here we are using a finite mixture model to cluster the observations in the iris dataset with the goal of clustering and recovering species. Thus we will look look for $3$ clusters.
+The first example is how to implement a Gaussian mixture model using ParsaModel. In particular we are looking at the model $X_i | Z_i = k \sim N(\mu_k, \Sigma_k)$. This package is manly interacted with via macros which allows for a custom and minimal syntax. Here we are using a finite mixture model to cluster the observations in the iris dataset with the goal of clustering and recovering species. Thus we will look look for $3$ clusters.
 
 ```julia
 K = 3

@@ -79,7 +79,7 @@ function conditional_dependent_search(D, domain_map, Z)
 	for d in new_d
 		if !lv_isKnown(d)
 			d_depo = collect(values(d.dependent_X))
-			new_Z = setdiff(reduce(vcat, [domain_map[x] for x in d_depo]), [D; Z])
+			new_Z = setdiff(reduce(vcat, [haskey(domain_map, x) ? domain_map[x] : (domain_map[x] = flattenConditionalDomain(x.T.domain); domain_map[x]) for x in d_depo]), [D; Z])
 			if length(new_Z) > 0
 				d_depo = [d_depo; conditional_dependent_search(new_Z, domain_map, [Z; D])]
 			end

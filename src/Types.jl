@@ -69,7 +69,15 @@ end
 function Base.getindex(PG::CategoricalZVec, indx...)
 	indx = collect(indx)
 	# CategoricalZVec(PG.inside, [typeof(P) == CategoricalZ ? P[indx...] : P for P in PG.outside])
-	outside = [typeof(P) == CategoricalZ ? P[indx...].outside[1] : P for P in PG.outside]
+	# outside = [typeof(P) == CategoricalZ ? P[indx...].outside[1] : P for P in PG.outside]
+	outside = Vector{LatentVaraible}()
+	for P in PG.outside
+		if typeof(P) == CategoricalZ
+			push!(outside, P[indx...].outside[1])
+		else
+			push!(outside, P)
+		end
+	end
 	inside = PG.inside
 	for P in PG.outside
 		for lv in P[indx...].inside

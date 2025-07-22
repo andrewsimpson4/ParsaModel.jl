@@ -62,9 +62,9 @@ function getDependentObservations(f1::Vector{LatentVaraible}, f2::Vector{Vector{
 	Y[overlap.==1]
 end
 
-function getIndependentSets(X::Vector{Observation}, Z)
+function getIndependentSets(X::Vector{Observation}, Z, domain_map)
 	n = length(X)
-	domain_map = Dict([x => flattenConditionalDomain(x.T.domain) for x in X])
+	# domain_map = Dict([x => flattenConditionalDomain(x.T.domain) for x in X])
 	indo_sets = Vector{Any}(undef, n)
 	for i in 1:n
 		sets = unique([X[i]; conditional_dependent_search(domain_map[X[i]], domain_map, Z)])
@@ -74,12 +74,12 @@ function getIndependentSets(X::Vector{Observation}, Z)
 end
 
 function conditional_dependent_search(D, domain_map, Z)
-	x_depo::Vector{Observation} = []
+	x_depo = Vector{Observation}()
 	new_d = setdiff(D, Z)
 	for d in new_d
 		if !lv_isKnown(d)
 			d_depo = collect(values(d.dependent_X))
-			new_Z = setdiff(reduce(vcat, [haskey(domain_map, x) ? domain_map[x] : (domain_map[x] = flattenConditionalDomain(x.T.domain); domain_map[x]) for x in d_depo]), [D; Z])
+			new_Z = setdiff(reduce(vcat, [domain_map[x] for x in d_depo if haskey(domain_map, x)]), [D; Z])
 			if length(new_Z) > 0
 				d_depo = [d_depo; conditional_dependent_search(new_Z, domain_map, [Z; D])]
 			end
@@ -110,30 +110,31 @@ function initialize_density_evaluation(X::Vector{Observation}, conditioned_domai
 	end
 end
 
-function initialize_density_evaluation(X::Vector{Observation}, conditioned_domains::Vector, density::Parsa_Base)
-	# current_condition = [(LV, lv_v(LV)) for LV in conditioned_domains if typeof(LV.value_) == Unknown]
+function initialize_density_evaluation(X::Vector{Observation}, conditioned_domains::Vector, density::Parsa_Base, domain_map::Dict, map_collector::Dict)
+	# current_condition = [(X, LV, lv_v(LV)) for LV in conditioned_domains if typeof(LV.value_) == Unknown]
 	# if haskey(density.eval_catch, (X, current_condition))
 	#     # println("found??")
 	#     return () -> density.eval_catch[(X, current_condition)]
 	# end
 	# println("###")
-	independent_sets = getIndependentSets(X, conditioned_domains)
-	mult_list = Vector{}()
+	independent_sets = getIndependentSets(X, conditioned_domains, domain_map)
+	mult_list = Vector{Function}()
 	for G in independent_sets
-		domains = (flattenConditionalDomain(reduce(vcat, [x.T.domain for x in G])))
+		domains = reduce(vcat, [domain_map[x] for x in G]) #(flattenConditionalDomain(reduce(vcat, [x.T.domain for x in G])))
 		lv_freq_map = countmap(domains)
 		next_conditions = setdiff(domains, conditioned_domains)
 		lv_freq_map = filter(x -> x[1] in next_conditions, lv_freq_map)
 		top_order = sortperm(collect(values(lv_freq_map)); rev=true)
 		next_conditions = collect(keys(lv_freq_map))[top_order]
 		if length(next_conditions) != 0
+			# display(next_conditions[1])
 			next_condition = next_conditions[1]
 			K = typeof(next_condition.value_) == Unknown ? (1:next_condition.Z.K) : lv_v(next_condition)
 			sum_list = Vector{Function}(undef, length(K))
 			for (i_k, k) in enumerate(K)
 				lv_set(next_condition, k)
 				new_conditions = [conditioned_domains; next_condition]
-				lik_new = initialize_density_evaluation(G, new_conditions, density)
+				lik_new = initialize_density_evaluation(G, new_conditions, density, domain_map, map_collector)
 				sum_list[i_k] = () -> (lv_set(next_condition, k); eval = next_condition.Z.Pi[k] * lik_new(); lv_set(next_condition, 0); eval)
 				lv_set(next_condition, 0)
 			end
@@ -147,8 +148,18 @@ function initialize_density_evaluation(X::Vector{Observation}, conditioned_domai
 			push!(mult_list, ff)
 		else
 			for g in G
-				mm = index_to_parameters(g.T.map(), density.parameters)
-				push!(mult_list, () -> BigFloat(density.evaluate(g,  mm)[1]))
+				domain_vals = [lv_v(LV) for LV in domain_map[g]]
+				mapping = get(map_collector, (g, domain_vals), nothing)
+				# display(map_collector)
+
+				if !isnothing(mapping)
+					push!(mult_list, () -> BigFloat(density.evaluate(g,  mapping)[1]))
+				else
+					ma = g.T.map()
+					mm = index_to_parameters(ma, density.parameters)
+					map_collector[(g, domain_vals)] = mm
+					push!(mult_list, () -> BigFloat(density.evaluate(g,  mm)[1]))
+				end
 
 			end
 
@@ -182,8 +193,10 @@ function LMEM(X::Vector{Observation}, base::Parsa_Base;
 	base.eval_catch = Dict()
 	global pbar = ProgressBar(total = length(X) + 1)
 	set_description(pbar, "Compiling")
-	(tau_chain, parameter_map, pi_parameters_used, tau_init, tau_pre_set, Q) = E_step_initalize(X, base, independent_by)
-	likelihood_ = initialize_density_evaluation(X, base, independent_by)
+	domain_map = Dict([x => unique(flattenConditionalDomain(x.T.domain)) for x in X])
+	map_collector = Dict()
+	(tau_chain, parameter_map, pi_parameters_used, tau_init, tau_pre_set, Q) = E_step_initalize(X, base, domain_map, map_collector)
+	likelihood_ = initialize_density_evaluation(X, Vector{}(), base, domain_map, map_collector)
 	likelihood = () -> log(likelihood_())
 	verbose ? update(pbar) : nothing
 	tau_wild = [wild_tau(ta()) for ta in tau_init]
@@ -328,7 +341,7 @@ function wild_tau(tau)
 	return tau_new
 end
 
-function E_step_initalize(X::Vector{Observation}, density::Parsa_Base, independent_by)
+function E_step_initalize(X::Vector{Observation}, density::Parsa_Base, all_domains, map_collector)
 	n = length(X)
 	tau = Vector{Function}(undef, n)
 	Q = Vector{Function}(undef, n)
@@ -336,12 +349,10 @@ function E_step_initalize(X::Vector{Observation}, density::Parsa_Base, independe
 	tau_init = Vector{Function}(undef, n)
 	parameters_used = Vector{Vector{Any}}(undef, n)
 	pi_parameters_used = Vector{Vector{Any}}(undef, n)
-	all_domains = Dict([x => unique(flattenConditionalDomain(x.T.domain)) for x in X])
    for i in 1:n
 		dependent_observations = unique([X[i]; conditional_dependent_search(all_domains[X[i]], all_domains, [])])
 		tau_init_i = E_step_i_initalize_initzial_values(X[i], dependent_observations, density, Vector{}(), (all_domains[X[i]]))
-        (tau_i, parameters_used_i, pi_parameters_used_i, tau_i_pre_set, pi_chain_i) = E_step_i_initalize(X[i], dependent_observations, density, Vector{}(), (all_domains[X[i]]))
-
+        (tau_i, parameters_used_i, pi_parameters_used_i, tau_i_pre_set, pi_chain_i) = E_step_i_initalize(X[i], dependent_observations, density, Vector{}(), (all_domains[X[i]]), all_domains, map_collector)
         tau_i_func = () -> (tau_eval = tau_i([]); Float64.(tau_eval / sum(tau_eval)))
 		Q_i = () -> (tau_eval = tau_i([]); pp = pi_chain_i([]); probs = (tau_eval / sum(tau_eval)); sum(probs .* log.(tau_eval)))
 		tau_i_pre_set_func = () -> (tau_eval = tau_i_pre_set([]); (tau_eval / sum(tau_eval)))
@@ -367,7 +378,7 @@ function get_pre_set_factor(condition::Vector{LatentVaraible}, k_list)
 	end
 end
 
-function E_step_i_initalize(X_i::Observation, X::Vector{Observation}, density::Parsa_Base, used_conditions::Vector, domains::Vector)
+function E_step_i_initalize(X_i::Observation, X::Vector{Observation}, density::Parsa_Base, used_conditions::Vector, domains::Vector, domain_map::Dict, map_collector::Dict)
 	# domains = (unique(flattenConditionalDomain(X_i.T.domain)))
 	domains_left = setdiff(domains, used_conditions)
 	condition = domains_left[1]
@@ -382,7 +393,7 @@ function E_step_i_initalize(X_i::Observation, X::Vector{Observation}, density::P
 		known_correction = () -> typeof(condition.value_) != Unknown ? (lv_v(condition) == k ? 1 : 0) : 1
 		lv_set(condition, k)
 		if length(domains_left) > 1
-			(tau, params, pi_params, tau_pre_set, pi_c) = E_step_i_initalize(X_i, X, density, [used_conditions; condition], domains)
+			(tau, params, pi_params, tau_pre_set, pi_c) = E_step_i_initalize(X_i, X, density, [used_conditions; condition], domains, domain_map, map_collector)
 			tau_chain = tau_chain ∘ (V) -> (lv_set(condition, k); eval = [tau([]); V]; lv_set(condition, 0); eval)
 			pi_chain = pi_chain ∘ (V) -> (lv_set(condition, k); eval = [pi_c([]); V]; lv_set(condition, 0); eval)
 			tau_chain_pre_set = tau_chain_pre_set ∘ (V) -> ([tau_pre_set([]); V])
@@ -391,7 +402,7 @@ function E_step_i_initalize(X_i::Observation, X::Vector{Observation}, density::P
 		else
 			Pi_used = [Pi_used; Tuple([(d.Z, lv_v(d)) for d in domains])]
 			params = index_to_parameters(X_i.T.map(), density.parameters)
-			tau = initialize_density_evaluation(X, domains, density)
+			tau = initialize_density_evaluation(X, domains, density, domain_map, map_collector)
 			Pi_val = () -> prod([typeof(d.value_) == Unknown ? d.Z.Pi[lv_v(d)] : 1 for d in domains])
 			tau_chain = ((V) -> (lv_set(condition, k); eval = [V; Pi_val() * tau()]; lv_set(condition, 0); eval)) ∘ tau_chain
 			pi_chain = ((V) -> (lv_set(condition, k); eval = [V; Pi_val()]; lv_set(condition, 0); eval)) ∘ pi_chain

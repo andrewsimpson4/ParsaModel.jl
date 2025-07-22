@@ -2,6 +2,8 @@ using ParsaModel
 
 using CSV, DataFrames, Clustering, Distances, LinearAlgebra, StatsBase, ProgressBars, Distributions
 
+using BenchmarkTools
+
 include("../src/Types.jl")
 include("../src/Models.jl")
 include("../src/Core.jl")
@@ -34,6 +36,36 @@ p=length(iris_m[1].X);
 class_string = vec(iris[:,6]);
 mapping = Dict(val => i for (i, val) in enumerate(unique(class_string)));
 class = [mapping[val] for val in class_string];
+
+
+using ProfileView, Profile
+
+K = 3
+model = ParsaBase(F=MtvNormal(p));
+@|( model,
+    PC = Categorical([i => 4 for i in 1:2]),
+    Z = Categorical(2),
+    id = Categorical(3),
+    id[i=1:n] == class[i],
+    iris_m[i = 1:n] ~ F(:mu => PC[Z[id[i]]][i], :cov => PC[Z[id[i]]][i]))
+EM!(model; n_init=1, n_wild=1)
+@| model PC
+
+K = 3
+model = ParsaBase(F=MtvNormal(p));
+@|( model,
+    PC = Categorical([i => 4 for i in 1:2]),
+    Z = Categorical(2),
+    id = Categorical(3),
+    id[i=1:n] == class[i],
+    iris_m[i = 1:n] ~ F(:mu => PC[Z[id[i]]][i], :cov => PC[Z[id[i]]][i]))
+EM!(model; n_init=1, n_wild=1)
+
+ProfileView.view()
+
+model.X_val[("iris_m", 1)].T.map()[:mu].outside
+
+
 
 K = 3
 model = ParsaBase(F=MtvNormal(p));

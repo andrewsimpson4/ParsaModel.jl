@@ -61,7 +61,6 @@ model = ParsaBase(F=MtvNormal(p));
     iris_m[i = 1:n] ~ F(:mu => PC[Z[id[i]]][i], :cov => PC[Z[id[i]]][i]))
 EM!(model; n_init=1, n_wild=1)
 
-ProfileView.view()
 
 model.X_val[("iris_m", 1)].T.map()[:mu].outside
 

@@ -21,6 +21,12 @@ model = ParsaBase(F=MtvNormal(p));
 @| model Z = Categorical(3) X[i=1:n] ~ F(:mu => Z[i], :cov => Z[i])
 EM!(model; n_init=1, n_wild=1)
 
+model = ParsaBase(F=MtvNormal(p));
+@|( model,
+    Z = Categorical(3),
+    X[i=1:n] ~ F(:mu => Z[i], :cov => Z[i]))
+EM!(model; n_init=1, n_wild=1)
+
 model.Z[1].inside[1]
 
 new_x = Dict(n+1 => Observation(zeros(p)));
@@ -38,8 +44,6 @@ mapping = Dict(val => i for (i, val) in enumerate(unique(class_string)));
 class = [mapping[val] for val in class_string];
 
 
-using ProfileView, Profile
-
 K = 3
 model = ParsaBase(F=MtvNormal(p));
 @|( model,
@@ -48,21 +52,9 @@ model = ParsaBase(F=MtvNormal(p));
     id = Categorical(3),
     id[i=1:n] == class[i],
     iris_m[i = 1:n] ~ F(:mu => PC[Z[id[i]]][i], :cov => PC[Z[id[i]]][i]))
-EM!(model; n_init=1, n_wild=1)
+@time EM!(model; n_init=1, n_wild=1)
 @| model PC
 
-K = 3
-model = ParsaBase(F=MtvNormal(p));
-@|( model,
-    PC = Categorical([i => 4 for i in 1:2]),
-    Z = Categorical(2),
-    id = Categorical(3),
-    id[i=1:n] == class[i],
-    iris_m[i = 1:n] ~ F(:mu => PC[Z[id[i]]][i], :cov => PC[Z[id[i]]][i]))
-EM!(model; n_init=1, n_wild=1)
-
-
-model.X_val[("iris_m", 1)].T.map()[:mu].outside
 
 
 

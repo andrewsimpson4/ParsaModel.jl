@@ -729,7 +729,7 @@ macro likelihood(model, conditions, index_set)
                 $$indx = j
                 X_collect[i___] = X_val[($$obs, $$indx)]
             end
-            LL = $$initialize_density_evaluation(X_collect, base_model, Vector{}())
+            LL = $$initialize_density_evaluation(X_collect, Vector{}(), base_model, Dict(), Dict())
             return LL
         end)
     end

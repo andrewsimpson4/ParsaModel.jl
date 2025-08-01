@@ -165,7 +165,15 @@ macro Categorical(model, name, K)
                 $$na = $$CategoricalZ(K = $$K_val, name=$$str)
             end)
         else
-            @Categorical_Set($mod, $name, $K_val)
+            if isa(($K_val)[1], Pair)
+                @Categorical_Set($mod, $name, $K_val)
+            else
+                Base.eval($mod, quote
+                    $$na = $$CategoricalZ(K = length($$K_val), name=$$str)
+                    $$na.Pi = $$K_val
+                    $$na.constant = true
+                end)
+            end
         end
     end
 end
@@ -200,7 +208,13 @@ macro Categorical_Set(model, name, K)
             if !isa(ind, AbstractVector)
                 ind = [ind]
             end
-            $$na.set[ind] = $$CategoricalZ(K = k, name=$$name*"["*string(ind)*"]")
+            if isa(k, Vector)
+                $$na.set[ind] = $$CategoricalZ(K = length(k), name=$$name*"["*string(ind)*"]")
+                $$na.set[ind].Pi = k
+                $$na.set[ind].constant = true
+            else
+                $$na.set[ind] = $$CategoricalZ(K = k, name=$$name*"["*string(ind)*"]")
+            end
         end
     end)
     end
@@ -251,7 +265,11 @@ macro Observation(model, main_obj, index_set)
                 # local ob = $$Observation(va, tt)
                 ob = va
                 ob.T = tt
-                domains = $$flattenConditionalDomain(tt.domain)
+                # $$SetDependentX(ob, Vector{}(), ($$obs_name, j))
+                domains = $$GetDependentVariable(ob)
+                for LV in domains
+                    LV.dependent_X[($$obs_name, j)] = ob
+                end
                 # if typeof(domains) != Vector{$$LatentVaraible}
                 #     domains = reduce(vcat, domains)
                 #     domains_new = []
@@ -264,14 +282,13 @@ macro Observation(model, main_obj, index_set)
                 #     end
                 #     domains = domains_new
                 # end
-                for LV in domains
-                    LV.dependent_X[($$obs_name, j)] = ob
-                end
                 global X_val[($$obs_name, j)] = ob
             end
         end)
     end
 end
+
+
 
 macro ObservationUpdater(model, main_obj, index_set)
     mod = esc(model)
@@ -424,7 +441,7 @@ macro Known(model, eq, index_set, index_set2)
                     end
                     z = $$Z
                     va = $$loaded_vals[$$vals_indx1][$$vals_indx2]
-                    zz = z[ind...].outside[1]
+                    zz = z[ind...]
                     zz[ind2...] = $$LatentVaraible(zz, va, ind2)
                     # z = $$Z
                     # va = $$loaded_vals[$$vals_indx1][$$vals_indx2]
@@ -475,7 +492,9 @@ macro Initialize(model, eq, index_set)
                 $$indx = j
                 z = $$Z
                 va = $$loaded_vals[j]
-                $$lv_set(z[$$indx_2].outside[1], va)
+                # $$lv_set(z[$$indx_2].outside[1], va)
+                # $$lv_set(z[$$indx_2], va)
+                $$lv_set_init(z[$$indx_2], va)
             end
         end)
     end
@@ -729,7 +748,8 @@ macro likelihood(model, conditions, index_set)
                 $$indx = j
                 X_collect[i___] = X_val[($$obs, $$indx)]
             end
-            LL = $$initialize_density_evaluation(X_collect, Vector{}(), base_model, Dict(), Dict())
+            domain_map = Dict([x => $$GetDependentVariable(x) for x in X_collect])
+            LL = $$initialize_density_evaluation(X_collect, Vector{}(), base_model, domain_map, Dict())
             return LL
         end)
     end

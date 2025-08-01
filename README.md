@@ -9,7 +9,7 @@ ParaModel is a domain-specific modeling language inside Julia for creating, esti
 ```math
 X_i | Z = \gamma \sim F(T^i_{1}(\gamma), \dots, T^i_{G}(\gamma); \Psi)
 ```
-where $Z_{mj} \sim \text{Categorical}(\pi_{m1}, \pi_{m2}, \dots, \pi_{mK_m})$. See the [paper](https://apple.com) for more details on categorical parsimonious models. The package has $8$ core functions and $6$ additions functions which in totality allow one to define a large class of different models for model-based clustering, classification, and general patter recognition problems.
+where $Z_{mj} \sim \text{Categorical}(\pi_{m1}, \pi_{m2}, \dots, \pi_{mK_m})$. The package used macros for a simple way to allow one to define a large class of different models for model-based clustering, classification, and general patter recognition problems.
 
 For a quick intuition on what this package does, ParsaModel is to model-based clustering and discriminant analysis as [STAN](https://en.wikipedia.org/wiki/Stan_(software)) and [JAGS](https://en.wikipedia.org/wiki/Just_another_Gibbs_sampler) is to bayesian inference.
 
@@ -53,7 +53,7 @@ If you are reading this, the repository is currently private. Use the following 
 
 ```julia
 using Pkg
-Pkg.add(url="https://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@github.com/andrewsimpson4/ParsaModel.jl.git")
+Pkg.add(url="https://github.com/andrewsimpson4/ParsaModel.jl.git")
 ```
 
 #### R
@@ -192,13 +192,12 @@ model = ParsaBase(F=MtvNormal(p));
     Z = Categorical(K),
     Z[i=1:n] = init_id[i],
     iris_m[i=1:n] ~ F(:mu => Z[i], :cov => Z[i]))
-EM!(model; should_initialize=false)
+EM!(model)
 
 id_ = [(@| model f(Z[i=j]))().max[1] for j in 1:n];
 randindex(id_, class)
 ```
 - `Z[i=1:n] = init_id[i]` takes our initial values from init_id and assigns them to the respective random variable `Z[i]` for the first step of the EM algorithm.
-- `should_initialize=false` disables the default initialization method.
 
 You should see and output the following which shows very good clustering performance
 
@@ -608,7 +607,7 @@ likelihoods = [ (new_x[n+1].X = x.X; ff()) for x in iris_m]
 
 ### Adding a custom base density
 
-Following the [paper](apple.com), one may wish to add a different base distribution $F$ other than the default normal distribution. To show how this this can be done, an example is given using a normal distribution.
+Following the paper, one may wish to add a different base distribution $F$ other than the default normal distribution. To show how this this can be done, an example is given using a normal distribution.
 
 #### General sketch and structure
 The general sketch and structure of adding a new base density is as follows. First a function is defined which is the M-step for the parameter.

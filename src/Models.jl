@@ -1,39 +1,6 @@
-# using Ipopt, StatsBase
-# using JuMP: Model, set_silent, @variable, @constraint, @objective, optimize!, value, set_optimizer_attribute, @operator
 using StatsBase
 
 ##### Normal Model #######
-
-
-# function normal_mean_update(value, index_package, log_pdf)
-#     mu_new = zeros(length(value))
-#     for (x, pr,) in index_package
-#         mu_new += pr * x
-#     end
-#     taus = [d[2] for d in index_package]
-#     mu_new /= sum(taus)
-#     return mu_new
-# end
-
-# function normal_covariance_update(value, index_package, log_pdf)
-#     cov_new = zeros(size(value))
-#     for (x, pr, params) in index_package
-#         cov_new += pr * ((x - (params[:mu])) * (x - (params[:mu]))')
-#     end
-#     taus = [d[2] for d in index_package]
-#     cov_new ./= sum(taus)
-#     # return cov_new
-#     return cholesky(Hermitian(cov_new)).L
-# end
-
-# function normal_pdf(X, params)
-#     # N = MvNormal(params[:mu], params[:cov])
-#     # pdf(N, X)
-#     p = length(X)
-#     y = params[:cov] \ (X - params[:mu])
-#     (2pi)^(-p/2) * det(params[:cov])^(-1) * exp(-1/2 * y' * y)
-# end
-
 
 function normal_mean_update(value::Any, index_package::SummationPackage, log_pdf::Function)
     mu_new = zeros(length(value))
@@ -225,7 +192,7 @@ function normal_parsa_V_update(V, package_index, log_pdf)
         push!(ZZ, pr * (val(x) - val(params[:mu])) * (val(x) - val(params[:mu]))')
     end
     zipped_az = zip(AA, ZZ)
-    while abs(sum(opt_new .- opt_old)) / abs(sum(opt_old)) > 10^-10
+    while abs(sum(opt_new .- opt_old)) / abs(sum(opt_old)) > 10^-5
         for i in 1:p
             for j in 1:p
                 if i != j

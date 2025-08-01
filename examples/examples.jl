@@ -1,9 +1,6 @@
 using ParsaModel
 
 using CSV, DataFrames, Clustering, Distances, LinearAlgebra, StatsBase, ProgressBars, Distributions
-
-using BenchmarkTools
-
 include("../src/Types.jl")
 include("../src/Models.jl")
 include("../src/Core.jl")
@@ -43,6 +40,10 @@ class_string = vec(iris[:,6]);
 mapping = Dict(val => i for (i, val) in enumerate(unique(class_string)));
 class = [mapping[val] for val in class_string];
 
+G = Set{Observation}()
+
+push!(G, collect(values(model.X_val))[1])
+
 
 K = 3
 model = ParsaBase(F=MtvNormal(p));
@@ -57,12 +58,13 @@ model = ParsaBase(F=MtvNormal(p));
 
 
 
-
 K = 3
 model = ParsaBase(F=MtvNormal(p));
 @| model Z = Categorical(K) iris_m[i=1:n] ~ F(:mu => Z[i], :cov => Z[i])
 EM!(model; n_init=10, n_wild=10)
 @| model Z :mu :cov
+
+model.Z[1]
 
 id_ = [(@| model f(Z[i=j]))().max[1] for j in 1:n];
 randindex(id_, class)
@@ -83,7 +85,7 @@ model = ParsaBase(F=MtvNormal(p));
     Z = Categorical(K),
     Z[i=1:n] = init_id[i],
     iris_m[i=1:n] ~ F(:mu => Z[i], :cov => Z[i]))
-EM!(model; should_initialize=false)
+EM!(model)
 
 id_ = [(@| model f(Z[i=j]))().max[1] for j in 1:n];
 randindex(id_, class)
@@ -100,7 +102,7 @@ model = ParsaBase(F = ParsimoniousNormal(p));
     Z = Categorical(K),
     Z[i=1:n] = init_id[i],
     iris_m[i=1:n] ~ F(:mu => Z[i], :a => Z[i], :L => Z[i], :V => 1))
-EM!(model; should_initialize=false)
+EM!(model)
 @| model :V
 
 id_ = [(@| model f(Z[i=j]))().max[1] for j in 1:n];
@@ -174,6 +176,7 @@ ff = @| model  new_x[i=(n+1)] ~ F(:mu => Z[i], :cov => Z[i]) f(Z[i=(n+1)]);
 id_ = [(new_x[n+1].X = x.X; ff().max[1]) for x in iris_m];
 randindex(id_, class)
 
+K=3
 blocks = Int.(repeat(1:(n/2),inner=2))
 n_blocks = length(unique(blocks))
 true_class_block = [class[i] for i in 1:n if i % 2 == 0]
@@ -184,7 +187,7 @@ model = ParsaBase(F = MtvNormal(p));
     B[i=1:n] == blocks[i],
     iris_m[i=1:n] ~ F(:mu => Z[B[i]], :cov => Z[B[i]])
 )
-EM!(model; n_init=10, n_wild=30)
+EM!(model; n_init=1, n_wild=1)
 
 id_ = [(@| model f(Z[i=j]))().max[1] for j in 1:n_blocks];
 randindex(id_, true_class_block)
@@ -254,7 +257,7 @@ model = ParsaBase(F = MtvNormal(p));
     Z = Categorical([1=>2,2=>2,3=>2]),
     iris_m[i=1:n] ~ F(:mu => [class[i], Z[class[i]][i]], :cov => [class[i], Z[class[i]][i]]))
 EM!(model; n_init=1, n_wild=1)
-@| model :cov
+@| model :cov Z
 
 new_obs = Dict([(i+n) => Observation(x.X) for (i,x) in enumerate(iris_m)])
 @| model new_obs[i=((1:n) .+ n)] ~ F(:mu => [class[i], Z[class[i]][i]], :cov => [class[i], Z[class[i]][i]])
@@ -272,12 +275,12 @@ const_V = [diagm(ones(4))];
     iris_m[i=1:n] ~ F(:mu => [class[i], Z[class[i]][i]], :a => [class[i], Z[class[i]][i]], :L => [class[i], Z[class[i]][i]], :V => 1),
     :V[i=1]=const_V[i])
 EM!(model; n_init=1, n_wild=1)
+@| model :L
 
 new_obs = Dict([(i+n) => Observation(x.X) for (i,x) in enumerate(iris_m)])
 @| model new_obs[i=((1:n) .+ n)] ~ F(:mu => [class[i], Z[class[i]][i]], :a => [class[i], Z[class[i]][i]], :L => [class[i], Z[class[i]][i]], :V => 1)
 id_ = [(@| model f(class[i=j]))().max[1] for j in (1:n).+n];
 mean(id_ .== class)
-
 
 K = 3
 model = ParsaBase(F = MtvNormal(p));
@@ -288,6 +291,11 @@ model = ParsaBase(F = MtvNormal(p));
     cov = Categorical(2),
     iris_m[i=1:n] ~ F(:mu => [class[i], Z[class[i]][i]], :cov => cov[class[i], Z[class[i]][i]]))
 EM!(model; n_init=1, n_wild=1)
+# EM!(model; n_init=1, n_wild=1)
+@| model :mu :cov Z
+
+(@| model f(cov[i=[[1,1]]]))()
+
 G = Dict([j => (@| model f(cov[i=[j]]))() for j in reduce(vcat, [[[i,j] for i in 1:K] for j in 1:2])]);
 for (key, M) in G
     mm = Dict(key => M.max[1])

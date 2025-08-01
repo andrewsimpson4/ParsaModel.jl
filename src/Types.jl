@@ -18,14 +18,17 @@ Base.@kwdef mutable struct CategoricalZ
 	LV = Dict{Any, LatentVaraible}()
 	Pi::Vector{Real} = ones(K) ./ K
     name::String
+	constant = false
 end
 
 
 Base.@kwdef mutable struct LatentVaraible
 	value_::Union{Int, Unknown}
+	init_value = nothing
 	Z::CategoricalZ
 	dependent_X = Dict{Any, Observation}()
     index::Any
+	active=false
 end
 
 Base.@kwdef mutable struct CategoricalZVec
@@ -35,7 +38,18 @@ end
 
 
 lv_v(LV::LatentVaraible) = typeof(LV.value_) == Unknown ? LV.value_.value : LV.value_
-lv_set(LV::LatentVaraible, x) = typeof(LV.value_) == Unknown ? LV.value_.value = x : nothing
+# lv_set(LV::LatentVaraible, x) = typeof(LV.value_) == Unknown ? LV.value_.value = x : nothing
+function lv_set(LV::LatentVaraible, x)
+	if typeof(LV.value_) == Unknown
+		LV.value_.value = x
+	end
+	if x == 0
+		LV.active=false
+	else
+		LV.active=true
+	end
+end
+lv_set_init(LV::LatentVaraible, x) = LV.init_value = x
 lv_isKnown(LV::LatentVaraible) = typeof(LV.value_) == Unknown ? (lv_v(LV) == 0 ? false : true) : true
 
 function get_possible_indexes(V::Vector{Any}, i::Int)
@@ -66,120 +80,51 @@ function Base.display(Z::CategoricalZ)
     println(Z.name)
 end
 
-function Base.getindex(PG::CategoricalZVec, indx...)
-	indx = collect(indx)
-	# CategoricalZVec(PG.inside, [typeof(P) == CategoricalZ ? P[indx...] : P for P in PG.outside])
-	# outside = [typeof(P) == CategoricalZ ? P[indx...].outside[1] : P for P in PG.outside]
-	outside = Vector{LatentVaraible}()
-	for P in PG.outside
-		if typeof(P) == CategoricalZ
-			push!(outside, P[indx...].outside[1])
-		else
-			push!(outside, P)
-		end
-	end
-	inside = PG.inside
-	for P in PG.outside
-		for lv in P[indx...].inside
-			# if lv_v(lv) == 0
-			inside = [inside; lv]
-			# end
-		end
-	end
-	(inside = unique(inside), outside = unique(outside))
-
-end
-
 function Base.getindex(PG::CategoricalZ, indx...)
 	indx = collect(indx)
-	indx_new = []
+	indx_new::Vector{Int} = []
 	for ix in indx
-		# indx_new = [indx_new; ix]
-		if typeof(ix) == Vector{Int} || typeof(ix) == Int
-			push!(indx_new, ix...)
+		if typeof(ix) == LatentVaraible
+			if !lv_isKnown(ix)
+				return ix
+			else
+				push!(indx_new, lv_v(ix))
+			end
+		else
+			if length(ix) == 1
+				push!(indx_new, ix)
+			else
+				for xx in ix
+					push!(indx_new, xx)
+				end
+			end
+		end
+	end
+	LV = get(PG.LV, indx_new, nothing)
+	if isnothing(LV)
+		PG.LV[indx_new] = LatentVaraible(PG, indx_new)
+		LV = PG.LV[indx_new]
+	end
+	return LV
+end
+
+Base.getindex(LV:: LatentVaraible, indx...) = LV
+
+function Base.getindex(PG::CategoricalZset, indx...)
+	indx = collect(indx)
+	indx_new::Vector{Int} = []
+	for ix in indx
+		if typeof(ix) == LatentVaraible
+			if !lv_isKnown(ix)
+				return ix
+			else
+				push!(indx_new, lv_v(ix))
+			end
 		else
 			push!(indx_new, ix)
 		end
 	end
-	indx = indx_new
-	V = Vector{Any}(undef, length(indx))
-	extras = Vector{}()
-	for (i, ix) in enumerate(indx)
-		if typeof(ix) == Int
-			V[i] = ix
-		else
-			ranges = Vector{}()
-			for ii in ix.outside
-				if typeof(ii) == LatentVaraible
-					if lv_v(ii) == 0
-						push!(ranges, 1)
-						push!(ranges, ii.Z.K)
-						push!(extras, ii)
-					else
-						push!(ranges, lv_v(ii))
-					end
-				end
-			end
-			V[i] = minimum(ranges):maximum(ranges)
-			extras = [extras; ix.inside]
-		end
-
-	end
-	all_indx = get_possible_indexes(V, 1)
-	LV = Vector{LatentVaraible}(undef, length(all_indx))
-	for (i, v) in enumerate(all_indx)
-		if haskey(PG.LV, v)
-			LV[i] = PG.LV[v]
-		else
-			PG.LV[v] = LatentVaraible(PG, v)
-			LV[i] = PG.LV[v]
-		end
-	end
-	LV::Vector{LatentVaraible} = LV
-	for lv in LV
-		extras = [extras; lv]
-	end
-	return (inside = unique(extras), outside = unique(LV))
-end
-
-function Base.getindex(PG::CategoricalZset, indx...)
-	indx = collect(indx)
-	V = Vector{Any}(undef, length(indx))
-	extra_LV = Vector{LatentVaraible}()
-	for (i, ix) in enumerate(indx)
-		if typeof(ix) == Int
-			V[i] = indx[1]
-		else
-			ranges = Vector{}()
-			for ii in ix.outside
-				if typeof(ii) == LatentVaraible
-					if lv_v(ii) == 0
-						push!(ranges, 1)
-						push!(ranges, ii.Z.K)
-						push!(extra_LV, ii)
-					else
-						push!(ranges, lv_v(ii))
-					end
-				end
-			end
-			V[i] = minimum(ranges):maximum(ranges)
-			extra_LV = [extra_LV; ix.inside]
-		end
-	end
-	all_indx = get_possible_indexes(V, 1)
-	LV = Vector{CategoricalZ}(undef, length(all_indx))
-	for (i, v) in enumerate(all_indx)
-		# if length(v) == 1
-		# 	LV[i] = PG.set[v[1]]
-		# else
-		# 	LV[i] = PG.set[v]
-		# end
-        LV[i] = PG.set[v]
-	end
-
-	inside = extra_LV
-	outside = LV
-	CategoricalZVec(inside, outside)
+	return PG.set[indx_new]
 end
 
 
@@ -190,14 +135,6 @@ end
 
 LatentVaraible(Z::CategoricalZ, index) = LatentVaraible(value_ = Unknown(), Z = Z, index=index)
 LatentVaraible(Z::CategoricalZ, value::Int, index) = LatentVaraible(value_ = value, Z = Z,index=index)
-
-# function sampleZ(Z::CategoricalZ; value = nothing)
-# 	if isnothing(value)
-# 		LatentVaraible(Z)
-# 	else
-# 		LatentVaraible(Z, value)
-# 	end
-# end
 
 Base.@kwdef mutable struct ParameterValue
 	value::Any
@@ -266,13 +203,11 @@ function index_to_parameters(p, parameters)
 	for (key, indx) in p
 		V = indx
 		if !isa(indx, AbstractVector) && !isa(indx, Int)
-
-			V = indx.outside
-			V = typeof(V[1]) == LatentVaraible ? lv_v(V[1]) : V[1]
+			V = typeof(V) == LatentVaraible ? lv_v(V) : V
 
 		elseif !isa(indx, Int)
 			V = indx
-			V = [typeof(v.outside[1]) == LatentVaraible ? lv_v(v.outside[1]) : v for v in V]
+			V = [typeof(v) == LatentVaraible ? lv_v(v) : v for v in V]
 		end
 		new[key] = parameters[key][V...]
 	end
@@ -311,8 +246,6 @@ Base.@kwdef mutable struct Parsa_Base
 	parameters::Dict
 	parameter_order::Vector
 	is_valid_input::Function
-	# evaluate::Function = (X, p) -> pdf(X.X, index_to_parameter_values(p, parameters))
-	# evaluate::Function = (X, p) -> pdf(X.X, Dict([ke => va.value.value for (ke, va) in p]))
 	evaluate::Function = (X, p) -> pdf(X.X, p)
 
 	eval_catch = Dict()

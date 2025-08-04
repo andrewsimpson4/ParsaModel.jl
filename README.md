@@ -119,7 +119,7 @@ Here we have a vector of vectors `iris_m` where each element is one of the obser
 
 ### ParsaModel Macro
 
-Since ParsaModel is a domain-specific modeling language inside Julia, it used a macro to allow a customized notation. The general macro notation for ParsaModel is `@| <model> <expressions>` or `@|(<model>, <expression1>, <expression2>,...)`. A large set of examples are given for teh different `<expressions>` that can be used.
+Since ParsaModel is a domain-specific modeling language inside Julia, it used a macro to allow a customized notation. The general macro notation for ParsaModel is `@| <model> <expressions>` or `@|(<model>, <expression1>, <expression2>,...)`. A large set of examples are given for the different `<expressions>` that can be used.
 
 ### Gaussian Mixture Model
 

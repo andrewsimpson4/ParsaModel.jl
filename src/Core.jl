@@ -158,6 +158,7 @@ end
 
 function initialize_density_evaluation(X::Vector{Observation}, conditioned_domains::Vector, density::Parsa_Base, domain_map::Dict, map_collector::Dict)
 	independent_sets = getIndependentSets(X)
+	# println(length(independent_sets))
 	mult_list = Vector{Function}()
 	for G in independent_sets
 		domains = [LV for LV in (reduce(vcat, [unique([lv for lv in GetDependentVariable(x)]) for x in G]))]
@@ -168,6 +169,8 @@ function initialize_density_evaluation(X::Vector{Observation}, conditioned_domai
 		next_conditions = collect(keys(lv_freq_map))[top_order]
 		if length(next_conditions) != 0
 			next_condition = next_conditions[1]
+			# display(next_condition)
+			# sleep(0.1)
 			K = typeof(next_condition.value_) == Unknown ? (1:next_condition.Z.K) : lv_v(next_condition)
 			sum_list = Vector{Function}(undef, length(K))
 			for (i_k, k) in enumerate(K)
@@ -546,6 +549,7 @@ end
 function posterior_initalize!(domains, X::Vector{Observation}, density::Parsa_Base, used_conditions::Vector, domain_map::Dict, tau_chain::Vector, Pi_used::Vector)
 	domains_left = setdiff(domains, used_conditions)
 	condition = domains_left[1]
+	# display(condition)
 	K = typeof(condition.value_) == Unknown ? (1:condition.Z.K) : lv_v(condition)
 	used_conditions = [used_conditions; condition]
 	for k in K

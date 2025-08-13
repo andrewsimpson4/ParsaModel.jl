@@ -1,3 +1,14 @@
+
+# notation outline
+# @|( model_test,
+#     begin
+#         Z = Categorical(collect(Z))
+#         for i in 1:n
+#             text_X[i] ~ F(:mu => Z[i], :cov => Z[i]])
+#         end
+#         G = f(Z[1])
+#     end)
+
 function ParsaBase(;F::Parsa_Base)
     space = Module()
     Base.eval(space, quote

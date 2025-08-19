@@ -1,10 +1,11 @@
-using ParsaModel
+# using ParsaModel
 
 using CSV, DataFrames, Clustering, Distances, LinearAlgebra, StatsBase, ProgressBars, Distributions
 include("../src/Types.jl")
-include("../src/Models.jl")
 include("../src/Core.jl")
-include("../src/Macros.jl")
+# include("../src/Macros.jl")
+include("../src/Models.jl")
+include("../src/Notation.jl")
 
 p = 4
 K = 3
@@ -12,24 +13,17 @@ n = 100
 true_id = rand(1:K, n);
 mu = [ones(p), ones(p) .+ 6, ones(p) .- 6];
 cov = [diagm(ones(p)), diagm(ones(p)), diagm(ones(p)) .+ 1];
-X = [Observation(vec(rand(MvNormal(mu[true_id[i]], cov[true_id[i]]), 1))) for i in 1:n];
+X = Observation.([vec(rand(MvNormal(mu[true_id[i]], cov[true_id[i]]), 1)) for i in 1:n]);
 
-model = ParsaBase(F=MtvNormal(p));
-@| model Z = Categorical(3) X[i=1:n] ~ F(:mu => Z[i], :cov => Z[i])
-EM!(model; n_init=1, n_wild=1)
+N = MtvNormal(p);
+Z = categorical(3);
+for i in eachindex(X)
+    X[i] ~ N(:mu => Z[i], :cov => Z[i])
+end
+EM!(N)
+Z.Pi
+N[:mu]
 
-model = ParsaBase(F=MtvNormal(p));
-@|( model,
-    Z = Categorical(3),
-    X[i=1:n] ~ F(:mu => Z[i], :cov => Z[i]))
-EM!(model; n_init=1, n_wild=1)
-
-model.Z[1].inside[1]
-
-new_x = Dict(n+1 => Observation(zeros(p)));
-ff = @| model  new_x[i=(n+1)] ~ F(:mu => Z[i], :cov => Z[i]) f(Z[i=(n+1)]);
-gen(x) = (new_x[n+1].X = x; ff())
-@time [gen(x.X) for x in X]
 
 iris = CSV.read("./examples/datasets/Iris.csv", DataFrame)
 iris_matrix = Matrix(iris[:, 2:5])
@@ -40,291 +34,257 @@ class_string = vec(iris[:,6]);
 mapping = Dict(val => i for (i, val) in enumerate(unique(class_string)));
 class = [mapping[val] for val in class_string];
 
-G = Set{Observation}()
-
-push!(G, collect(values(model.X_val))[1])
-
-
 K = 3
-model = ParsaBase(F=MtvNormal(p));
-@|( model,
-    PC = Categorical([i => 4 for i in 1:2]),
-    Z = Categorical(2),
-    id = Categorical(3),
-    id[i=1:n] == class[i],
-    iris_m[i = 1:n] ~ F(:mu => PC[Z[id[i]]][i], :cov => PC[Z[id[i]]][i]))
-@time EM!(model; n_init=1, n_wild=1)
-@| model PC
-
-
-
-K = 3
-model = ParsaBase(F=MtvNormal(p));
-@| model Z = Categorical(K) iris_m[i=1:n] ~ F(:mu => Z[i], :cov => Z[i])
-EM!(model; n_init=10, n_wild=10)
-@| model Z :mu :cov
-
-model.Z[1]
-
-id_ = [(@| model f(Z[i=j]))().max[1] for j in 1:n];
-randindex(id_, class)
-
-new_x = Dict(n+1 => Observation(zeros(p)));
-ff = @| model  new_x[i=(n+1)] ~ F(:mu => Z[i], :cov => Z[i]) f(Z[i=(n+1)]);
-id_ = [ (new_x[n+1].X = x.X; ff().max[1]) for x in iris_m];
-randindex(id_, class)
-
-
+F = MtvNormal(p);
+Z = categorical(K);
+for i in eachindex(iris_m);
+    iris_m[i] ~ F(:mu => Z[i], :cov => Z[i])
+end
+EM!(F; n_init=10, n_wild = 10)
 
 iris_hclust = hclust(pairwise(Euclidean(), iris_matrix'), :ward)
 init_id = cutree(iris_hclust, k=3)
 
 K = 3
-model = ParsaBase(F=MtvNormal(p));
-@|(model,
-    Z = Categorical(K),
-    Z[i=1:n] = init_id[i],
-    iris_m[i=1:n] ~ F(:mu => Z[i], :cov => Z[i]))
-EM!(model)
+F = MtvNormal(p);
+Z = categorical(K);
+for i in eachindex(iris_m);
+    iris_m[i] ~ F(:mu => Z[i], :cov => Z[i])
+    Z[i] <-- init_id[i]
+end
+EM!(F)
 
-id_ = [(@| model f(Z[i=j]))().max[1] for j in 1:n];
-randindex(id_, class)
+id = [f(Z[i])().max[1] for i in 1:n];
+randindex(id, class)
 
-new_x = Dict(n+1 => Observation(zeros(p)));
-ff = @| model  new_x[i=(n+1)] ~ F(:mu => Z[i], :cov => Z[i]) f(Z[i=(n+1)]);
-id_ = [(new_x[n+1].X = x.X; ff().max[1]) for x in iris_m];
-randindex(id_, class)
-
-
-K = 3
-model = ParsaBase(F = ParsimoniousNormal(p));
-@|( model,
-    Z = Categorical(K),
-    Z[i=1:n] = init_id[i],
-    iris_m[i=1:n] ~ F(:mu => Z[i], :a => Z[i], :L => Z[i], :V => 1))
-EM!(model)
-@| model :V
-
-id_ = [(@| model f(Z[i=j]))().max[1] for j in 1:n];
-randindex(id_, class)
-
-new_x = Dict(n+1 => Observation(zeros(p)));
-ff = @| model  new_x[i=(n+1)] ~ F(:mu => Z[i], :a => Z[i], :L => Z[i], :V => 1) f(Z[i=(n+1)]);
-id_ = [(new_x[n+1].X = x.X; ff().max[1]) for x in iris_m];
-randindex(id_, class)
 
 
 
 K = 3
-model = ParsaBase(F = ParsimoniousNormal(p));
-const_V = [diagm(ones(4))];
-@|( model,
-    Z = Categorical(K),
-    iris_m[i=1:n] ~ F(:mu => Z[i], :a => Z[i], :L => Z[i], :V => 1),
-    :V[i=1] == const_V[i]
-)
-EM!(model; n_init=20, n_wild=30)
-@| model :V
+F = ParsimoniousNormal(p);
+Z = categorical(K);
+for i in eachindex(iris_m);
+    iris_m[i] ~ F(:mu => Z[i], :a => Z[i], :L => Z[i], :V => 1)
+    Z[i] <-- init_id[i]
+end
+EM!(F)
 
-id_ = [(@| model f(Z[i=j]))().max[1] for j in 1:n];
-randindex(id_, class)
+id = [f(Z[i])().max[1] for i in 1:n];
+randindex(id, class)
 
-new_x = Dict(n+1 => Observation(zeros(p)));
-ff = @| model  new_x[i=(n+1)] ~ F(:mu => Z[i], :a => Z[i], :L => Z[i], :V => 1) f(Z[i=(n+1)]);
-id_ = [(new_x[n+1].X = x.X; ff().max[1]) for x in iris_m];
-randindex(id_, class)
-
-
+isa(Z[1], Function)
 
 K = 3
-model = ParsaBase(F = ParsimoniousNormal(p));
-const_V = [diagm(ones(4))];
-@|( model,
-    Z = Categorical(K),
-    iris_m[i=1:n] ~ F(:mu => Z[i], :a => Z[i], :L => 1, :V => 1),
-    :V[i=1] == const_V[i]
-)
-EM!(model; n_init=20, n_wild=30)
-@| model :V :L
+F = ParsimoniousNormal(p);
+Z = categorical(K);
+for i in eachindex(iris_m);
+    iris_m[i] ~ F(:mu => Z[i], :a => Z[i], :L => Z[i], :V => 1)
+    Z[i] <-- init_id[i]
+end
+F[:V][1] <| diagm(ones(p))
+EM!(F)
 
-id_ = [(@| model f(Z[i=j]))().max[1] for j in 1:n];
-randindex(id_, class)
+value(F[:V])
+value(F[:L])
+value(Z)
 
-new_x = Dict(n+1 => Observation(zeros(p)));
-ff = @| model  new_x[i=(n+1)] ~ F(:mu => Z[i], :a => Z[i], :L => 1, :V => 1) f(Z[i=(n+1)]);
-id_ = [(new_x[n+1].X = x.X; ff().max[1]) for x in iris_m];
-randindex(id_, class)
+id = [f(Z[i])().max[1] for i in 1:n];
+randindex(id, class)
+
+K = 3
+F = ParsimoniousNormal(p);
+Z = categorical(K);
+for i in eachindex(iris_m);
+    iris_m[i] ~ F(:mu => Z[i], :a => Z[i], :L => 1, :V => 1)
+    Z[i] <-- init_id[i]
+end
+F[:L][1] <| ones(p)
+EM!(F)
+
+value(F[:V])
+value(F[:L])
+value(F[:a])
+value(Z)
+
+id = [f(Z[i])().max[1] for i in 1:n];
+randindex(id, class)
 
 
 
 known_samples = sample(1:n, 30; replace=false)
 known_map = Dict([s => class[s] for s in known_samples])
 K = 3
-model = ParsaBase(F = MtvNormal(p));
-@|( model,
-    Z = Categorical(K),
-    Z[i=known_samples] == known_map[i],
-    iris_m[i=1:n] ~ F(:mu => Z[i], :cov => Z[i])
-)
-EM!(model; n_init=10, n_wild=10)
+F = MtvNormal(p);
+Z = categorical(K)
+for i in eachindex(iris_m);
+    iris_m[i] ~ F(:mu => Z[i], :cov => Z[i])
+end
+for (ke, va) in known_map
+    Z[ke] <| va
+end
+EM!(F; n_init=10, n_wild = 10)
 
-id_ = [(@| model f(Z[i=j]))().max[1] for j in 1:n];
-randindex(id_, class)
+id = [f(Z[i])().max[1] for i in 1:n];
+randindex(id, class)
 
-new_x = Dict(n+1 => Observation(zeros(p)));
-ff = @| model  new_x[i=(n+1)] ~ F(:mu => Z[i], :cov => Z[i]) f(Z[i=(n+1)]);
-id_ = [(new_x[n+1].X = x.X; ff().max[1]) for x in iris_m];
-randindex(id_, class)
 
 K=3
 blocks = Int.(repeat(1:(n/2),inner=2))
 n_blocks = length(unique(blocks))
 true_class_block = [class[i] for i in 1:n if i % 2 == 0]
-model = ParsaBase(F = MtvNormal(p));
-@|( model,
-    Z = Categorical(K),
-    B = Categorical(n_blocks),
-    B[i=1:n] == blocks[i],
-    iris_m[i=1:n] ~ F(:mu => Z[B[i]], :cov => Z[B[i]])
-)
-EM!(model; n_init=1, n_wild=1)
+F = MtvNormal(p);
+Z = categorical(K);
+B = categorical(n_blocks);
+for i in 1:n;
+    iris_m[i] ~ F(:mu => Z[B[i]], :cov => Z[B[i]])
+    B[i] <| blocks[i]
+end
+EM!(F)
+value(F[:cov])
 
-id_ = [(@| model f(Z[i=j]))().max[1] for j in 1:n_blocks];
-randindex(id_, true_class_block)
+id = [f(Z[i])().max[1] for i in 1:n_blocks];
+randindex(id, true_class_block)
 
-new_x = Dict(n+1 => Observation(zeros(p)));
-ff = @| model  new_x[i=(n+1)] ~ F(:mu => Z[B[i]], :cov => Z[B[i]]) f(Z[i=(n+1)]);
-id_ = [(new_x[n+1].X = x.X; ff().max[1]) for x in iris_m];
-randindex(id_, class)
+
 
 K=3
 blocks = [1;1:(n-1)]
 II = [1;2; repeat([1], 148)]
 n_blocks = length(unique(blocks))
 perms = reduce(vcat, [[[i,j] for i in 1:K if i != j] for j in 1:K])
-model = ParsaBase(F = MtvNormal(p));
-@|( model,
-    B = Categorical(n_blocks),
-    B[i=1:n] == blocks[i],
-    P = Categorical([i => 3 for i in 1:6]),
-    P[i=1:6][j=1:2] == perms[i][j],
-    I = Categorical(2),
-    I[i=1:n] == II[i],
-    PP = Categorical(6),
-    iris_m[i=1:n] ~ F(:mu => P[PP[B[i]]][I[i]], :cov => P[PP[B[i]]][I[i]])
-    )
-EM!(model; n_init=1, n_wild=1)
-@| model :mu :cov
-perms[(@| model f(PP[i=1]))().max[1]]
-
-
-
-K = 3
-model = ParsaBase(F = MtvNormal(p));
-@|( model,
-    class = Categorical(K),
-    class[i=1:n] == class[i],
-    iris_m[i=1:n] ~ F(:mu => class[i], :cov => class[i]))
-EM!(model; n_init=1, n_wild=1)
-
-new_obs = Dict([(i+n) => Observation(x.X) for (i,x) in enumerate(iris_m)])
-@| model new_obs[i=((1:n) .+ n)] ~ F(:mu => class[i], :cov => class[i])
-id_ = [(@| model f(class[i=j]))().max[1] for j in (1:n).+n];
-mean(id_ .== class)
-
-
-K = 3
-model = ParsaBase(F = ParsimoniousNormal(p));
-const_V = [diagm(ones(4))];
-@|( model,
-    class = Categorical(K),
-    class[i=1:n] == class[i],
-    iris_m[i=1:n] ~ F(:mu => class[i], :a => class[i], :L => 1, :V => 1),
-    :V[i=1]=const_V[i])
-EM!(model; n_init=1, n_wild=1)
-
-new_obs = Dict([(i+n) => Observation(x.X) for (i,x) in enumerate(iris_m)])
-@| model new_obs[i=((1:n) .+ n)] ~ F(:mu => class[i], :a => class[i], :L => 1, :V => 1)
-id_ = [(@| model f(class[i=j]))().max[1] for j in (1:n).+n];
-mean(id_ .== class)
-
-
-K = 3
-model = ParsaBase(F = MtvNormal(p));
-@|( model,
-    class = Categorical(K),
-    class[i=1:n] == class[i],
-    Z = Categorical([1=>2,2=>2,3=>2]),
-    iris_m[i=1:n] ~ F(:mu => [class[i], Z[class[i]][i]], :cov => [class[i], Z[class[i]][i]]))
-EM!(model; n_init=1, n_wild=1)
-@| model :cov Z
-
-new_obs = Dict([(i+n) => Observation(x.X) for (i,x) in enumerate(iris_m)])
-@| model new_obs[i=((1:n) .+ n)] ~ F(:mu => [class[i], Z[class[i]][i]], :cov => [class[i], Z[class[i]][i]])
-id_ = [(@| model f(class[i=j]))().max[1] for j in (1:n).+n];
-mean(id_ .== class)
-
-
-K = 3
-model = ParsaBase(F = ParsimoniousNormal(p));
-const_V = [diagm(ones(4))];
-@|( model,
-    class = Categorical(K),
-    class[i=1:n] == class[i],
-    Z = Categorical([1=>2,2=>2,3=>2]),
-    iris_m[i=1:n] ~ F(:mu => [class[i], Z[class[i]][i]], :a => [class[i], Z[class[i]][i]], :L => [class[i], Z[class[i]][i]], :V => 1),
-    :V[i=1]=const_V[i])
-EM!(model; n_init=1, n_wild=1)
-@| model :L
-
-new_obs = Dict([(i+n) => Observation(x.X) for (i,x) in enumerate(iris_m)])
-@| model new_obs[i=((1:n) .+ n)] ~ F(:mu => [class[i], Z[class[i]][i]], :a => [class[i], Z[class[i]][i]], :L => [class[i], Z[class[i]][i]], :V => 1)
-id_ = [(@| model f(class[i=j]))().max[1] for j in (1:n).+n];
-mean(id_ .== class)
-
-K = 3
-model = ParsaBase(F = MtvNormal(p));
-@|( model,
-    class = Categorical(K),
-    class[i=1:n] == class[i],
-    Z = Categorical([1=>2,2=>2,3=>2]),
-    cov = Categorical(2),
-    iris_m[i=1:n] ~ F(:mu => [class[i], Z[class[i]][i]], :cov => cov[class[i], Z[class[i]][i]]))
-EM!(model; n_init=1, n_wild=1)
-# EM!(model; n_init=1, n_wild=1)
-@| model :mu :cov Z
-
-(@| model f(cov[i=[[1,1]]]))()
-
-G = Dict([j => (@| model f(cov[i=[j]]))() for j in reduce(vcat, [[[i,j] for i in 1:K] for j in 1:2])]);
-for (key, M) in G
-    mm = Dict(key => M.max[1])
-    @| model cov[i=[key]] == mm[i]
+F = MtvNormal(p);
+B = categorical(n_blocks);
+P = categorical([i => 3 for i in 1:6]);
+I = categorical(2);
+PP = categorical(6);
+for i in 1:n;
+    iris_m[i] ~ F(:mu => P[PP[B[i]]][I[i]], :cov => P[PP[B[i]]][I[i]])
+    B[i] <| blocks[i]
+    I[i] <| II[i]
 end
-new_obs = Dict([(i+n) => Observation(x.X) for (i,x) in enumerate(iris_m)])
-@| model new_obs[i=((1:n) .+ n)] ~ F(:mu => [class[i], Z[class[i]][i]], :cov => cov[class[i], Z[class[i]][i]])
-id_ = [(@| model f(class[i=j]))().max[1] for j in (1:n).+n];
-mean(id_ .== class)
-
-countmap([lv_v(v) for (cc, v) in model.class.LV])
+for i in 1:6
+    for j in 1:2
+        P[i][j] <| perms[i][j]
+    end
+end
+EM!(F)
+perms[f(PP[1])().max[1]]
 
 K = 3
-model = ParsaBase(F = ParsimoniousNormal(p));
-@|( model,
-    class = Categorical(K),
-    class[i=1:n] == class[i],
-    Z = Categorical([1=>2,2=>2,3=>2]),
-    cov = Categorical(2),
-    iris_m[i=1:n] ~ F(:mu => [class[i], Z[class[i]][i]], :a => cov[class[i], Z[class[i]][i]], :L => cov[class[i], Z[class[i]][i]], :V => 1))
-EM!(model; n_init=1, n_wild=1)
-@| model :L :V
-G = Dict([j => (@| model f(cov[i=[j]]))() for j in reduce(vcat, [[[i,j] for i in 1:K] for j in 1:2])]);
-for (key, M) in G
-    mm = Dict(key => M.max[1])
-    @| model cov[i=[key]] == mm[i]
+F = MtvNormal(p);
+cl = categorical(K);
+for i in eachindex(iris_m);
+    iris_m[i] ~ F(:mu => cl[i], :cov => cl[i])
+    cl[i] <| class[i]
 end
-new_obs = Dict([(i+n) => Observation(x.X) for (i,x) in enumerate(iris_m)])
-@| model new_obs[i=((1:n) .+ n)] ~ F(:mu => [class[i], Z[class[i]][i]], :a => cov[class[i], Z[class[i]][i]], :L => cov[class[i], Z[class[i]][i]], :V => 1)
-id_ = [(@| model f(class[i=j]))().max[1] for j in (1:n).+n];
-mean(id_ .== class)
+EM!(F)
 
+new_x = Observation(zeros(p));
+new_x ~ F(:mu => cl[n+1], :cov => cl[n+1]);
+pr = f(cl[n+1]);
+post(x) = (new_x.X = x; pr().max[1])
+class_pred = [post(x.X) for x in iris_m];
+mean(class_pred .== class)
+
+
+K = 3
+F = ParsimoniousNormal(p);
+cl = categorical(K);
+for i in eachindex(iris_m);
+    iris_m[i] ~ F(:mu => cl[i], :a => cl[i], :L => 1, :V => 1)
+    cl[i] <| class[i]
+end
+EM!(F)
+
+new_x = Observation(zeros(p));
+new_x ~ F(:mu => cl[n+1], :a => cl[n+1], :L => 1, :V => 1);
+pr = f(cl[n+1]);
+post(x) = (new_x.X = x; pr().max[1])
+class_pred = [post(x.X) for x in iris_m];
+mean(class_pred .== class)
+
+
+K = 3
+F = MtvNormal(p);
+cl = categorical(K);
+Z = categorical([1=>2,2=>2,3=>2]);
+for i in eachindex(iris_m);
+    iris_m[i] ~ F(:mu => [cl[i], Z[cl[i]][i]], :cov => [cl[i], Z[cl[i]][i]])
+    cl[i] <| class[i]
+end
+EM!(F)
+
+new_x = Observation(zeros(p));
+i = n+1
+new_x ~ F(:mu => [cl[i], Z[cl[i]][i]], :cov => [cl[i], Z[cl[i]][i]])
+pr = f(cl[n+1]);
+post(x) = (new_x.X = x; pr().max[1])
+class_pred = [post(x.X) for x in iris_m];
+mean(class_pred .== class)
+
+
+
+K = 3
+F = ParsimoniousNormal(p);
+cl = categorical(K);
+Z = categorical([1=>2,2=>2,3=>2]);
+for i in eachindex(iris_m);
+    iris_m[i] ~ F(:mu => [cl[i], Z[cl[i]][i]], :a => [cl[i], Z[cl[i]][i]], :L => [cl[i], Z[cl[i]][i]], :V => 1)
+    cl[i] <| class[i]
+end
+F[:V][1] <| diagm(ones(p))
+EM!(F)
+
+new_x = Observation(zeros(p));
+i = n+1
+new_x ~ F(:mu => [cl[i], Z[cl[i]][i]], :a => [cl[i], Z[cl[i]][i]], :L => [cl[i], Z[cl[i]][i]], :V => 1)
+pr = f(cl[n+1]);
+post(x) = (new_x.X = x; pr().max[1])
+class_pred = [post(x.X) for x in iris_m];
+mean(class_pred .== class)
+
+
+K = 3
+F = MtvNormal(p);
+cl = categorical(K);
+Z = categorical([1=>2,2=>2,3=>2]);
+cov = categorical(2);
+for i in eachindex(iris_m);
+    iris_m[i] ~ F(:mu => [cl[i], Z[cl[i]][i]], :cov => cov[cl[i], Z[cl[i]][i]])
+    cl[i] <| class[i]
+end
+EM!(F)
+value(F[:cov])
+value(cov)
+value(Z)
+
+new_x = Observation(zeros(p));
+i = n+1
+new_x ~ F(:mu => [cl[i], Z[cl[i]][i]], :cov => cov[cl[i], Z[cl[i]][i]])
+pr = f(cl[n+1]);
+post(x) = (new_x.X = x; pr().max[1])
+class_pred = [post(x.X) for x in iris_m];
+mean(class_pred .== class)
+
+
+
+K = 3
+F = ParsimoniousNormal(p);
+cl = categorical(K);
+Z = categorical([1=>2,2=>2,3=>2]);
+cov = categorical(2);
+for i in eachindex(iris_m);
+    iris_m[i] ~ F(:mu => [cl[i], Z[cl[i]][i]], :a => cov[cl[i], Z[cl[i]][i]], :L => cov[cl[i], Z[cl[i]][i]], :V => 1)
+    cl[i] <| class[i]
+end
+EM!(F)
+value(F[:L])
+value(F[:V])
+
+new_x = Observation(zeros(p));
+i = n+1
+new_x ~  F(:mu => [cl[i], Z[cl[i]][i]], :a => cov[cl[i], Z[cl[i]][i]], :L => cov[cl[i], Z[cl[i]][i]], :V => 1)
+pr = f(cl[n+1]);
+post(x) = (new_x.X = x; pr().max[1])
+class_pred = [post(x.X) for x in iris_m];
+mean(class_pred .== class)

@@ -3,7 +3,7 @@ using LinearAlgebra, UnicodePlots, ProgressBars
 include("./Types.jl")
 include("./Models.jl")
 include("./Core.jl")
-include("./Macros.jl")
+include("./Notation.jl")
 
 function __init__()
    println("")
@@ -27,14 +27,17 @@ function __init__()
 end
 
 export ParsaBase,
-      Observation,
-      @|,
-      EM!,
-      MtvNormal,
-      ParsimoniousNormal,
-      Parameter,
-      ParsaDensity,
-      val,
-      BIC,
-      SummationPackage
+         Observation,
+         categorical,
+         ~,
+         <--,
+         <|,
+         f,
+         EM!,
+         MtvNormal,
+         ParsimoniousNormal,
+         Parameter,
+         ParsaDensity,
+         val,
+         SummationPackage
 end

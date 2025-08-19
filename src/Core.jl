@@ -1,4 +1,5 @@
-using UnicodePlots, Distributions
+using UnicodePlots
+import Distributions: Categorical
 
 function getRelaventTaus(parameter::Parameter, X::Vector{Observation}, tau::Vector{Vector{Real}}, parameter_map::Vector{Vector{Any}})
 	reduce(vcat, [[(x, pr, param) for (pr, param) in zip(tau_x, params_x) if parameter in values(param)] for (x, tau_x, params_x) in zip(X, tau, parameter_map)])
@@ -20,9 +21,38 @@ function getRelaventTausIndex(parameter::Parameter, X::Vector{Observation}, tau:
 	return indx
 end
 
+function rawCallDomain(map::Vector{<:Pair})
+	LV = Dict()
+	for (ke, va) in map
+		if isa(va, LV_wrap)
+			LV[ke] = va.LV()
+		elseif isa(va, Vector)
+			LV[ke] = [isa(lv, Int) ? lv : lv.LV() for lv in va]
+		else
+			LV[ke] = va
+		end
+	end
+	return LV
+end
+
+function callDomain(map::Vector{<:Pair})
+	LV = Vector{LatentVaraible}()
+	for (ke, va) in map
+		if isa(va, LV_wrap)
+			push!(LV, va.LV())
+		elseif isa(va, Vector)
+			for lv in va
+				if !isa(lv, Int)
+					push!(LV, lv.LV())
+				end
+			end
+		end
+	end
+	return unique(LV)
+end
 
 function callDomain(X::Observation)
-	 for LV in unique(reduce(vcat, [va for (_, va) in X.T.domain[1]()]))
+	 for LV in callDomain(X.T)
 		if typeof(LV) == LatentVaraible
 			if !LV.active
 				return LV
@@ -91,7 +121,7 @@ function getIndependentSets(X::Vector{Observation})
 	for x in X
 		push!(indo_sets[x], x)
 		for condition in domains[x]
-				for (_, va) in condition.dependent_X
+				for va in condition.dependent_X
 					if !(va in indo_sets[x]) && va in X && condition in domains[va]
 						push!(indo_sets[x], va)
 					end
@@ -123,7 +153,7 @@ function getDependentOnX(X::Vector{Observation})
 	for x in X
 		push!(indo_sets[x], x)
 		for condition in domains[x]
-			for (_, va) in condition.dependent_X
+			for va in condition.dependent_X
 				if !(va in indo_sets[x])
 					push!(indo_sets[x], va)
 				end
@@ -190,7 +220,7 @@ function initialize_density_evaluation(X::Vector{Observation}, conditioned_domai
 			push!(mult_list, ff)
 		else
 			for g in G
-				ma = g.T.map()
+				ma = rawCallDomain(g.T)
 				mm = index_to_parameters(ma, density.parameters)
 				push!(mult_list, () -> BigFloat(density.evaluate(g,  mm)[1]))
 			end
@@ -208,8 +238,14 @@ function initialize_density_evaluation(X::Vector{Observation}, conditioned_domai
 	return FF
 end
 
+function prime_X(X::Observation)
+    domains = GetDependentVariable(X)
+    for LV in domains
+        push!(LV.dependent_X, X)
+    end
+end
 
-function LMEM(X::Vector{Observation}, base::Parsa_Base;
+function LMEM(X::Set{Observation}, base::Parsa_Base;
 	eps = 10^-6,
 	n_init = 1,
 	n_wild = 5,
@@ -220,6 +256,8 @@ function LMEM(X::Vector{Observation}, base::Parsa_Base;
     max_steps=1000,
     independent_by = Vector{CategoricalZ}())
 	##########
+	X = collect(X)
+	prime_X.(X)
 	base.eval_catch = Dict()
 	global pbar = ProgressBar(total = length(X) + 1)
 	set_description(pbar, "Compiling")
@@ -435,7 +473,7 @@ function E_step_i_initalize(X_i::Observation, X::Vector{Observation}, density::P
 			E_step_i_initalize(X_i, X, density, used_conditions, domain_map, map_collector, tau_chain, params_used, Pi_used)
 		else
 			push!(Pi_used, Tuple([(d.Z, lv_v(d)) for d in used_conditions]))
-			params = index_to_parameters(X_i.T.map(), density.parameters)
+			params = index_to_parameters(rawCallDomain(X_i.T), density.parameters)
 			tau = initialize_density_evaluation(X, used_conditions, density, domain_map, map_collector)
 			current_ks = [lv_v(d) for d in used_conditions]
 			Pi_val = () -> prod([d.Z.Pi[current_ks[i]] for (i, d) in enumerate(used_conditions)])
@@ -514,7 +552,7 @@ function Pi_init(X::Vector{Observation}, tau::Vector{Vector{Real}}, pi_parameter
 end
 
 function posterior_initalize(conditions, X::Vector{Observation}, density::Parsa_Base)
-	domains = conditions()
+	domains = conditions
     all_domains = [GetDependentVariable(x) for x in X]
 	X_sub = [(x, xf) for (x,xf) in zip(X, all_domains) if !isdisjoint(domains, xf)]
 	X_full::Vector{Observation} = []
@@ -541,7 +579,7 @@ function posterior_initalize(conditions, X::Vector{Observation}, density::Parsa_
 		end
 		tau_vec = (vv ./ sum(vv))
 		Pi_val = [[y for (_, y) in pi_i] for pi_i in Pi]
-		PV = collect(zip(Pi_val, tau_vec))
+		PV = Dict([pp => vv for (pp, vv) in zip(Pi_val, tau_vec)])
 		return (max = max_posterior(PV), probability = PV)
 	end
 end

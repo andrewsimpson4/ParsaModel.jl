@@ -211,6 +211,7 @@ function normal_parsa_V_update(V, package_index, log_pdf)
         opt_old = opt_new
         opt_new = sum(V)
     end
+    println("--")
     return V
 end
 

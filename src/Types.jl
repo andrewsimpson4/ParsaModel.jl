@@ -19,6 +19,7 @@ Base.@kwdef mutable struct CategoricalZ
 	Pi::Vector{Real} = ones(K) ./ K
     name::String
 	constant = false
+	base = nothing
 end
 
 
@@ -26,7 +27,7 @@ Base.@kwdef mutable struct LatentVaraible
 	value_::Union{Int, Unknown}
 	init_value = nothing
 	Z::CategoricalZ
-	dependent_X = Dict{Any, Observation}()
+	dependent_X = Set{Observation}()
     index::Any
 	active=false
 end
@@ -80,51 +81,100 @@ function Base.display(Z::CategoricalZ)
     println(Z.name)
 end
 
-function Base.getindex(PG::CategoricalZ, indx...)
-	indx = collect(indx)
-	indx_new::Vector{Int} = []
-	for ix in indx
-		if typeof(ix) == LatentVaraible
-			if !lv_isKnown(ix)
-				return ix
-			else
-				push!(indx_new, lv_v(ix))
-			end
+struct LV_wrap
+	LV::Any
+end
+
+function Base.getindex(x::LV_wrap, y::LV_wrap)
+	FF = function ()
+		ne = x.LV()[y.LV()]
+		if isa(ne, LV_wrap)
+			return ne.LV()
 		else
-			if length(ix) == 1
-				push!(indx_new, ix)
+			return ne
+		end
+	end
+	return LV_wrap(FF)
+	# FF = function ()
+	# 	lv = x.LV()
+	# 	if typeof(lv) == LatentVaraible
+	# 		return lv
+	# 	end
+	# 	return lv[y.LV()]
+	# end
+	# return LV_wrap(FF)
+end
+
+function Base.getindex(x::LV_wrap, y::Int)
+	FF = function ()
+		ne = x.LV()[y]
+		if isa(ne, LV_wrap)
+			return ne.LV()
+		else
+			return ne
+		end
+	end
+	LV_wrap(FF)
+end
+
+function Base.getindex(PG::CategoricalZ, indx...)
+	LV_wrap(function ()
+		indx = collect(indx)
+		indx_new::Vector{Int} = []
+		for ix in indx
+			if isa(ix, LV_wrap)
+				ix = ix.LV()
+			end
+			if typeof(ix) == LatentVaraible
+				if !lv_isKnown(ix)
+					return ix
+				else
+					push!(indx_new, lv_v(ix))
+				end
 			else
-				for xx in ix
-					push!(indx_new, xx)
+				if length(ix) == 1
+					push!(indx_new, ix)
+				else
+					for xx in ix
+						push!(indx_new, xx)
+					end
 				end
 			end
 		end
-	end
-	LV = get(PG.LV, indx_new, nothing)
-	if isnothing(LV)
-		PG.LV[indx_new] = LatentVaraible(PG, indx_new)
-		LV = PG.LV[indx_new]
-	end
-	return LV
+		ind = length(indx_new) == 1 ? indx_new[1] : indx_new
+		LV = get(PG.LV, ind, nothing)
+		if isnothing(LV)
+			PG.LV[ind] = LatentVaraible(PG, ind)
+			LV = PG.LV[ind]
+		end
+		return LV
+	end)
 end
 
 Base.getindex(LV:: LatentVaraible, indx...) = LV
 
+
 function Base.getindex(PG::CategoricalZset, indx...)
-	indx = collect(indx)
-	indx_new::Vector{Int} = []
-	for ix in indx
-		if typeof(ix) == LatentVaraible
-			if !lv_isKnown(ix)
-				return ix
-			else
-				push!(indx_new, lv_v(ix))
+	LV_wrap(function()
+		indx = collect(indx)
+		indx_new::Vector{Int} = []
+		for ix in indx
+			if isa(ix, LV_wrap)
+				ix = ix.LV()
 			end
-		else
-			push!(indx_new, ix)
+			if typeof(ix) == LatentVaraible
+				if !lv_isKnown(ix)
+					return ix
+				else
+					push!(indx_new, lv_v(ix))
+				end
+			else
+				push!(indx_new, ix)
+			end
 		end
-	end
-	return PG.set[indx_new]
+		ind = length(indx_new) == 1 ? indx_new[1] : indx_new
+		return PG.set[ind]
+	end)
 end
 
 
@@ -161,20 +211,12 @@ Base.@kwdef mutable struct Parameter
 	post_processing = nothing
 end
 
-# ParsaParameter(initial_value, update_function::Function) = Parameter(value = ParameterValue(value = initial_value), update = update_function)
-# ParsaParameter(initial_value, number_of_parameters, update_function::Function) = Parameter(value = ParameterValue(value = initial_value, n_parameters = number_of_parameters), update = update_function)
-
-# ParsaParameter(initial_value, update_function::Function, post_processing::Function) = Parameter(value = ParameterValue(value = initial_value), update = update_function, post_processing = post_processing)
-# ParsaParameter(initial_value, number_of_parameters, update_function::Function, post_processing::Function) =
-# 	Parameter(value = ParameterValue(value = initial_value, n_parameters = number_of_parameters), update = update_function, post_processing = post_processing)
-
 Parameter(initial_value, update_function::Function) = Parameter(value = ParameterValue(value = initial_value), update = update_function)
 Parameter(initial_value, number_of_parameters, update_function::Function) = Parameter(value = ParameterValue(value = initial_value, n_parameters = number_of_parameters), update = update_function)
 
 Parameter(initial_value, update_function::Function, post_processing::Function) = Parameter(value = ParameterValue(value = initial_value), update = update_function, post_processing = post_processing)
 Parameter(initial_value, number_of_parameters, update_function::Function, post_processing::Function) =
 	Parameter(value = ParameterValue(value = initial_value, n_parameters = number_of_parameters), update = update_function, post_processing = post_processing)
-
 
 
 Base.@kwdef mutable struct ParameterGenerator
@@ -184,12 +226,13 @@ end
 
 function Base.getindex(PG::ParameterGenerator, indx...)
 	indx = collect(indx)
-	if size(indx) == ()
-		indx = indx[1]
-	end
-	if typeof(indx) == Vector{Array{Int64, 0}}
-		indx = [indx[1][1]]
-	end
+	# if size(indx) == ()
+	# 	indx = indx[1]
+	# end
+	# if typeof(indx) == Vector{Array{Int64, 0}}
+	# 	indx = [indx[1][1]]
+	# end
+	indx = length(indx) == 1 ? indx[1] : indx
 	if haskey(PG.parameter_map, indx)
 		return PG.parameter_map[indx]
 	else
@@ -209,25 +252,8 @@ function index_to_parameters(p, parameters)
 			V = indx
 			V = [typeof(v) == LatentVaraible ? lv_v(v) : v for v in V]
 		end
-		new[key] = parameters[key][V...]
-	end
-	return new
-end
-
-function index_to_parameters_index(p)
-	new = Dict()
-	for (key, indx) in p
-		V = indx
-		if !isa(indx, AbstractVector) && !isa(indx, Int)
-
-			V = indx.outside
-			V = typeof(V[1]) == LatentVaraible ? lv_v(V[1]) : V[1]
-
-		elseif !isa(indx, Int)
-			V = indx
-			V = [typeof(v.outside[1]) == LatentVaraible ? lv_v(v.outside[1]) : v for v in V]
-		end
-		new[key] = V
+		V = length(V) == 1 ? V[1] : V
+		new[key] = parameters[key][V]
 	end
 	return new
 end
@@ -246,8 +272,8 @@ Base.@kwdef mutable struct Parsa_Base
 	parameters::Dict
 	parameter_order::Vector
 	is_valid_input::Function
+	X = Set{Observation}()
 	evaluate::Function = (X, p) -> pdf(X.X, p)
-
 	eval_catch = Dict()
 end
 
@@ -256,33 +282,19 @@ ParsaDensity(pdf, log_pdf, is_valid_input, params...) = Parsa_Base(pdf = pdf, lo
 	parameter_order = [k for (k, _) in collect(params)],
 	parameters = Dict([key => ParameterGenerator(parameter_base = vv) for (key, vv) in Dict(params...)]))
 
-
-struct T
-	domain::Vector{Function}
-	map::Function
-end
-
 mutable struct Observation
 	X::Any
-	T::T
+	T::Any
+	base::Any
 end
 
-Observation(x) = Observation(x, T([], () -> ()))
-
+Observation(x) = Observation(x, nothing, nothing)
 
 function p_v(p::Parameter)
 	p.value.value
 end
 
 function x_v(X::Observation)
-	X.X
-end
-
-function val(p::Parameter)
-	p.value.value
-end
-
-function val(X::Observation)
 	X.X
 end
 

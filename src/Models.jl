@@ -51,72 +51,6 @@ MtvNormal(p) = ParsaDensity(normal_pdf, normal_pdf_log, (x) -> normal_input(x, p
 
 ### Normal singular
 
-
-function normal_covariance_update_singular(value, index_package, log_pdf)
-    cov_new = zeros(size(value))
-    for (x, pr, params) in index_package
-        cov_new += pr * ((x - params[:mu]) * (x - params[:mu])')
-    end
-    taus = [d[2] for d in index_package]
-    cov_new ./= sum(taus)
-    # return cov_new
-    return cholesky(Hermitian(cov_new .+ diagm(zeros(size(cov_new)[1]) .+ 10^-10))).L
-end
-
-
-Normal_Model_singular(p) = ParsaDensity(normal_pdf, normal_pdf_log, (x) -> normal_input(x, p),
-                                :mu => Parameter(zeros(p), normal_mean_update),
-                                :cov => Parameter(diagm(ones(p)), p * (p + 1) / 2, normal_covariance_update_singular, normal_cov_post))
-
-
-
-### Double mean
-
-function normal_mean_update_2_1(value, index_package, log_pdf)
-    mu_new = zeros(length(value))
-    for (x, pr, params) in index_package
-        mu_new += pr * (x .- params[:mu2])
-    end
-    taus = [d[2] for d in index_package]
-    mu_new /= sum(taus)
-    return mu_new
-end
-function normal_mean_update_2_2(value, index_package, log_pdf)
-    mu_new = zeros(length(value))
-    for (x, pr, params) in index_package
-        mu_new += pr * (x .- params[:mu1])
-    end
-    taus = [d[2] for d in index_package]
-    mu_new /= sum(taus)
-    return mu_new
-end
-
-function normal_covariance_update_2(value, index_package, log_pdf)
-    cov_new = zeros(size(value))
-    for (x, pr, params) in zip(X, taus, parameter_maps)
-        cov_new += pr * ((x - (params[:mu1] .+ params[:mu2])) * (x - (params[:mu1] .+ params[:mu2]))')
-    end
-    taus = [d[2] for d in index_package]
-    cov_new ./= sum(taus)
-    cov.value = cov_new
-end
-
-function normal_pdf_2(X, params)
-    N = MvNormal(params[:mu1] .+ params[:mu2], params[:cov])
-    pdf(N, X)
-end
-
-function normal_pdf_log_2(X, params)
-    N = MvNormal(params[:mu1] .+ params[:mu2], params[:cov])
-    logpdf(N, X)
-end
-
-Double_Normal_Model(p) = LMMM_Base(pdf=normal_pdf_2, pdf_log=normal_pdf_log_2, (x) -> normal_input(x, p),
-                            :mu1 => Parameter(ones(p), normal_mean_update_2_1),
-                            :mu2 => Parameter(ones(p), normal_mean_update_2_2),
-                            :cov => Parameter(diagm(ones(p)), p * (p + 1) / 2, normal_covariance_update_2))
-
-
 ####### Normal Parsa #########
 
 
@@ -211,7 +145,6 @@ function normal_parsa_V_update(V, package_index, log_pdf)
         opt_old = opt_new
         opt_new = sum(V)
     end
-    println("--")
     return V
 end
 

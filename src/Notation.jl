@@ -10,6 +10,12 @@ function categorical(V::Vector{<:Pair})
     return set
 end
 
+function categorical(V::Vector{Int})
+    LV = CategoricalZ(K = length(V), name="LV")
+    LV.Pi = V
+    return LV
+end
+
 function (PB::Parsa_Base)(x...)
 	return (PB, collect(x))
 end
@@ -77,13 +83,12 @@ function Base.getindex(PB::Parsa_Base, sym::Symbol)
 end
 
 function val(P::ParameterGenerator)
-    local _ = Dict()
+    local to_return = Dict()
     for (key, val) in P.parameter_map
         to_return[key] = val.value.value
     end
     return to_return
 end
-
 val(P::Parameter) = P.value.value
 val(P::CategoricalZ) = P.Pi
 function val(P::CategoricalZset)
@@ -93,7 +98,6 @@ function val(P::CategoricalZset)
     end
     return to_return
 end
-
 function val(X::Observation)
 	X.X
 end

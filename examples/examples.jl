@@ -21,8 +21,8 @@ for i in eachindex(X)
     X[i] ~ N(:mu => Z[i], :cov => Z[i])
 end
 EM!(N)
-Z.Pi
-N[:mu]
+val(Z)
+val(N[:mu])
 
 
 iris = CSV.read("./examples/datasets/Iris.csv", DataFrame)

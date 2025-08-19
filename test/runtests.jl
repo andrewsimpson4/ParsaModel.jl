@@ -29,5 +29,4 @@ import ParsaModel: ~
 		X[i] ~ F(:mu => class[i], :a => Z[class[i]], :L => Z[class[i]], :V => 1)
 	end
 	EM!(F; n_init = 10, n_wild = 10)
-
 end

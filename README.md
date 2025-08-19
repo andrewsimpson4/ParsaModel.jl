@@ -81,11 +81,12 @@ This is a minimal example of how to define and fit a $p$-dimensional Gaussian mi
 
 #### Julia
 ```julia
-model = ParsaBase(F=MtvNormal(p));
-@|( model,
-    Z = Categorical(K),
-    X[i=1:n] ~ F(:mu => Z[i], :cov => Z[i]))
-EM!(model; n_init=10, n_wild=10)
+N = MtvNormal(p);
+Z = categorical(3);
+for i in eachindex(X)
+    X[i] ~ N(:mu => Z[i], :cov => Z[i])
+end
+EM!(N)
 ```
 - Observations to be clustered are stores in `X` which is a vector where the elements are of type `Observation`
 ---
@@ -127,21 +128,22 @@ The first example is how to implement a Gaussian mixture model using ParsaModel.
 
 ```julia
 K = 3
-model = ParsaBase(F=MtvNormal(p));
-@| model Z = Categorical(K) iris_m[i=1:n] ~ F(:mu => Z[i], :cov => Z[i])
-EM!(model; n_init=10, n_wild=10)
+F = MtvNormal(p);
+Z = categorical(K);
+for i in eachindex(iris_m);
+    iris_m[i] ~ F(:mu => Z[i], :cov => Z[i])
+end
+EM!(F; n_init=10, n_wild = 10)
 ```
 The following is a description of what each function above is doing.
-- The macro `@|` starts the notation and is followed by first the model we are building, in this case `model`, and then is followed by commands to build the model.
 - `MtvNormal(p)` defines the base distributional assumption we are making for the data. In this case, a $p$-dimensional multivariate normal distribution.
-- `ParsaBase` returns an isolated "space" where we will build the rest of the model.
-- `Z = Categorical(K)` creates a new categorical distribution named `Z` with `K` categories inside of our space `model`.
-- `iris_m[i=1:n] ~ F(:mu => Z[i], :cov => Z[i])` loops through `i` from $1$ to `n` and assigns `iris_m[i]` inside of `model` with the mapping `(:mu => Z[i], :cov => Z[i])`. The parameters `:mu` and `:cov` are exposed by `MtvNormal` and different base models will have different associated parameters. `Z[i]` represents a random variable sampled from `Z` which can take on values from $1$ to `K`.
-- `EM!(model; n_init=100, n_wild=30)` simply fits the model! `n_init` is the number of initializations to run and `n_wild` is the number of steps per initializations run.
+- `Z = categorical(K)` creates a new categorical distribution named `Z` with `K` categories.
+- `iris_m[i] ~ F(:mu => Z[i], :cov => Z[i])` says `iris_m[i]` was sampled from `F` with the mapping `(:mu => Z[i], :cov => Z[i])`. The parameters `:mu` and `:cov` are exposed by `MtvNormal` and different base models will have different associated parameters. `Z[i]` represents a random variable sampled from `Z` which can take on values from $1$ to `K`.
+- `EM!(F; n_init=10, n_wild=10)` simply fits the model! `n_init` is the number of initializations to run and `n_wild` is the number of steps per initializations run.
 
 ⚠️ This package currently uses random initialization by default. This can have mixed results for finding the maximum likelihood estimates but allows for package to fit ANY model which can be defined using the package. Just proceed with caution and watch the likelihood plot output for incite.
 
-After running `EM!(model; n_init=100, n_wild=30)` you should see sometime like the following with your terminal.
+After running `EM!(model; n_init=10, n_wild=10)` you should see sometime like the following with your terminal.
 
 Note: A alternate mathematical notation for the model that may better align with the syntax of the package may be $X_i | Z[i] \sim N(\mu(Z[i]), \Sigma(Z[i]))$.
 
@@ -152,7 +154,9 @@ The purple lines here are each of the initialization runs and the final green li
 Now that the model has been fit, we can look at the parameter estimates of the model. Since we used `MtvNormal` as the base, we have parameters for `:mu` and `:cov`. This can be viewed with the following.
 
 ```julia
-@| model :mu :cov Z
+val(F[:mu])
+val(F[:cov])
+val(Z)
 ```
 
 Notice here that we have $3$ `:mu` parameters and $3$ `:cov` paramters since we fit a $3$ component mixture model. We also can see the estimated proportions of the categorical distribution `Z`. It should ne noted that the values returned for `:cov` are the lower cholesky decomposition of the symmetric matrix.
@@ -160,10 +164,11 @@ Notice here that we have $3$ `:mu` parameters and $3$ `:cov` paramters since we 
 Since our goal was to use a gaussian mixture model to cluster observations from the iris dataset, we need to get the max posterior probability for each `Z[i]`. This can be done by the following.
 
 ```julia
-id_ = [(@| model f(Z[i=j]))().max[1] for j in 1:n];
-randindex(id_, class)
+id = [f(Z[i])().max[1] for i in 1:n];
+randindex(id, class)
 ```
-- `(@| model f(Z[i=j]))()` returns the $P(Z[i] = k | X)$ for $k=1,2,\dots, K$ since our categorical distribution `Z` has `K` categories.
+- `f(Z[i])()` returns the $P(Z[i] = k | X)$ for $k=1,2,\dots, K$ since our categorical distribution `Z` has `K` categories.
+- There is good reason why `f(Z[i])` returns a function which will be discussed later and has to do with performance.
 - `.max` simply gets the max of $P(Z[i] = k | X)$ for $k=1,2,\dots, K$
 - `randindex` is from the `Clustering` package and gives values such as the adjusted rand index to see how well the clustering solution compared to the ground truth.
 
@@ -187,17 +192,19 @@ init_id = cutree(iris_hclust, k=3)
 We can now build and run the model which is the same as above with a few small changes.
 
 ```julia
-model = ParsaBase(F=MtvNormal(p));
-@|(model,
-    Z = Categorical(K),
-    Z[i=1:n] = init_id[i],
-    iris_m[i=1:n] ~ F(:mu => Z[i], :cov => Z[i]))
-EM!(model)
+K = 3
+F = MtvNormal(p);
+Z = categorical(K);
+for i in eachindex(iris_m);
+    iris_m[i] ~ F(:mu => Z[i], :cov => Z[i])
+    Z[i] <-- init_id[i]
+end
+EM!(F)
 
-id_ = [(@| model f(Z[i=j]))().max[1] for j in 1:n];
-randindex(id_, class)
+id = [f(Z[i])().max[1] for i in 1:n];
+randindex(id, class)
 ```
-- `Z[i=1:n] = init_id[i]` takes our initial values from init_id and assigns them to the respective random variable `Z[i]` for the first step of the EM algorithm.
+- `Z[i] <-- init_id[i]` takes our initial values from init_id and assigns them to the respective random variable `Z[i]` for the first step of the EM algorithm.
 
 You should see and output the following which shows very good clustering performance
 
@@ -215,17 +222,16 @@ A common method in finite mixture models is to consider the parsimonious paramet
 Suppose we wish to fit a finite mixture model like before except where every component has the same eigenvector structure. This is implemented with the following.
 ```julia
 K = 3
-model = ParsaBase(F=ParsimoniousNormal(p));
-@|( model,
-    Z = Categorical(K),
-    iris_m[i=1:n] ~ F(:mu => Z[i],
-                      :a => Z[i],
-                      :L => Z[i],
-                      :V => 1))
-EM!(model; n_init=20, n_wild=30)
+F = ParsimoniousNormal(p);
+Z = categorical(K);
+for i in eachindex(iris_m);
+    iris_m[i] ~ F(:mu => Z[i], :a => Z[i], :L => Z[i], :V => 1)
+    Z[i] <-- init_id[i]
+end
+EM!(F)
 
-id_ = [(@| model f(Z[i=j]))().max[1] for j in 1:n];
-randindex(id_, class)
+id = [f(Z[i])().max[1] for i in 1:n];
+randindex(id, class)
 ```
 - `ParsimoniousNormal` gives the Parsimonious Gaussian parameterization as the base distributional assumption.
 - `:V => 1` enforces that every component from the mixture has the same $V_1$ parameter.
@@ -234,44 +240,38 @@ randindex(id_, class)
 Suppose we wish to enforce that each covariance matrix is diagonal in the mixture.
 
 ```julia
-model = ParsaBase(F = ParsimoniousNormal(p));
-const_V = [diagm(ones(4))];
-@|( model,
-    Z = Categorical(K),
-    iris_m[i=1:n] ~ F(:mu => Z[i],
-                      :a => Z[i],
-                      :L => Z[i],
-                      :V => 1),
-    :V[i=1] == const_V[i]
-)
-EM!(model; n_init=20, n_wild=30)
-@| model :V
+K = 3
+F = ParsimoniousNormal(p);
+Z = categorical(K);
+for i in eachindex(iris_m);
+    iris_m[i] ~ F(:mu => Z[i], :a => Z[i], :L => Z[i], :V => 1)
+    Z[i] <-- init_id[i]
+end
+F[:V][1] <| diagm(ones(p))
+EM!(F)
 
-id_ = [(@| model f(Z[i=j]))().max[1] for j in 1:n];
-randindex(id_, class)
+id = [f(Z[i])().max[1] for i in 1:n];
+randindex(id, class)
 ```
-- `const_V = [diagm(ones(4))];` simply defined a diagonal matrix.
-- `:V[i=1] == const_V[i]` sets $V_1$ as a constant and to be the diagonal matrix. Notice the `==` and not `=`. The double makes the change permanent i.e. a constant and a single `=` will make it so that parameter is only is that value for the first step of the EM algorithm.
+- `F[:V][1] <| diagm(ones(p))` sets $V_1$ as a constant and to be the diagonal matrix.
 
 #### Diagonal covariance matrices with shared eigenvalues
 
 We can extend this further to a model where we assume diagonal covariance matrices and assume that each covariance matrix has the same eigenvalues.
 
 ```julia
-model = ParsaBase(F = ParsimoniousNormal(p));
-const_V = [diagm(ones(4))];
-@|( model,
-    Z = Categorical(K),
-    iris_m[i=1:n] ~ F(:mu => Z[i],
-                      :a => Z[i],
-                      :L => 1,
-                      :V => 1),
-    :V[i=1] == const_V[i])
-EM!(model; n_init=20, n_wild=30)
-@| model :V :L
+K = 3
+F = ParsimoniousNormal(p);
+Z = categorical(K);
+for i in eachindex(iris_m);
+    iris_m[i] ~ F(:mu => Z[i], :a => Z[i], :L => 1, :V => 1)
+    Z[i] <-- init_id[i]
+end
+F[:L][1] <| ones(p)
+EM!(F)
 
-id_ = [(@| model f(Z[i=j]))().max[1] for j in 1:n];
-randindex(id_, class)
+id = [f(Z[i])().max[1] for i in 1:n];
+randindex(id, class)
 ```
 One should now start to see a pattern of how simply changing the mapping for each observation leads to different models. This can be used to recreate the others parsimonious model structures in [Mclust](https://cran.r-project.org/web/packages/mclust/index.html) including others.
 
@@ -286,26 +286,32 @@ To implement LDA using this package, it will look similar to a mixture model but
 
 ```julia
 K = 3
-model = ParsaBase(F = MtvNormal(p));
-@|( model,
-    class = Categorical(K),
-    class[i=1:n] == class[i],
-    iris_m[i=1:n] ~ F(:mu => class[i], :cov => 1))
-EM!(model; n_init=1, n_wild=1)
+F = MtvNormal(p);
+cl = categorical(K);
+for i in eachindex(iris_m);
+    iris_m[i] ~ F(:mu => cl[i], :cov => 1)
+    cl[i] <| class[i]
+end
+EM!(F)
 ```
-- `class[i=1:n] == class[i]` simply assigns the value of `class[i]` to the respective random variable `class[i]` within our space `model` and changes it to a known variable. Thus `class[i]` can no longer take the values $1,2,\dots, K$ and instead is always the value of `class[i]`. Notice how we are now using `==` and not `=`.
+- `cl[i] <| class[i]` simply assigns the value of `class[i]` to the respective random variable `cl[i]` and changes it to a known variable. Thus `cl[i]` can no longer take the values $1,2,\dots, K$ and instead is always the value of `cl[i]`. Notice how we are now using `<|` and not `<--` which was used for initialization.
 
 Note here that there are no unknown categorical variables, thus EM algorithm is constant and we don't see and increase in the likelihood like before.
 
 What if we wish to predict new observations? This can be done the following way
 
 ```julia
-new_obs = Dict([(i+n) => Observation(x.X) for (i,x) in enumerate(iris_m)])
-@| model new_obs[i=((1:n) .+ n)] ~ F(:mu => class[i], :cov => 1)
-id_ = [(@| model f(class[i=j]))().max[1] for j in (1:n).+n];
-mean(id_ .== class)
+new_x = Observation(zeros(p));
+new_x ~ F(:mu => cl[i], :cov => 1);
+pr = f(cl[n+1]);
+post(x) = (new_x.X = x; pr().max[1])
+class_pred = [post(x.X) for x in iris_m];
+mean(class_pred .== class)
 ```
-- `(1:n) .+ n` ensures that our new observation does not overlap i.e. share a random variable with observation defined for model training. If we have `class[i]`, that multiple observations would share the random variable `class[i]` which is not desired in this case.
+- We first create a new observation `new_x` and show how it was/is sampled.
+- `n+1` ensures that our new observation does not overlap i.e. share a random variable with observation defined for model training. If we have `cl[i]`, that multiple observations would share the random variable `cl[i]` which is not desired in this case.
+- Note that `pr = f(cl[n+1])` returns a function
+- `post(x) = (new_x.X = x; pr().max[1])` first updates the value of new_x with our new observation `x` at which point `pr()` is called.
 
 #### Quadratic Discriminant Analysis
 
@@ -313,39 +319,41 @@ For QDA we simply have
 
 ```julia
 K = 3
-model = ParsaBase(F = MtvNormal(p));
-@|( model,
-    class = Categorical(K),
-    class[i=1:n] == class[i],
-    iris_m[i=1:n] ~ F(:mu => class[i], :cov => class[i]))
-EM!(model; n_init=1, n_wild=1)
+F = MtvNormal(p);
+cl = categorical(K);
+for i in eachindex(iris_m);
+    iris_m[i] ~ F(:mu => cl[i], :cov => cl[i])
+    cl[i] <| class[i]
+end
+EM!(F)
 
-new_obs = Dict([(i+n) => Observation(x.X) for (i,x) in enumerate(iris_m)])
-@| model new_obs[i=((1:n) .+ n)] ~ F(:mu => class[i], :cov => class[i])
-id_ = [(@| model f(class[i=j]))().max[1] for j in (1:n).+n];
-mean(id_ .== class)
+new_x = Observation(zeros(p));
+new_x ~ F(:mu => cl[i], :cov => cl[i]);
+pr = f(cl[n+1]);
+post(x) = (new_x.X = x; pr().max[1])
+class_pred = [post(x.X) for x in iris_m];
+mean(class_pred .== class)
 ```
 #### Common component discriminant analysis
 
 Suppose we wish to do a model like LDA and QDA but where each component shares the same covariance matrix. This can be done as follows.
 
 ```julia
-model = ParsaBase(F = ParsimoniousNormal(p));
-const_V = [diagm(ones(4))];
-@|( model,
-    class = Categorical(K),
-    class[i=1:n] == class[i],
-    iris_m[i=1:n] ~ F(:mu => class[i],
-                      :a => class[i],
-                      :L => class[i],
-                      :V => 1),
-    :V[i=1]=const_V[i])
-EM!(model; n_init=1, n_wild=1)
+K = 3
+F = ParsimoniousNormal(p);
+cl = categorical(K);
+for i in eachindex(iris_m);
+    iris_m[i] ~ F(:mu => cl[i], :a => cl[i], :L => cl[i], :V => 1)
+    cl[i] <| class[i]
+end
+EM!(F)
 
-new_obs = Dict([(i+n) => Observation(x.X) for (i,x) in enumerate(iris_m)])
-@| model new_obs[i=((1:n) .+ n)] ~ F(:mu => class[i], :a => class[i], :L => class[i], :V => 1)
-id_ = [(@| model f(class[i=j]))().max[1] for j in (1:n).+n];
-mean(id_ .== class)
+new_x = Observation(zeros(p));
+new_x ~ F(:mu => cl[n+1], :a => cl[n+1], :L => cl[i], :V => 1);
+pr = f(cl[n+1]);
+post(x) = (new_x.X = x; pr().max[1])
+class_pred = [post(x.X) for x in iris_m];
+mean(class_pred .== class)
 ```
 
 ### Mixture discriminant analysis
@@ -354,24 +362,28 @@ Suppose we wish to assume that each class follows Gaussian mixture model. This c
 
 ```julia
 K = 3
-model = ParsaBase(F = MtvNormal(p));
-@|( model,
-    class = Categorical(K),
-    class[i=1:n] == class[i],
-    Z = Categorical([1=>2,2=>2,3=>2]),
-    iris_m[i=1:n] ~ F(:mu => [class[i], Z[class[i]][i]], :cov => [class[i], Z[class[i]][i]]))
-EM!(model; n_init=1, n_wild=1)
-@| model :mu
+F = MtvNormal(p);
+cl = categorical(K);
+Z = categorical([1=>2,2=>2,3=>2]);
+for i in eachindex(iris_m);
+    iris_m[i] ~ F(:mu => [cl[i], Z[cl[i]][i]], :cov => [cl[i], Z[cl[i]][i]])
+    cl[i] <| class[i]
+end
+EM!(F)
+val(F[:mu])
 
-new_obs = Dict([(i+n) => Observation(x.X) for (i,x) in enumerate(iris_m)])
-@| model new_obs[i=((1:n) .+ n)] ~ F(:mu => [class[i], Z[class[i]][i]], :cov => [class[i], Z[class[i]][i]])
-id_ = [(@| model f(class[i=j]))().max[1] for j in (1:n).+n];
-mean(id_ .== class)
+new_x = Observation(zeros(p));
+i = n+1
+new_x ~ F(:mu => [cl[i], Z[cl[i]][i]], :cov => [cl[i], Z[cl[i]][i]])
+pr = f(cl[n+1]);
+post(x) = (new_x.X = x; pr().max[1])
+class_pred = [post(x.X) for x in iris_m];
+mean(class_pred .== class)
 ```
-- `Z = Categorical([1=>2,2=>2,3=>2])` creates a set of three categorical distributions each which has two categories. These categorical distributions are indexed by `1,2, and 3` respectively. This is to set up a different categorical distribution for each class.
+- `Z = categorical([1=>2,2=>2,3=>2])` creates a set of three categorical distributions each which has two categories. These categorical distributions are indexed by `1,2, and 3` respectively. This is to set up a different categorical distribution for each class.
 - `[class[i], Z[class[i]][i]]` ensures that our parameters are index by two variables. The first indicates the class and the second indicates the component of the mixture model within that class.
 - Note that `Z[class[i]]` returns the categorical distribution of class `class[i]` at which point `Z[class[i]][i]` gets the random variable of  categorical distribution `Z[class[i]]`
-- Take note of the output from `@| model :mu`
+- Take note of the output from `val(F[:mu])`
 
 Note that this is very similar to `MclustDA` in `R`.
 
@@ -381,50 +393,60 @@ To do the same except assume the covariance matrices for the components within e
 
 ```julia
 K = 3
-model = ParsaBase(F = ParsimoniousNormal(p));
-@|( model,
-    class = Categorical(K),
-    class[i=1:n] == class[i],
-    Z = Categorical([1=>2,2=>2,3=>2]),
-    iris_m[i=1:n] ~ F(:mu => [class[i], Z[class[i]][i]],
-                                        :a => [class[i], Z[class[i]][i]],
-                                        :L => [class[i], Z[class[i]][i]],
-                                        :V => class[i]))
-EM!(model; n_init=1, n_wild=1)
+F = ParsimoniousNormal(p);
+cl = categorical(K);
+Z = categorical([1=>2,2=>2,3=>2]);
+for i in eachindex(iris_m);
+    iris_m[i] ~ F(:mu => [cl[i], Z[cl[i]][i]],
+                  :a => [cl[i], Z[cl[i]][i]],
+                  :L => [cl[i], Z[cl[i]][i]],
+                  :V => cl[i])
+    cl[i] <| class[i]
+end
+F[:V][1] <| diagm(ones(p))
+EM!(F)
 
-new_obs = Dict([(i+n) => Observation(x.X) for (i,x) in enumerate(iris_m)])
-@| model new_obs[i=((1:n) .+ n)] ~ F(:mu => [class[i], Z[class[i]][i]],
-                                        :a => [class[i], Z[class[i]][i]],
-                                        :L => [class[i], Z[class[i]][i]],
-                                        :V => class[i])
-id_ = [(@| model f(class[i=j]))().max[1] for j in (1:n).+n];
-mean(id_ .== class)
+new_x = Observation(zeros(p));
+i = n+1
+new_x ~ F(:mu => [cl[i], Z[cl[i]][i]],
+          :a => [cl[i], Z[cl[i]][i]],
+          :L => [cl[i], Z[cl[i]][i]],
+          :V => cl[i])
+pr = f(cl[n+1]);
+post(x) = (new_x.X = x; pr().max[1])
+class_pred = [post(x.X) for x in iris_m];
+mean(class_pred .== class)
 ```
 
-#### Mixture discriminant analysis with shared eigenvectors within classes
+#### Mixture discriminant analysis with shared eigenvectors between classes
 
 What is we wish to do the same but now assume there is a single set of eigenvectors shared between all components across all classes. This is done with
 
 ```julia
 K = 3
-model = ParsaBase(F = ParsimoniousNormal(p));
-@|( model,
-    class = Categorical(K),
-    class[i=1:n] == class[i],
-    Z = Categorical([1=>2,2=>2,3=>2]),
-    iris_m[i=1:n] ~ F(:mu => [class[i], Z[class[i]][i]],
-                                        :a => [class[i], Z[class[i]][i]],
-                                        :L => [class[i], Z[class[i]][i]],
-                                        :V => 1))
-EM!(model; n_init=1, n_wild=1)
+F = ParsimoniousNormal(p);
+cl = categorical(K);
+Z = categorical([1=>2,2=>2,3=>2]);
+for i in eachindex(iris_m);
+    iris_m[i] ~ F(:mu => [cl[i], Z[cl[i]][i]],
+                  :a => [cl[i], Z[cl[i]][i]],
+                  :L => [cl[i], Z[cl[i]][i]],
+                  :V => 1)
+    cl[i] <| class[i]
+end
+F[:V][1] <| diagm(ones(p))
+EM!(F)
 
-new_obs = Dict([(i+n) => Observation(x.X) for (i,x) in enumerate(iris_m)])
-@| model new_obs[i=((1:n) .+ n)] ~ F(:mu => [class[i], Z[class[i]][i]],
-                                        :a => [class[i], Z[class[i]][i]],
-                                        :L => [class[i], Z[class[i]][i]],
-                                        :V => 1)
-id_ = [(@| model f(class[i=j]))().max[1] for j in (1:n).+n];
-mean(id_ .== class)
+new_x = Observation(zeros(p));
+i = n+1
+new_x ~ F(:mu => [cl[i], Z[cl[i]][i]],
+          :a => [cl[i], Z[cl[i]][i]],
+          :L => [cl[i], Z[cl[i]][i]],
+          :V => 1)
+pr = f(cl[n+1]);
+post(x) = (new_x.X = x; pr().max[1])
+class_pred = [post(x.X) for x in iris_m];
+mean(class_pred .== class)
 ```
 
 #### Mixture discriminant analysis with two covariance matrices shared across between all components
@@ -432,37 +454,28 @@ mean(id_ .== class)
 This model is much more complicated but allows for a dramatic reduce is the number of parameters in the model. We again assume that each class follows a mixture model but now assume that each covariance matrix of each component is one of two possible covariance matrices
 
 ```julia
-model = ParsaBase(F = MtvNormal(p));
-@|( model,
-    class = Categorical(K),
-    class[i=1:n] == class[i],
-    Z = Categorical([1=>2,2=>2,3=>2]),
-    cov = Categorical(2),
-    iris_m[i=1:n] ~ F(:mu => [class[i], Z[class[i]][i]], :cov => cov[class[i], Z[class[i]][i]]))
-EM!(model; n_init=1, n_wild=1)
-@| model, :cov
+K = 3
+F = MtvNormal(p);
+cl = categorical(K);
+Z = categorical([1=>2,2=>2,3=>2]);
+cov = categorical(2);
+for i in eachindex(iris_m);
+    iris_m[i] ~ F(:mu => [cl[i], Z[cl[i]][i]], :cov => cov[cl[i], Z[cl[i]][i]])
+    cl[i] <| class[i]
+end
+EM!(F)
+val(F[:cov])
+
+new_x = Observation(zeros(p));
+i = n+1
+new_x ~ F(:mu => [cl[i], Z[cl[i]][i]], :cov => cov[cl[i], Z[cl[i]][i]])
+pr = f(cl[n+1]);
+post(x) = (new_x.X = x; pr().max[1])
+class_pred = [post(x.X) for x in iris_m];
+mean(class_pred .== class)
 ```
 - Because of the nesting of multiple random variables via `cov[class[i], Z[class[i]][i]]`, many of the observations are dependent on each other. This creates a complex likelihood structures and leads to a slower algorithm as the computational expense has been increased.
-- Take note of the output of `@| model, :cov` and the number of covariance parameters.
-
-If we where to introduce a new random variable of unknown class and try to predict its class, because of the complex dependency structure, is it nearly computationally infeasible. To fix this, we can predict the most likely covariance matrix for each component and assign it to the respective component.
-
-```julia
-G = Dict([j => (@| model f(cov[i=[j]]))() for j in reduce(vcat, [[[i,j] for i in 1:K] for j in 1:2])]);
-for (key, M) in G
-    mm = Dict(key => M.max[1])
-    @| model cov[i=[key]] == mm[i]
-end
-```
-
-We have now avoided the computational complexity and can predict new observations.
-
-```julia
-new_obs = Dict([(i+n) => Observation(x.X) for (i,x) in enumerate(iris_m)])
-@| model new_obs[i=((1:n) .+ n)] ~ F(:mu => [class[i], Z[class[i]][i]], :cov => [class[i], Z[class[i]][i]])
-id_ = [(@| model f(class[i=j]))().max[1] for j in (1:n).+n];
-mean(id_ .== class)
-```
+- Take note of the output of `val(F[:cov])` and the number of covariance parameters.
 
 #### Mixture discriminant analysis with two covariance matrices shared across between all components and one set of eigenvectors shared across the two covariance matrices
 
@@ -470,32 +483,29 @@ We can now do something a little crazy and assume that the two covariance matric
 
 ```julia
 K = 3
-model = ParsaBase(F = ParsimoniousNormal(p));
-@|( model,
-    class = Categorical(K),
-    class[i=1:n] == class[i],
-    Z = Categorical([1=>2,2=>2,3=>2]),
-    cov = Categorical(2),
-    iris_m[i=1:n] ~ F(:mu => [class[i], Z[class[i]][i]],
-                      :a => cov[class[i], Z[class[i]][i]],
-                      :L => cov[class[i], Z[class[i]][i]],
-                      :V => 1))
-EM!(model; n_init=1, n_wild=1)
-@| model :L :V
-G = Dict([j => (@| model f(cov[i=[j]]))() for j in reduce(vcat, [[[i,j] for i in 1:K] for j in 1:2])]);
-for (key, M) in G
-    mm = Dict(key => M.max[1])
-    @| model cov[i=[key]] == mm[i]
+F = ParsimoniousNormal(p);
+cl = categorical(K);
+Z = categorical([1=>2,2=>2,3=>2]);
+cov = categorical(2);
+for i in eachindex(iris_m);
+    iris_m[i] ~ F(:mu => [cl[i], Z[cl[i]][i]],
+                  :a => cov[cl[i], Z[cl[i]][i]],
+                  :L => cov[cl[i], Z[cl[i]][i]],
+                  :V => 1)
+    cl[i] <| class[i]
 end
-new_obs = Dict([(i+n) => Observation(x.X) for (i,x) in enumerate(iris_m)])
-@| model new_obs[i=((1:n) .+ n)] ~ F(:mu => [class[i], Z[class[i]][i]],
-                                     :a => cov[class[i], Z[class[i]][i]],
-                                     :L => cov[class[i], Z[class[i]][i]],
-                                     :V => 1)
-id_ = [(@| model f(class[i=j]))().max[1] for j in (1:n).+n];
-mean(id_ .== class)
+EM!(F)
+value(F[:L])
+value(F[:V])
+
+new_x = Observation(zeros(p));
+i = n+1
+new_x ~  F(:mu => [cl[i], Z[cl[i]][i]], :a => cov[cl[i], Z[cl[i]][i]], :L => cov[cl[i], Z[cl[i]][i]], :V => 1)
+pr = f(cl[n+1]);
+post(x) = (new_x.X = x; pr().max[1])
+class_pred = [post(x.X) for x in iris_m];
+mean(class_pred .== class)
 ```
-- Note the outputs of `@| model :L :V` and the number of parameters estimated.
 
 ### Semi-Supervised Gaussian Mixture Models
 
@@ -508,18 +518,21 @@ known_map = Dict([s => class[s] for s in known_samples])
 
 We can now run the model which is similar to before but with one additional line.
 ```julia
-model = ParsaBase(F = MtvNormal(p));
-@|( model,
-    Z = Categorical(K),
-    Z[i=known_samples] == known_map[i],
-    iris_m[i=1:n] ~ F(:mu => Z[i], :cov => Z[i])
-)
-EM!(model; n_init=10, n_wild=10)
+K = 3
+F = MtvNormal(p);
+Z = categorical(K)
+for i in eachindex(iris_m);
+    iris_m[i] ~ F(:mu => Z[i], :cov => Z[i])
+end
+for (ke, va) in known_map
+    Z[ke] <| va
+end
+EM!(F; n_init=10, n_wild = 10)
 
-id_ = [(@| model f(Z[i=j]))().max[1] for j in 1:n];
-randindex(id_, class)
+id = [f(Z[i])().max[1] for i in 1:n];
+randindex(id, class)
 ```
-- `Z[i=known_samples] == known_map[i]` simply assigns the value of `known_map[i]` to the respective random variable `Z[i]` and changes it to a known variable. Thus `Z[i]` can no longer take the values $1,2,\dots, K$ and instead is always the value of `known_map[i]`.
+- `Z[ke] <| va` simply assigns the value of `va` to the respective random variable `Z[i]` and changes it to a known variable. Thus `Z[i]` can no longer take the values $1,2,\dots, K$ and instead is always the value of `va`.
 
 #### Semi-Supervised Gaussian Mixture Models with Positive Constraints
 
@@ -532,17 +545,18 @@ true_class_block = [class[i] for i in 1:n if i % 2 == 0]
 ```
 We can now setup the model as follows
 ```julia
-model = ParsaBase(F = MtvNormal(p));
-@|( model,
-    Z = Categorical(K),
-    B = Categorical(n_blocks),
-    B[i=1:n] == blocks[i],
-    iris_m[i=1:n] ~ F(:mu => Z[B[i]], :cov => Z[B[i]])
-)
-EM!(model; n_init=10, n_wild=20)
+F = MtvNormal(p);
+Z = categorical(K);
+B = categorical(n_blocks);
+for i in 1:n;
+    iris_m[i] ~ F(:mu => Z[B[i]], :cov => Z[B[i]])
+    B[i] <| blocks[i]
+end
+EM!(F)
+value(F[:cov])
 
-id_ = [(@| model f(Z[i=j]))().max[1] for j in 1:n_blocks];
-randindex(id_, true_class_block)
+id = [f(Z[i])().max[1] for i in 1:n_blocks];
+randindex(id, true_class_block)
 ```
 
 #### Semi-Supervised Gaussian Mixture Models with Negative Constraints
@@ -550,60 +564,30 @@ randindex(id_, true_class_block)
 Suppose we know that the first two observations are from different components or species (this is not true but we will go with it). We can incorporate this into the model with negative constraints in the following way.
 
 ```julia
+K=3
 blocks = [1;1:(n-1)]
 II = [1;2; repeat([1], 148)]
 n_blocks = length(unique(blocks))
 perms = reduce(vcat, [[[i,j] for i in 1:K if i != j] for j in 1:K])
-model = ParsaBase(F = MtvNormal(p));
-@|( model,
-    B = Categorical(n_blocks),
-    B[i=1:n] == blocks[i],
-    P = Categorical([i => 3 for i in 1:6]),
-    P[i=1:6][j=1:2] == perms[i][j],
-    I = Categorical(2),
-    I[i=1:n] == II[i],
-    PP = Categorical(6),
-    iris_m[i=1:n] ~ F(:mu => P[PP[B[i]]][I[i]], :cov => P[PP[B[i]]][I[i]])
-    )
-EM!(model; n_init=1, n_wild=1)
-@| model :mu :cov
-perms[(@| model f(PP[i=1]))().max[1]]
+F = MtvNormal(p);
+B = categorical(n_blocks);
+P = categorical([i => 3 for i in 1:6]);
+I = categorical(2);
+PP = categorical(6);
+for i in 1:n;
+    iris_m[i] ~ F(:mu => P[PP[B[i]]][I[i]], :cov => P[PP[B[i]]][I[i]])
+    B[i] <| blocks[i]
+    I[i] <| II[i]
+end
+for i in 1:6
+    for j in 1:2
+        P[i][j] <| perms[i][j]
+    end
+end
+EM!(F)
+perms[f(PP[1])().max[1]]
 ```
 - The final line outputs the predicted species of the first and second observation in the iris dataset. Notice that they are not the same as was enforced.
-
-### Fast posterior prediction and likelihood calculations
-
-Consider the simple finite mixture model
-
-```julia
-K = 3
-model = ParsaBase(F=MtvNormal(p));
-@| model Z = Categorical(K) iris_m[i=1:n] ~ F(:mu => Z[i], :cov => Z[i])
-EM!(model; n_init=10, n_wild=10)
-```
-
-In order to calculate the posterior probabilities we used the code
-
-```julia
-id_ = [(@| model f(Z[i=j]))().max[1] for j in 1:n];
-```
-While this works, it can be extremely slow as the likelihood must be recompiled for each `i`. To speed this up we do the following.
-
-```julia
-new_x = Dict(n+1 => Observation(zeros(p)));
-ff = @| model  new_x[i=(n+1)] ~ F(:mu => Z[i], :cov => Z[i]) f(Z[i=(n+1)]);
-id_ = [ (new_x[n+1].X = x.X; ff().max[1]) for x in iris_m];
-randindex(id_, class)
-```
-- Here each observation in `iris_m` is of type `Observation` which has a variable `X` which is updated to a new value without have to recompile the Bayes decision rule which is stored in `ff`
-
-We can do a similar thing for getting the likelihood of the model given an observation(s). This can be done with
-
-```julia
-new_x = Dict(n+1 => Observation(zeros(p)));
-ff = @| model  new_x[i=(n+1)] ~ F(:mu => Z[i], :cov => Z[i]) f(new_x[i=(n+1)]);
-likelihoods = [ (new_x[n+1].X = x.X; ff()) for x in iris_m]
-```
 
 ### Adding a custom base density
 

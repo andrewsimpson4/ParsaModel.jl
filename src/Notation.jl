@@ -10,6 +10,11 @@ function categorical(V::Vector{<:Pair})
     return set
 end
 
+function categorical(V::Vector{Float64})
+    LV = CategoricalZ(K = length(V), name="LV")
+    LV.Pi = V
+    return LV
+end
 function categorical(V::Vector{Real})
     LV = CategoricalZ(K = length(V), name="LV")
     LV.Pi = V

@@ -80,12 +80,16 @@ function GetDependentVariable!(X_i::Observation, used_conditions::Vector)
 end
 
 function getIndependentSets(X::Vector{Observation}, Z, domain_map)
-	n = length(X)
-	if length(domain_map) == 0
-		for x in X
+	domain_map = Dict()
+	for x in X
 			domain_map[x] = GetDependentVariable(x)
-		end
 	end
+	n = length(X)
+	# if length(domain_map) == 0
+	# 	for x in X
+	# 		domain_map[x] = GetDependentVariable(x)
+	# 	end
+	# end
 	indo_sets = Vector{Any}(undef, n)
 	for i in 1:n
 		sets = unique([X[i]; conditional_dependent_search(domain_map[X[i]], domain_map, Z, X)])
@@ -262,10 +266,10 @@ function LMEM(X::Set{Observation}, base::Parsa_Base;
 	global pbar = ProgressBar(total = length(X) + 1)
 	set_description(pbar, "Compiling")
 	# domain_map = Dict([x => [LV for LV in unique(flattenConditionalDomain(x.T.domain)) if !lv_isKnown(LV)] for x in X])
-	domain_map = Dict([x => [LV for LV in GetDependentVariable(x) if !lv_isKnown(LV)] for x in X])
+	# domain_map = Dict([x => [LV for LV in GetDependentVariable(x) if !lv_isKnown(LV)] for x in X])
 	map_collector = Dict()
-	(tau_chain, parameter_map, pi_parameters_used, tau_init) = E_step_initalize(X, base, domain_map, map_collector)
-	likelihood_ = initialize_density_evaluation(X, Vector{}(), base, domain_map, map_collector)
+	(tau_chain, parameter_map, pi_parameters_used, tau_init) = E_step_initalize(X, base, Dict(), map_collector)
+	likelihood_ = initialize_density_evaluation(X, Vector{}(), base, Dict(), map_collector)
 	# println(Base.summarysize(map_collector))
 	# return 0
 	likelihood = () -> log(likelihood_())
@@ -423,8 +427,10 @@ function E_step_initalize(X::Vector{Observation}, density::Parsa_Base, all_domai
     all_dependent_observations = getDependentOnX(X)
    for i in 1:n
 		dependent_observations = collect(all_dependent_observations[X[i]])
-		tau_init_i = E_step_i_initalize_initzial_values(X[i], dependent_observations, density, Vector{}(), (all_domains[X[i]]))
-        (tau_i, parameters_used_i, pi_parameters_used_i) = E_step_i_initalize(X[i], dependent_observations, density, Vector{}(), (all_domains[X[i]]), all_domains, map_collector)
+		tau_init_i = E_step_i_initalize_initzial_values(X[i], dependent_observations, density, Vector{}(), Vector{}())
+		# tau_init_i = E_step_i_initalize_initzial_values(X[i], dependent_observations, density, Vector{}(), (all_domains[X[i]]))
+        # (tau_i, parameters_used_i, pi_parameters_used_i) = E_step_i_initalize(X[i], dependent_observations, density, Vector{}(), (all_domains[X[i]]), all_domains, map_collector)
+		(tau_i, parameters_used_i, pi_parameters_used_i) = E_step_i_initalize(X[i], dependent_observations, density, Vector{}(), Vector{}(), all_domains, map_collector)
         tau_i_func = () -> (tau_eval = tau_i(); Float64.(tau_eval / sum(tau_eval)))
 		tau_i_init_func = () -> (L = tau_init_i; length(L) != 0 ? L ./ sum(L) : nothing)
 

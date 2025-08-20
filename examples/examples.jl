@@ -81,15 +81,16 @@ for i in eachindex(iris_m);
     iris_m[i] ~ F(:mu => Z[i], :a => Z[i], :L => Z[i], :V => 1)
     Z[i] <-- init_id[i]
 end
-F[:V][1] <| diagm(ones(p))
+F[:V][1] = diagm(ones(p))
 EM!(F)
 
-value(F[:V])
-value(F[:L])
-value(Z)
+val(F[:V])
+val(F[:L])
+val(Z)
 
 id = [f(Z[i])().max[1] for i in 1:n];
 randindex(id, class)
+
 
 K = 3
 F = ParsimoniousNormal(p);
@@ -98,13 +99,13 @@ for i in eachindex(iris_m);
     iris_m[i] ~ F(:mu => Z[i], :a => Z[i], :L => 1, :V => 1)
     Z[i] <-- init_id[i]
 end
-F[:L][1] <| ones(p)
+F[:L][1] = ones(p);
 EM!(F)
 
-value(F[:V])
-value(F[:L])
-value(F[:a])
-value(Z)
+val(F[:V])
+val(F[:L])
+val(F[:a])
+val(Z)
 
 id = [f(Z[i])().max[1] for i in 1:n];
 randindex(id, class)
@@ -120,7 +121,7 @@ for i in eachindex(iris_m);
     iris_m[i] ~ F(:mu => Z[i], :cov => Z[i])
 end
 for (ke, va) in known_map
-    Z[ke] <| va
+    Z[ke] = va
 end
 EM!(F; n_init=10, n_wild = 10)
 
@@ -137,10 +138,10 @@ Z = categorical(K);
 B = categorical(n_blocks);
 for i in 1:n;
     iris_m[i] ~ F(:mu => Z[B[i]], :cov => Z[B[i]])
-    B[i] <| blocks[i]
+    B[i] = blocks[i]
 end
 EM!(F)
-value(F[:cov])
+val(F[:cov])
 
 id = [f(Z[i])().max[1] for i in 1:n_blocks];
 randindex(id, true_class_block)
@@ -159,12 +160,12 @@ I = categorical(2);
 PP = categorical(6);
 for i in 1:n;
     iris_m[i] ~ F(:mu => P[PP[B[i]]][I[i]], :cov => P[PP[B[i]]][I[i]])
-    B[i] <| blocks[i]
-    I[i] <| II[i]
+    B[i] = blocks[i]
+    I[i] = II[i]
 end
 for i in 1:6
     for j in 1:2
-        P[i][j] <| perms[i][j]
+        P[i][j] = perms[i][j]
     end
 end
 EM!(F)
@@ -175,7 +176,7 @@ F = MtvNormal(p);
 cl = categorical(K);
 for i in eachindex(iris_m);
     iris_m[i] ~ F(:mu => cl[i], :cov => cl[i])
-    cl[i] <| class[i]
+    cl[i] = class[i]
 end
 EM!(F)
 
@@ -192,7 +193,7 @@ F = ParsimoniousNormal(p);
 cl = categorical(K);
 for i in eachindex(iris_m);
     iris_m[i] ~ F(:mu => cl[i], :a => cl[i], :L => 1, :V => 1)
-    cl[i] <| class[i]
+    cl[i] = class[i]
 end
 EM!(F)
 
@@ -210,7 +211,7 @@ cl = categorical(K);
 Z = categorical([1=>2,2=>2,3=>2]);
 for i in eachindex(iris_m);
     iris_m[i] ~ F(:mu => [cl[i], Z[cl[i]][i]], :cov => [cl[i], Z[cl[i]][i]])
-    cl[i] <| class[i]
+    cl[i] = class[i]
 end
 EM!(F)
 
@@ -230,10 +231,11 @@ cl = categorical(K);
 Z = categorical([1=>2,2=>2,3=>2]);
 for i in eachindex(iris_m);
     iris_m[i] ~ F(:mu => [cl[i], Z[cl[i]][i]], :a => [cl[i], Z[cl[i]][i]], :L => [cl[i], Z[cl[i]][i]], :V => 1)
-    cl[i] <| class[i]
+    cl[i] = class[i]
 end
-F[:V][1] <| diagm(ones(p))
+F[:V][1] = diagm(ones(p));
 EM!(F)
+
 
 new_x = Observation(zeros(p));
 i = n+1
@@ -251,12 +253,12 @@ Z = categorical([1=>2,2=>2,3=>2]);
 cov = categorical(2);
 for i in eachindex(iris_m);
     iris_m[i] ~ F(:mu => [cl[i], Z[cl[i]][i]], :cov => cov[cl[i], Z[cl[i]][i]])
-    cl[i] <| class[i]
+    cl[i] = class[i]
 end
 EM!(F)
-value(F[:cov])
-value(cov)
-value(Z)
+val(F[:cov])
+val(cov)
+val(Z)
 
 new_x = Observation(zeros(p));
 i = n+1
@@ -275,11 +277,11 @@ Z = categorical([1=>2,2=>2,3=>2]);
 cov = categorical(2);
 for i in eachindex(iris_m);
     iris_m[i] ~ F(:mu => [cl[i], Z[cl[i]][i]], :a => cov[cl[i], Z[cl[i]][i]], :L => cov[cl[i], Z[cl[i]][i]], :V => 1)
-    cl[i] <| class[i]
+    cl[i] = class[i]
 end
 EM!(F)
-value(F[:L])
-value(F[:V])
+val(F[:L])
+val(F[:V])
 
 new_x = Observation(zeros(p));
 i = n+1

@@ -247,13 +247,13 @@ for i in eachindex(iris_m);
     iris_m[i] ~ F(:mu => Z[i], :a => Z[i], :L => Z[i], :V => 1)
     Z[i] <-- init_id[i]
 end
-F[:V][1] <| diagm(ones(p))
+F[:V][1] = diagm(ones(p))
 EM!(F)
 
 id = [f(Z[i])().max[1] for i in 1:n];
 randindex(id, class)
 ```
-- `F[:V][1] <| diagm(ones(p))` sets $V_1$ as a constant and to be the diagonal matrix.
+- `F[:V][1] = diagm(ones(p))` sets $V_1$ as a constant and to be the diagonal matrix.
 
 #### Diagonal covariance matrices with shared eigenvalues
 
@@ -267,7 +267,7 @@ for i in eachindex(iris_m);
     iris_m[i] ~ F(:mu => Z[i], :a => Z[i], :L => 1, :V => 1)
     Z[i] <-- init_id[i]
 end
-F[:L][1] <| ones(p)
+F[:L][1] = ones(p)
 EM!(F)
 
 id = [f(Z[i])().max[1] for i in 1:n];
@@ -290,11 +290,11 @@ F = MtvNormal(p);
 cl = categorical(K);
 for i in eachindex(iris_m);
     iris_m[i] ~ F(:mu => cl[i], :cov => 1)
-    cl[i] <| class[i]
+    cl[i] = class[i]
 end
 EM!(F)
 ```
-- `cl[i] <| class[i]` simply assigns the value of `class[i]` to the respective random variable `cl[i]` and changes it to a known variable. Thus `cl[i]` can no longer take the values $1,2,\dots, K$ and instead is always the value of `cl[i]`. Notice how we are now using `<|` and not `<--` which was used for initialization.
+- `cl[i] = class[i]` simply assigns the value of `class[i]` to the respective random variable `cl[i]` and changes it to a known variable. Thus `cl[i]` can no longer take the values $1,2,\dots, K$ and instead is always the value of `cl[i]`. Notice how we are now using `=` and not `<--` which was used for initialization.
 
 Note here that there are no unknown categorical variables, thus EM algorithm is constant and we don't see and increase in the likelihood like before.
 
@@ -323,7 +323,7 @@ F = MtvNormal(p);
 cl = categorical(K);
 for i in eachindex(iris_m);
     iris_m[i] ~ F(:mu => cl[i], :cov => cl[i])
-    cl[i] <| class[i]
+    cl[i] = class[i]
 end
 EM!(F)
 
@@ -344,7 +344,7 @@ F = ParsimoniousNormal(p);
 cl = categorical(K);
 for i in eachindex(iris_m);
     iris_m[i] ~ F(:mu => cl[i], :a => cl[i], :L => cl[i], :V => 1)
-    cl[i] <| class[i]
+    cl[i] = class[i]
 end
 EM!(F)
 
@@ -367,7 +367,7 @@ cl = categorical(K);
 Z = categorical([1=>2,2=>2,3=>2]);
 for i in eachindex(iris_m);
     iris_m[i] ~ F(:mu => [cl[i], Z[cl[i]][i]], :cov => [cl[i], Z[cl[i]][i]])
-    cl[i] <| class[i]
+    cl[i] = class[i]
 end
 EM!(F)
 val(F[:mu])
@@ -401,9 +401,9 @@ for i in eachindex(iris_m);
                   :a => [cl[i], Z[cl[i]][i]],
                   :L => [cl[i], Z[cl[i]][i]],
                   :V => cl[i])
-    cl[i] <| class[i]
+    cl[i] = class[i]
 end
-F[:V][1] <| diagm(ones(p))
+F[:V][1] = diagm(ones(p))
 EM!(F)
 
 new_x = Observation(zeros(p));
@@ -432,9 +432,9 @@ for i in eachindex(iris_m);
                   :a => [cl[i], Z[cl[i]][i]],
                   :L => [cl[i], Z[cl[i]][i]],
                   :V => 1)
-    cl[i] <| class[i]
+    cl[i] = class[i]
 end
-F[:V][1] <| diagm(ones(p))
+F[:V][1] = diagm(ones(p))
 EM!(F)
 
 new_x = Observation(zeros(p));
@@ -461,7 +461,7 @@ Z = categorical([1=>2,2=>2,3=>2]);
 cov = categorical(2);
 for i in eachindex(iris_m);
     iris_m[i] ~ F(:mu => [cl[i], Z[cl[i]][i]], :cov => cov[cl[i], Z[cl[i]][i]])
-    cl[i] <| class[i]
+    cl[i] = class[i]
 end
 EM!(F)
 val(F[:cov])
@@ -492,7 +492,7 @@ for i in eachindex(iris_m);
                   :a => cov[cl[i], Z[cl[i]][i]],
                   :L => cov[cl[i], Z[cl[i]][i]],
                   :V => 1)
-    cl[i] <| class[i]
+    cl[i] = class[i]
 end
 EM!(F)
 value(F[:L])
@@ -525,14 +525,14 @@ for i in eachindex(iris_m);
     iris_m[i] ~ F(:mu => Z[i], :cov => Z[i])
 end
 for (ke, va) in known_map
-    Z[ke] <| va
+    Z[ke] = va
 end
 EM!(F; n_init=10, n_wild = 10)
 
 id = [f(Z[i])().max[1] for i in 1:n];
 randindex(id, class)
 ```
-- `Z[ke] <| va` simply assigns the value of `va` to the respective random variable `Z[i]` and changes it to a known variable. Thus `Z[i]` can no longer take the values $1,2,\dots, K$ and instead is always the value of `va`.
+- `Z[ke] = va` simply assigns the value of `va` to the respective random variable `Z[i]` and changes it to a known variable. Thus `Z[i]` can no longer take the values $1,2,\dots, K$ and instead is always the value of `va`.
 
 #### Semi-Supervised Gaussian Mixture Models with Positive Constraints
 
@@ -550,7 +550,7 @@ Z = categorical(K);
 B = categorical(n_blocks);
 for i in 1:n;
     iris_m[i] ~ F(:mu => Z[B[i]], :cov => Z[B[i]])
-    B[i] <| blocks[i]
+    B[i] = blocks[i]
 end
 EM!(F)
 value(F[:cov])
@@ -576,12 +576,12 @@ I = categorical(2);
 PP = categorical(6);
 for i in 1:n;
     iris_m[i] ~ F(:mu => P[PP[B[i]]][I[i]], :cov => P[PP[B[i]]][I[i]])
-    B[i] <| blocks[i]
-    I[i] <| II[i]
+    B[i] = blocks[i]
+    I[i] = II[i]
 end
 for i in 1:6
     for j in 1:2
-        P[i][j] <| perms[i][j]
+        P[i][j] = perms[i][j]
     end
 end
 EM!(F)

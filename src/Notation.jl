@@ -5,12 +5,12 @@ categorical(K::Int) = CategoricalZ(K = K, name="LV")
 function categorical(V::Vector{<:Pair})
     set = CategoricalZset()
     for (ke, va) in V
-        set.set[ke] = CategoricalZ(K = va, name="LV")
+        set.set[ke] = categorical(va)
     end
     return set
 end
 
-function categorical(V::Vector{Int})
+function categorical(V::Vector{Real})
     LV = CategoricalZ(K = length(V), name="LV")
     LV.Pi = V
     return LV
@@ -41,19 +41,33 @@ function <--(LV::LV_wrap, val::Int)
     return nothing
 end
 
-function <|(LV::LV_wrap, val::Int)
-    LV.LV().value_ = val
-end
+# function <|(LV::LV_wrap, val::Int)
+#     LV.LV().value_ = val
+# end
 
 function <--(P::Parameter, val::Any)
    P.value.value = val
    return nothing
 end
 
-function <|(P::Parameter, val::Any)
-    P.value.value = val
-    P.is_const = true
+# function <|(P::Parameter, val::Any)
+#     P.value.value = val
+#     P.is_const = true
+#     return nothing
+# end
+
+function Base.setindex!(PG::ParameterGenerator, val, indx)
+    PG[indx].value.value = val
+    PG[indx].is_const = true
     return nothing
+end
+
+function Base.setindex!(Z::CategoricalZ, val, indx)
+    Z[indx].LV().value_ = val
+end
+
+function Base.setindex!(Z::LV_wrap, val, indx)
+    Z.LV()[indx].LV().value_ = val
 end
 
 function f(X::Observation...)
@@ -93,8 +107,8 @@ val(P::Parameter) = P.value.value
 val(P::CategoricalZ) = P.Pi
 function val(P::CategoricalZset)
     local to_return = Dict()
-    for (key, val) in P.set
-        to_return[key] = value(val)
+    for (key, val_) in P.set
+        to_return[key] = val(val_)
     end
     return to_return
 end

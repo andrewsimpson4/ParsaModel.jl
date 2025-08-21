@@ -1,5 +1,9 @@
 
 
+macro |>(mod, code)
+    Base.eval(mod, code)
+end
+
 categorical(K::Int; name="LV") = CategoricalZ(K = K, name=name)
 
 function categorical(V::Vector{<:Pair}; name ="LV")

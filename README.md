@@ -118,10 +118,6 @@ class = [mapping[val] for val in class_string];
 ```
 Here we have a vector of vectors `iris_m` where each element is one of the observations from the dataset. Next is `class` which is a vector containing the species of the respective elements in `iris_m`. We also define `n`, the number of observations, as well as `p` which is the dimension of each observation. Note that each observation is of the type `Observation`.
 
-### ParsaModel Macro
-
-Since ParsaModel is a domain-specific modeling language inside Julia, it used a macro to allow a customized notation. The general macro notation for ParsaModel is `@| <model> <expressions>` or `@|(<model>, <expression1>, <expression2>,...)`. A large set of examples are given for the different `<expressions>` that can be used.
-
 ### Gaussian Mixture Model
 
 The first example is how to implement a Gaussian mixture model using ParsaModel. In particular we are looking at the model $X_i | Z_i = k \sim N(\mu_k, \Sigma_k)$. This package is manly interacted with via macros which allows for a custom and minimal syntax. Here we are using a finite mixture model to cluster the observations in the iris dataset with the goal of clustering and recovering species. Thus we will look look for $3$ clusters.

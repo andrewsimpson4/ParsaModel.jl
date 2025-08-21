@@ -29,6 +29,10 @@ function (PB::Parsa_Base)(x...)
 	return (PB, collect(x))
 end
 
+function (PB::Parsa_Base)(x::Vector{<:Pair})
+	return (PB, x)
+end
+
 function Base.:~(X::Observation, map::Any)
     X.base = map[1]
     X.T = map[2]

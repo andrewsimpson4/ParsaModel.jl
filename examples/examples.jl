@@ -16,13 +16,17 @@ cov = [diagm(ones(p)), diagm(ones(p)), diagm(ones(p)) .+ 1];
 X = Observation.([vec(rand(MvNormal(mu[true_id[i]], cov[true_id[i]]), 1)) for i in 1:n]);
 
 N = MtvNormal(p);
-Z = categorical(3);
+Z = categorical(3;name="Z");
 for i in eachindex(X)
     X[i] ~ N(:mu => Z[i], :cov => Z[i])
 end
 EM!(N)
 val(Z)
 val(N[:mu])
+
+display(Z[1].LV())
+
+
 
 
 iris = CSV.read("./examples/datasets/Iris.csv", DataFrame)
@@ -248,9 +252,9 @@ mean(class_pred .== class)
 
 K = 3
 F = MtvNormal(p);
-cl = categorical(K);
-Z = categorical([1=>2,2=>2,3=>2]);
-cov = categorical(2);
+cl = categorical(K; name="cl");
+Z = categorical([1=>2,2=>2,3=>2];name="Z");
+cov = categorical(2; name="cov");
 for i in eachindex(iris_m);
     iris_m[i] ~ F(:mu => [cl[i], Z[cl[i]][i]], :cov => cov[cl[i], Z[cl[i]][i]])
     cl[i] = class[i]
@@ -259,6 +263,7 @@ EM!(F)
 val(F[:cov])
 val(cov)
 val(Z)
+
 
 new_x = Observation(zeros(p));
 i = n+1

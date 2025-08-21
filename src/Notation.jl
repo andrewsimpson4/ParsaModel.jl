@@ -1,22 +1,22 @@
 
 
-categorical(K::Int) = CategoricalZ(K = K, name="LV")
+categorical(K::Int; name="LV") = CategoricalZ(K = K, name=name)
 
-function categorical(V::Vector{<:Pair})
+function categorical(V::Vector{<:Pair}; name ="LV")
     set = CategoricalZset()
     for (ke, va) in V
-        set.set[ke] = categorical(va)
+        set.set[ke] = categorical(va, name=name)
     end
     return set
 end
 
-function categorical(V::Vector{Float64})
-    LV = CategoricalZ(K = length(V), name="LV")
+function categorical(V::Vector{Float64}; name ="LV")
+    LV = CategoricalZ(K = length(V), name=name)
     LV.Pi = V
     return LV
 end
-function categorical(V::Vector{Real})
-    LV = CategoricalZ(K = length(V), name="LV")
+function categorical(V::Vector{Real}; name ="LV")
+    LV = CategoricalZ(K = length(V), name=name)
     LV.Pi = V
     return LV
 end

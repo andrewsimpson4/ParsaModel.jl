@@ -119,9 +119,8 @@ end
 
 function Base.getindex(PG::CategoricalZ, indx...)
 	LV_wrap(function ()
-		indx = collect(indx)
-		indx_new::Vector{Int} = []
-		for ix in indx
+		indx_new = Vector{Int}(undef, length(indx))
+		for (i, ix) in enumerate(indx)
 			if isa(ix, LV_wrap)
 				ix = ix.LV()
 			end
@@ -129,14 +128,14 @@ function Base.getindex(PG::CategoricalZ, indx...)
 				if !lv_isKnown(ix)
 					return ix
 				else
-					push!(indx_new, lv_v(ix))
+					indx_new[i] = lv_v(ix)
 				end
 			else
 				if length(ix) == 1
-					push!(indx_new, ix)
+					indx_new[i] = ix
 				else
 					for xx in ix
-						push!(indx_new, xx)
+						indx_new[i] = xx
 					end
 				end
 			end
@@ -156,9 +155,8 @@ Base.getindex(LV:: LatentVaraible, indx...) = LV
 
 function Base.getindex(PG::CategoricalZset, indx...)
 	LV_wrap(function()
-		indx = collect(indx)
-		indx_new::Vector{Int} = []
-		for ix in indx
+		indx_new = Vector{Int}(undef, length(indx))
+		for (i, ix) in enumerate(indx)
 			if isa(ix, LV_wrap)
 				ix = ix.LV()
 			end
@@ -166,10 +164,10 @@ function Base.getindex(PG::CategoricalZset, indx...)
 				if !lv_isKnown(ix)
 					return ix
 				else
-					push!(indx_new, lv_v(ix))
+					indx_new[i] = lv_v(ix)
 				end
 			else
-				push!(indx_new, ix)
+				indx_new[i] = ix
 			end
 		end
 		ind = length(indx_new) == 1 ? indx_new[1] : indx_new

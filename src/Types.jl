@@ -95,14 +95,6 @@ function Base.getindex(x::LV_wrap, y::LV_wrap)
 		end
 	end
 	return LV_wrap(FF)
-	# FF = function ()
-	# 	lv = x.LV()
-	# 	if typeof(lv) == LatentVaraible
-	# 		return lv
-	# 	end
-	# 	return lv[y.LV()]
-	# end
-	# return LV_wrap(FF)
 end
 
 function Base.getindex(x::LV_wrap, y::Int)

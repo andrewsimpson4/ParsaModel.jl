@@ -1,6 +1,6 @@
 using Test
 using LinearAlgebra, Distributions, ParsaModel
-import ParsaModel: ~
+# import ParsaModel: ~
 @testset "ParsaModel.jl" begin
 	n = 200
 	p = 5
@@ -16,7 +16,7 @@ import ParsaModel: ~
 	class = categorical(n_classes)
 	Z = categorical(K)
 	for i in eachindex(X)
-		class[i] <| class_id[i]
+		class[i] = class_id[i]
 		X[i] ~ F(:mu => class[i], :cov => Z[class[i]])
 	end
 	EM!(F; n_init = 10, n_wild = 10)
@@ -25,7 +25,7 @@ import ParsaModel: ~
 	class = categorical(n_classes)
 	Z = categorical(K)
 	for i in eachindex(X)
-		class[i] <| class_id[i]
+		class[i] = class_id[i]
 		X[i] ~ F(:mu => class[i], :a => Z[class[i]], :L => Z[class[i]], :V => 1)
 	end
 	EM!(F; n_init = 10, n_wild = 10)

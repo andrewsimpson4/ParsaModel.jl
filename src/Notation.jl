@@ -25,7 +25,7 @@ function (PB::Parsa_Base)(x...)
 	return (PB, collect(x))
 end
 
-function ~(X::Observation, map::Any)
+function Base.:~(X::Observation, map::Any)
     X.base = map[1]
     X.T = map[2]
     push!(map[1].X, X)

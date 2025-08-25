@@ -40,15 +40,6 @@ For a quick intuition on what this package does, ParsaModel is to model-based cl
 
 ## 🚀 Installation
 
-<!-- ```
-] add ParsaBase
-``` -->
-<!--
-```
-] add https://<token>@github.com/andrewsimpson4/ParsaBase.jl.git
-``` -->
-
-If you are reading this, the repository is currently private. Use the following code to install.
 #### Julia
 
 ```julia

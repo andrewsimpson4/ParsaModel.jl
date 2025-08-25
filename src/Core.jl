@@ -439,7 +439,6 @@ function E_step_initalize(X::Vector{Observation}, density::Parsa_Base, all_domai
 		parameters_used[i] = parameters_used_i
 		pi_parameters_used[i] = pi_parameters_used_i
 		update(pbar)
-		flush(stdout)
 	end
 	return (tau, parameters_used, pi_parameters_used, tau_init, tau_pre_set, Q)
 end

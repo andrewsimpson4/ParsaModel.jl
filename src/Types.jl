@@ -85,9 +85,9 @@ struct LV_wrap
 	LV::Any
 end
 
-function Base.getindex(x::LV_wrap, y::LV_wrap)
+function Base.getindex(x::LV_wrap, y::LV_wrap...)
 	FF = function ()
-		ne = x.LV()[y.LV()]
+		ne = x.LV()[[yy.LV() for yy in y]...]
 		if isa(ne, LV_wrap)
 			return ne.LV()
 		else
@@ -97,9 +97,9 @@ function Base.getindex(x::LV_wrap, y::LV_wrap)
 	return LV_wrap(FF)
 end
 
-function Base.getindex(x::LV_wrap, y::Int)
+function Base.getindex(x::LV_wrap, y::Int...)
 	FF = function ()
-		ne = x.LV()[y]
+		ne = x.LV()[y...]
 		if isa(ne, LV_wrap)
 			return ne.LV()
 		else

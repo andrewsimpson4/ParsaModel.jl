@@ -39,5 +39,7 @@ export ParsaBase,
          Parameter,
          ParsaDensity,
          val,
-         SummationPackage
+         SummationPackage,
+         n_params,
+         BIC
 end

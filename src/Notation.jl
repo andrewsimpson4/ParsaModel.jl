@@ -96,7 +96,9 @@ function f(LV::LV_wrap...)
 end
 
 function EM!(PB::Parsa_Base; args...)
-    LMEM(PB.X, PB; args...)
+    l1, l2 = LMEM(PB.X, PB; args...)
+    PB.full_likelihood = l1
+    PB.n = l2
     return nothing
 end
 
@@ -129,7 +131,38 @@ function val(X::Observation)
 	X.X
 end
 
+function n_params(model)
+    M::Int = 0
+    for (_, gen) in model.parameters
+        for (_, par) in gen.parameter_map
+            if !par.is_const
+                M = M + par.value.n_parameters
+            end
+        end
+    end
+    return M
+end
+
+function BIC(model)
+    log_lik = model.full_likelihood()
+    M = n_params(model)
+    Float64(M * log(model.n) - 2 * log_lik)
+end
+
+
 # function Base.getindex(PG::ParameterGenerator, indx...)
 #     PG.parameter_map[indx...].value.value
 # end
 
+# function BIC(model)
+#     log_lik = model.fit_model.log_likelihood()
+#     local M = 0
+#     for (_, gen) in model.base_model.parameters
+#         for (_, par) in gen.parameter_map
+#             if !par.is_const
+#                 M = M + par.value.n_parameters
+#             end
+#         end
+#     end
+#     Float64(M * log(model.fit_model.n) - 2 * log_lik)
+# end

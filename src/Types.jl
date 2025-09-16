@@ -265,6 +265,8 @@ Base.@kwdef mutable struct Parsa_Base
 	X = Set{Observation}()
 	evaluate::Function = (X, p) -> pdf(X.X, p)
 	eval_catch = Dict()
+	full_likelihood = nothing
+	n = 0
 end
 
 

@@ -46,6 +46,9 @@ for i in eachindex(iris_m);
 end
 EM!(F; n_init=10, n_wild = 10)
 
+n_params(F)
+BIC(F)
+
 iris_hclust = hclust(pairwise(Euclidean(), iris_matrix'), :ward)
 init_id = cutree(iris_hclust, k=3)
 

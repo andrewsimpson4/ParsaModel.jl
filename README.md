@@ -49,19 +49,7 @@ Pkg.add(url="https://github.com/andrewsimpson4/ParsaModel.jl.git")
 
 #### R
 
-For use in R it is currently recommended to use the [JuliaCall](https://cran.r-project.org/web/packages/JuliaCall/index.html) package within R.
-
-```r
-install.packages("JuliaCall")
-library(JuliaCall)
-julia_setup(installJulia = TRUE)
-julia <- julia_setup()
-
-julia_command("using Pkg;")
-julia_command('Pkg.add(url="https://<token>@github.com/andrewsimpson4/ParsaBase.jl.git")')
-
-```
-At this point the code below can be called using `julia_command` and `julia_assign`.
+For use in R, see the corresponding R wrapper for this package [RParsaModel](https://github.com/andrewsimpson4/RParsaModel).
 
 <div id='quick-start'/>
 
@@ -336,7 +324,7 @@ end
 EM!(F)
 
 new_x = Observation(zeros(p));
-new_x ~ F(:mu => cl[n+1], :a => cl[n+1], :L => cl[i], :V => 1);
+new_x ~ F(:mu => cl[n+1], :a => cl[n+1], :L => cl[n+1], :V => 1);
 pr = f(cl[n+1]);
 post(x) = (new_x.X = x; pr().max[1])
 class_pred = [post(x.X) for x in iris_m];

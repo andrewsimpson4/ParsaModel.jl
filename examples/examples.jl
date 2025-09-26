@@ -26,9 +26,6 @@ val(N[:mu])
 
 display(Z[1].LV())
 
-
-
-
 iris = CSV.read("./examples/datasets/Iris.csv", DataFrame)
 iris_matrix = Matrix(iris[:, 2:5])
 iris_m = Observation.(eachrow(iris_matrix));
@@ -240,7 +237,7 @@ for i in eachindex(iris_m);
     iris_m[i] ~ F(:mu => [cl[i], Z[cl[i]][i]], :a => [cl[i], Z[cl[i]][i]], :L => [cl[i], Z[cl[i]][i]], :V => 1)
     cl[i] = class[i]
 end
-F[:V][1] = diagm(ones(p));
+F[:V][1] = I #diagm(ones(p));
 EM!(F)
 
 

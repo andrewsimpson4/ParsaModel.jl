@@ -193,6 +193,24 @@ mean(class_pred .== class)
 
 
 K = 3
+F = MtvNormalDouble(p);
+cl = categorical(K);
+Z = categorical(3);
+for i in eachindex(iris_m);
+    iris_m[i] ~ F(:mu1 => cl[i], :mu2 => Z[i], :cov => Z[i])
+    cl[i] = class[i]
+end
+EM!(F)
+
+new_x = Observation(zeros(p));
+new_x ~ F(:mu1 => cl[n+1], :mu2 => Z[n+1], :cov => Z[n+1]);
+pr = f(cl[n+1]);
+post(x) = (new_x.X = x; pr().max[1])
+class_pred = [post(x.X) for x in iris_m];
+mean(class_pred .== class)
+
+
+K = 3
 F = ParsimoniousNormal(p);
 cl = categorical(K);
 for i in eachindex(iris_m);

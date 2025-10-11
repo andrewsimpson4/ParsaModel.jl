@@ -49,7 +49,56 @@ MtvNormal(p) = ParsaDensity(normal_pdf, normal_pdf_log, (x) -> normal_input(x, p
                                 :cov => Parameter((inv = diagm(ones(p)), det = 1), p * (p + 1) / 2, normal_covariance_update))
 
 
-### Normal singular
+####### NormalDouble #########
+##### Normal Model #######
+
+function normal_mean_update_double_1(value::Any, index_package::SummationPackage, log_pdf::Function)
+    mu_new = zeros(length(value))
+    cov = zeros(length(value), length(value))
+    for (_, pr, params) in index_package
+        cov += pr * val(params[:cov]).inv
+    end
+    for (x, pr, params) in index_package
+        mu_new += pr * val(params[:cov]).inv * (val(x) - val(params[:mu1]))
+    end
+    mu_new = cov \ mu_new
+    return mu_new
+end
+
+function normal_mean_update_double_2(value::Any, index_package::SummationPackage, log_pdf::Function)
+    mu_new = zeros(length(value))
+    cov = zeros(length(value), length(value))
+    for (_, pr, params) in index_package
+        cov += pr * val(params[:cov]).inv
+    end
+    for (x, pr, params) in index_package
+        mu_new += pr * val(params[:cov]).inv * (val(x) - val(params[:mu2]))
+    end
+    mu_new = cov \ mu_new
+    return mu_new
+end
+
+function normal_covariance_update_double(value::Any, index_package::SummationPackage, log_pdf::Function)
+    cov_new = zeros(size(value.inv))
+    for (x, pr, params) in index_package
+        y = val(x) - (val(params[:mu1]) + val(params[:mu2]))
+        cov_new += pr * (y * y')
+    end
+    taus = [d[2] for d in index_package]
+    cov_new ./= sum(taus)
+    return (inv = inv(cov_new), det = det(cov_new))
+end
+
+function normal_pdf_double(X::Any, params::Dict)
+    p = length(X)
+    y = (X - (val(params[:mu1]) + val(params[:mu2])))
+    (2pi)^(-p/2) * val(params[:cov]).det^(-1/2) * exp((-1/2 * y' * val(params[:cov]).inv * y))
+end
+
+MtvNormalDouble(p) = ParsaDensity(normal_pdf, normal_pdf_log, (x) -> normal_input(x, p),
+                                :mu1 => Parameter(zeros(p), normal_mean_update_double_1),
+                                :mu2 => Parameter(zeros(p), normal_mean_update_double_2),
+                                :cov => Parameter((inv = diagm(ones(p)), det = 1), p * (p + 1) / 2, normal_covariance_update_double))
 
 ####### Normal Parsa #########
 

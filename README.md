@@ -47,6 +47,13 @@ using Pkg
 Pkg.add(url="https://github.com/andrewsimpson4/ParsaModel.jl.git")
 ```
 
+```julia
+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
+using Pkg
+Pkg.add(url="https://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@github.com/andrewsimpson4/ParsaModel.jl.git")
+```
+
+
 #### R
 
 For use in R, see the corresponding R wrapper for this package [RParsaModel](https://github.com/andrewsimpson4/RParsaModel).

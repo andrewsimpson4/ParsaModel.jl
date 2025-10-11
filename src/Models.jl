@@ -59,7 +59,7 @@ function normal_mean_update_double_1(value::Any, index_package::SummationPackage
         cov += pr * val(params[:cov]).inv
     end
     for (x, pr, params) in index_package
-        mu_new += pr * val(params[:cov]).inv * (val(x) - val(params[:mu1]))
+        mu_new += pr * val(params[:cov]).inv * (val(x) - val(params[:mu2]))
     end
     mu_new = cov \ mu_new
     return mu_new
@@ -72,7 +72,7 @@ function normal_mean_update_double_2(value::Any, index_package::SummationPackage
         cov += pr * val(params[:cov]).inv
     end
     for (x, pr, params) in index_package
-        mu_new += pr * val(params[:cov]).inv * (val(x) - val(params[:mu2]))
+        mu_new += pr * val(params[:cov]).inv * (val(x) - val(params[:mu1]))
     end
     mu_new = cov \ mu_new
     return mu_new
@@ -95,7 +95,7 @@ function normal_pdf_double(X::Any, params::Dict)
     (2pi)^(-p/2) * val(params[:cov]).det^(-1/2) * exp((-1/2 * y' * val(params[:cov]).inv * y))
 end
 
-MtvNormalDouble(p) = ParsaDensity(normal_pdf, normal_pdf_log, (x) -> normal_input(x, p),
+MtvNormalDouble(p) = ParsaDensity(normal_pdf_double, normal_pdf_log, (x) -> normal_input(x, p),
                                 :mu1 => Parameter(zeros(p), normal_mean_update_double_1),
                                 :mu2 => Parameter(zeros(p), normal_mean_update_double_2),
                                 :cov => Parameter((inv = diagm(ones(p)), det = 1), p * (p + 1) / 2, normal_covariance_update_double))

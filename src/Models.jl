@@ -175,22 +175,26 @@ function normal_parsa_V_update(V, package_index, log_pdf)
         push!(ZZ, pr * (val(x) - val(params[:mu])) * (val(x) - val(params[:mu]))')
     end
     zipped_az = zip(AA, ZZ)
-    while abs(sum(opt_new .- opt_old)) / abs(sum(opt_old)) > 10^-5
-        for i in 1:p
-            for j in 1:p
-                if i != j
-                    d1 = V[:,i]
-                    d2 = V[:,j]
-                    D = zeros(size(2,2))
-                    for (A, Zz) in zipped_az
-                        Z = [d1 d2]' * Zz * [d1 d2]
-                        D = D .+ ((1 / A[i] - 1 / A[j]) .* Z)
-                    end
-                    V[:,i] = [d1 d2] * eigvecs(D)[:,1]
-                    V[:,j] = [d1 d2] * eigvecs(D)[:,2]
+    while abs(sum(opt_new .- opt_old)) / abs(sum(opt_old)) > 10^-3
+        # println(abs(sum(opt_new .- opt_old)) / abs(sum(opt_old)))
+        for _ in 1:3
+        i,j = sample(1:p, 2, replace=false)
+        # for i in 1:(p - 1)
+        #     for j in (i+1):p
+                # d1 = V[:,i]
+                # d2 = V[:,j]
+                d12 = V[:,[i,j]]
+                D = zeros(size(2,2))
+                for (A, Zz) in zipped_az
+                    # Z = [d1 d2]' * Zz * [d1 d2]
+                    Z = d12' * Zz * d12
+                    D = D .+ ((1 / A[i] - 1 / A[j]) .* Z)
                 end
+                V[:,i] = d12 * eigvecs(D)[:,1]
+                V[:,j] = d12 * eigvecs(D)[:,2]
+        #     end
+        # end
             end
-        end
         opt_old = opt_new
         opt_new = sum(V)
     end

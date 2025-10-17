@@ -7,9 +7,9 @@ include("../src/Core.jl")
 include("../src/Models.jl")
 include("../src/Notation.jl")
 
-p = 4
+p = 50
 K = 3
-n = 100
+n = 500
 true_id = rand(1:K, n);
 mu = [ones(p), ones(p) .+ 6, ones(p) .- 6];
 cov = [diagm(ones(p)), diagm(ones(p)), diagm(ones(p)) .+ 1];
@@ -23,6 +23,16 @@ end
 EM!(N)
 val(Z)
 val(N[:mu])
+
+
+N = ParsimoniousNormal(p);
+Z = categorical(3);
+for i in eachindex(X)
+    X[i] ~ N(:mu => Z[i], :a => Z[i], :L => Z[i], :V => Z[i])
+end
+EM!(N)
+val(N[:V])[3] * val(N[:V])[3]'
+
 
 display(Z[1].LV())
 

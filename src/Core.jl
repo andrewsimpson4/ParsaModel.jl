@@ -268,11 +268,12 @@ function LMEM(X::Set{Observation}, base::Parsa_Base;
 	# domain_map = Dict([x => [LV for LV in unique(flattenConditionalDomain(x.T.domain)) if !lv_isKnown(LV)] for x in X])
 	# domain_map = Dict([x => [LV for LV in GetDependentVariable(x) if !lv_isKnown(LV)] for x in X])
 	map_collector = Dict()
-	(tau_chain, parameter_map, pi_parameters_used, tau_init) = E_step_initalize(X, base, Dict(), map_collector)
-	likelihood_ = initialize_density_evaluation(X, Vector{}(), base, Dict(), map_collector)
-	# println(Base.summarysize(map_collector))
-	# return 0
-	likelihood = () -> log(likelihood_())
+	(tau_chain, parameter_map, pi_parameters_used, tau_init) = E_step_initalize(X, base, Dict(), map_collector, verbose)
+	likelihood = () -> 1
+	if verbose
+		likelihood_ = initialize_density_evaluation(X, Vector{}(), base, Dict(), map_collector)
+		likelihood = () -> log(likelihood_())
+	end
 	verbose ? update(pbar) : nothing
 	tau_wild = [wild_tau(ta()) for ta in tau_init]
 	M = M_step_init(X, tau_wild, parameter_map, base)
@@ -416,7 +417,7 @@ function wild_tau(tau)
 	return tau_new
 end
 
-function E_step_initalize(X::Vector{Observation}, density::Parsa_Base, all_domains, map_collector)
+function E_step_initalize(X::Vector{Observation}, density::Parsa_Base, all_domains, map_collector, verbose)
 	n = length(X)
 	tau = Vector{Function}(undef, n)
 	Q = Vector{Function}(undef, n)
@@ -438,7 +439,9 @@ function E_step_initalize(X::Vector{Observation}, density::Parsa_Base, all_domai
 		tau_init[i] = tau_i_init_func
 		parameters_used[i] = parameters_used_i
 		pi_parameters_used[i] = pi_parameters_used_i
-		update(pbar)
+		if verbose
+			update(pbar)
+		end
 	end
 	return (tau, parameters_used, pi_parameters_used, tau_init, tau_pre_set, Q)
 end

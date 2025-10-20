@@ -7,7 +7,7 @@ include("../src/Core.jl")
 include("../src/Models.jl")
 include("../src/Notation.jl")
 
-p = 50
+p = 10
 K = 3
 n = 500
 true_id = rand(1:K, n);
@@ -20,7 +20,7 @@ Z = categorical(3;name="Z");
 for i in eachindex(X)
     X[i] ~ N(:mu => Z[i], :cov => Z[i])
 end
-EM!(N)
+EM!(N; verbose=false)
 val(Z)
 val(N[:mu])
 

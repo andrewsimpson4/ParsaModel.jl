@@ -134,7 +134,9 @@ function getIndependentSets(X::Vector{Observation})
 	end
 
 	for (i, x) in enumerate(X)
-		conditional_dependent_search!(x, indo_sets, indo_sets[x], X)
+		for y in indo_sets[x]
+			conditional_dependent_search!(y, indo_sets, indo_sets[x], X)
+		end
 		collected_x = collect(indo_sets[x])
 		indo_sets_obs[i] = collected_x[sortperm([objectid(x) for x in collected_x])]
 	end
@@ -164,11 +166,32 @@ function getDependentOnX(X::Vector{Observation})
 			end
 		end
 	end
+	# return indo_sets
 	for (i, x) in enumerate(X)
-		conditional_dependent_search!(x, indo_sets, indo_sets[x], X)
+		for y in indo_sets[x]
+			conditional_dependent_search!(y, indo_sets, indo_sets[x], X)
+		end
 	end
 	return indo_sets
 end
+
+
+# function getDependentOnX(X::Vector{Observation})
+# 	indo_sets = getIndependentSets(X)
+# 	println("#####")
+# 	println(length(indo_sets))
+# 	println("#####")
+# 	dependent_vec = Vector{}()
+# 	for (i, x) in enumerate(X)
+# 		for set in indo_sets
+# 			if x in set
+# 				push!(dependent_vec, set)
+# 				break
+# 			end
+# 		end
+# 	end
+# 	return dependent_vec
+# end
 
 function initialize_density_evaluation(X::Vector{Observation}, density::Parsa_Base, independent_by)
 	if length(independent_by) == 0
@@ -193,14 +216,33 @@ end
 function initialize_density_evaluation(X::Vector{Observation}, conditioned_domains::Vector, density::Parsa_Base, domain_map::Dict, map_collector::Dict)
 	independent_sets = getIndependentSets(X)
 	# println(length(independent_sets))
+	# println("--")
+	# sleep(0.1)
+	# println(length(independent_sets))
+	# println(length(independent_sets))
 	mult_list = Vector{Function}()
 	for G in independent_sets
-		domains = [LV for LV in (reduce(vcat, [unique([lv for lv in GetDependentVariable(x)]) for x in G]))]
+
+		all_domains = [unique([lv for lv in GetDependentVariable(x)]) for x in G]
+		domain_lengths = [length(d) for d in all_domains]
+		# # println(countmap(domain_lengths))
+		# if (sum(argmax(domain_lengths) .== domain_lengths) == length(domain_lengths))
+		domains = [LV for LV in (reduce(vcat, all_domains))]
 		lv_freq_map = countmap(domains)
-		next_conditions = domains #setdiff(domains, conditioned_domains)
-		lv_freq_map = filter(x -> x[1] in next_conditions, lv_freq_map)
-		top_order = sortperm(collect(values(lv_freq_map)); rev=true)
-		next_conditions = collect(keys(lv_freq_map))[top_order]
+		# println(length(domain_lengths))
+		# println(length(values(lv_freq_map)))
+		if maximum(domain_lengths; init=0) <= maximum(values(lv_freq_map); init=0)
+			# println(values(lv_freq_map))
+			next_conditions = domains #setdiff(domains, conditioned_domains)
+			lv_freq_map = filter(x -> x[1] in next_conditions, lv_freq_map)
+			top_order = sortperm(collect(values(lv_freq_map)); rev=true)
+			next_conditions = collect(keys(lv_freq_map))[top_order]
+		else
+			next_conditions = all_domains[argmax(domain_lengths)]
+		end
+		# domains = unique([LV for LV in (reduce(vcat, all_domains))])
+		# best = [(lv_set(lv, 1); L = length(getIndependentSets(G)); lv_set(lv, 0); L) for lv in domains]
+		# next_conditions = length(best) == 0 ? [] : [domains[argmax(best)]]
 		if length(next_conditions) != 0
 			next_condition = next_conditions[1]
 			# display(next_condition)
@@ -427,7 +469,7 @@ function E_step_initalize(X::Vector{Observation}, density::Parsa_Base, all_domai
 	pi_parameters_used = Vector{Vector{Any}}(undef, n)
     all_dependent_observations = getDependentOnX(X)
    for i in 1:n
-		dependent_observations = collect(all_dependent_observations[X[i]])
+		dependent_observations = unique(collect(all_dependent_observations[X[i]]))
 		tau_init_i = E_step_i_initalize_initzial_values(X[i], dependent_observations, density, Vector{}(), Vector{}())
 		# tau_init_i = E_step_i_initalize_initzial_values(X[i], dependent_observations, density, Vector{}(), (all_domains[X[i]]))
         # (tau_i, parameters_used_i, pi_parameters_used_i) = E_step_i_initalize(X[i], dependent_observations, density, Vector{}(), (all_domains[X[i]]), all_domains, map_collector)

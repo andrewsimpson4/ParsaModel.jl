@@ -20,9 +20,63 @@ Z = categorical(3;name="Z");
 for i in eachindex(X)
     X[i] ~ N(:mu => Z[i], :cov => Z[i])
 end
-EM!(N; verbose=false)
+EM!(N; verbose=true)
 val(Z)
 val(N[:mu])
+
+
+n = 50
+p = 5
+K = 2
+mu = [ones(p) .+ i for i in 1:n];
+cov = [diagm(ones(p)) .+ i^4 for i in 1:2];
+class_id = [Int(ceil(i / 5)) for i in 1:n];
+n_classes = length(unique(class_id))
+true_id = rand(1:2, n_classes);
+X = Observation.([vec(rand(MvNormal(mu[class_id[i]], cov[true_id[class_id[i]]]), 1)) for i in 1:n]);
+
+F = MtvNormal(p);
+class = categorical(n_classes)
+Z = categorical(K)
+for i in eachindex(X)
+    class[i] = class_id[i]
+    X[i] ~ F(:mu => class[i], :cov => Z[class[i]])
+end
+EM!(F; n_init = 1, n_wild = 1)
+i = length(X) + 1
+n_new = Observation(zeros(p))
+n_new ~ F(:mu => class[i], :cov => Z[class[i]])
+@time f(class[i]);
+
+
+
+F = MtvNormal(p);
+class = categorical(n_classes)
+Z = categorical(K)
+for i in eachindex(X)[1:(end-1)]
+    class[i] = class_id[i]
+    X[i] ~ F(:mu => class[i], :cov => Z[class[i]])
+end
+i = length(X)
+X[i] ~ F(:mu => class[i], :cov => Z[class[i]])
+EM!(F; n_init = 1, n_wild = 1)
+# for x in X prime_X(x) end
+f(class[i])()
+
+# xx = [length(va) for (d, va) in getDependentOnX(X)]
+
+# maximum([length(d) for d in getDependentOnX(X)])
+
+# indo_sets = getDependentOnX(X);
+# x = X[1];
+# conditional_dependent_search!(x, indo_sets, indo_sets[x], X);
+# xx = [length(va) for (d, va) in getDependentOnX(X)]
+
+# # length(GetDependentVariable(X[i-2])[2].dependent_X)
+
+# GetDependentVariable(X[1])[2] == GetDependentVariable(X[i])[2]
+
+# EM!(F; n_init = 1, n_wild = 1)
 
 
 N = ParsimoniousNormal(p);
@@ -255,6 +309,7 @@ post(x) = (new_x.X = x; pr().max[1])
 class_pred = [post(x.X) for x in iris_m];
 mean(class_pred .== class)
 
+length(getDependentOnX(new_x))
 
 
 K = 3
@@ -265,7 +320,7 @@ for i in eachindex(iris_m);
     iris_m[i] ~ F(:mu => [cl[i], Z[cl[i]][i]], :a => [cl[i], Z[cl[i]][i]], :L => [cl[i], Z[cl[i]][i]], :V => 1)
     cl[i] = class[i]
 end
-F[:V][1] = I #diagm(ones(p));
+F[:V][1] = diagm(ones(p));
 EM!(F)
 
 

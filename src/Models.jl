@@ -51,6 +51,7 @@ MtvNormal(p) = ParsaDensity(normal_pdf, normal_pdf_log, (x) -> normal_input(x, p
 
 #### safe normal
 
+
 function normal_covariance_update_safe(value::Any, index_package::SummationPackage, log_pdf::Function)
     cov_new = zeros(size(value.inv))
     eff_n = 0
@@ -66,7 +67,7 @@ function normal_covariance_update_safe(value::Any, index_package::SummationPacka
         cov_new ./= sum(taus)
         return (inv = inv(cov_new), det = det(cov_new))
     else
-        return (inv = -1, det = -1)
+        return (inv = zeros(size(value.inv)), det = -1)
     end
 end
 

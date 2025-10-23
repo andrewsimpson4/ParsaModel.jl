@@ -16,7 +16,7 @@ end
 Base.@kwdef mutable struct CategoricalZ
 	K::Int
 	LV = Dict{Any, LatentVaraible}()
-	Pi::Vector{BigFloat} = ones(K) ./ K
+	Pi::Vector{Real} = ones(K) ./ K
     name::String
 	constant = false
 	base = nothing

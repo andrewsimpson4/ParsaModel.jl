@@ -100,7 +100,7 @@ function normal_pdf_safe(X::Any, params::Dict)
 end
 
 MtvNormalSafe(p) = ParsaDensity(normal_pdf_safe, normal_pdf_log, (x) -> normal_input(x, p),
-                                :mu => Parameter(zeros(p), normal_mean_update),
+                                :mu => Parameter(zeros(p), normal_mean_update_safe),
                                 :cov => Parameter((inv = diagm(ones(p)), det = 1), p * (p + 1) / 2, normal_covariance_update_safe))
 
 

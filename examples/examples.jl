@@ -16,7 +16,7 @@ cov = [diagm(ones(p)), diagm(ones(p)), diagm(ones(p)) .+ 1];
 X = Observation.([vec(rand(MvNormal(mu[true_id[i]], cov[true_id[i]]), 1)) for i in 1:n]);
 
 N = MtvNormalSafe(p);
-Z = categorical(6;name="Z");
+Z = categorical(4;name="Z");
 for i in eachindex(X)
     X[i] ~ N(:mu => Z[i], :cov => Z[i])
 end

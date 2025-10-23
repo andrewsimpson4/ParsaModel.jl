@@ -51,13 +51,31 @@ MtvNormal(p) = ParsaDensity(normal_pdf, normal_pdf_log, (x) -> normal_input(x, p
 
 #### safe normal
 
+function normal_mean_update_safe(value::Any, index_package::SummationPackage, log_pdf::Function)
+    mu_new = zeros(length(value))
+    cov = zeros(length(value), length(value))
+    eff_n = 0
+    p = length(value)
+    for (_, pr, params) in index_package
+        eff_n += pr
+        cov += pr * val(params[:cov]).inv
+    end
+    for (x, pr, params) in index_package
+        mu_new += pr * val(params[:cov]).inv * val(x)
+    end
+    if eff_n > p
+        mu_new = cov \ mu_new
+        return mu_new
+    else
+        return zeros(length(value))
+    end
+end
 
 function normal_covariance_update_safe(value::Any, index_package::SummationPackage, log_pdf::Function)
     cov_new = zeros(size(value.inv))
     eff_n = 0
-    p = 0
+    p = size(value.inv)[1]
     for (x, pr, params) in index_package
-        p = length(val(x))
         y = val(x) - val(params[:mu])
         cov_new += pr * (y * y')
         eff_n += pr

@@ -7,22 +7,22 @@ include("../src/Core.jl")
 include("../src/Models.jl")
 include("../src/Notation.jl")
 
-p = 10
+p = 20
 K = 3
-n = 500
+n = 100
 true_id = rand(1:K, n);
 mu = [ones(p), ones(p) .+ 6, ones(p) .- 6];
 cov = [diagm(ones(p)), diagm(ones(p)), diagm(ones(p)) .+ 1];
 X = Observation.([vec(rand(MvNormal(mu[true_id[i]], cov[true_id[i]]), 1)) for i in 1:n]);
 
 N = MtvNormalSafe(p);
-Z = categorical(3;name="Z");
+Z = categorical(6;name="Z");
 for i in eachindex(X)
     X[i] ~ N(:mu => Z[i], :cov => Z[i])
 end
 EM!(N; verbose=true)
 val(Z)
-val(N[:mu])
+val(N[:cov])
 
 
 n = 50

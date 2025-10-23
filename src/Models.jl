@@ -63,7 +63,7 @@ function normal_mean_update_safe(value::Any, index_package::SummationPackage, lo
     for (x, pr, params) in index_package
         mu_new += pr * val(params[:cov]).inv * val(x)
     end
-    if eff_n > p
+    if eff_n > (p+1)
         mu_new = cov \ mu_new
         return mu_new
     else

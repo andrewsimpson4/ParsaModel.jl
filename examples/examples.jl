@@ -7,7 +7,7 @@ include("../src/Core.jl")
 include("../src/Models.jl")
 include("../src/Notation.jl")
 
-p = 20
+p = 25
 K = 3
 n = 100
 true_id = rand(1:K, n);

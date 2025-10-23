@@ -49,6 +49,43 @@ MtvNormal(p) = ParsaDensity(normal_pdf, normal_pdf_log, (x) -> normal_input(x, p
                                 :cov => Parameter((inv = diagm(ones(p)), det = 1), p * (p + 1) / 2, normal_covariance_update))
 
 
+#### safe normal
+
+function normal_covariance_update_safe(value::Any, index_package::SummationPackage, log_pdf::Function)
+    cov_new = zeros(size(value.inv))
+    eff_n = 0
+    p = 0
+    for (x, pr, params) in index_package
+        p = length(val(x))
+        y = val(x) - val(params[:mu])
+        cov_new += pr * (y * y')
+        eff_n += pr
+    end
+    if eff_n > (p+1)
+        taus = [d[2] for d in index_package]
+        cov_new ./= sum(taus)
+        return (inv = inv(cov_new), det = det(cov_new))
+    else
+        return (inv = -1, det = -1)
+    end
+end
+
+function normal_pdf_safe(X::Any, params::Dict)
+    if val(params[:cov]).det != -1
+        p = length(X)
+        y = (X - val(params[:mu]))
+        (2pi)^(-p/2) * val(params[:cov]).det^(-1/2) * exp((-1/2 * y' * val(params[:cov]).inv * y))
+    else
+        return 0
+    end
+end
+
+MtvNormalSafe(p) = ParsaDensity(normal_pdf_safe, normal_pdf_log, (x) -> normal_input(x, p),
+                                :mu => Parameter(zeros(p), normal_mean_update),
+                                :cov => Parameter((inv = diagm(ones(p)), det = 1), p * (p + 1) / 2, normal_covariance_update_safe))
+
+
+
 ####### NormalDouble #########
 ##### Normal Model #######
 

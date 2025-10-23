@@ -85,7 +85,7 @@ function normal_covariance_update_safe(value::Any, index_package::SummationPacka
         cov_new ./= sum(taus)
         return (inv = inv(cov_new), det = det(cov_new))
     else
-        return (inv = value, det = -1)
+        return (inv = value.inv, det = -1)
     end
 end
 

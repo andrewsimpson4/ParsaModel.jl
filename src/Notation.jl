@@ -91,7 +91,7 @@ end
 function f(LV::LV_wrap...)
     LVs = [lv.LV() for lv in LV]
     prime_X.(LVs[1].Z.base.X)
-    all_X = collect(union(reduce(vcat, [LV.dependent_X for LV in LVs])))
+    all_X = collect(unique(reduce(vcat, [LV.dependent_X for LV in LVs])))
     posterior_initalize(LVs, all_X, all_X[1].base)
 end
 

@@ -216,6 +216,9 @@ end
 function initialize_density_evaluation(X::Vector{Observation}, conditioned_domains::Vector, density::Parsa_Base, domain_map::Dict, map_collector::Dict)
 	independent_sets = getIndependentSets(X)
 	# println(length(independent_sets))
+	# println("---")
+	# sleep(0.1)
+	# println(length(independent_sets))
 	# println("--")
 	# sleep(0.1)
 	# println(length(independent_sets))
@@ -225,21 +228,21 @@ function initialize_density_evaluation(X::Vector{Observation}, conditioned_domai
 
 		all_domains = [unique([lv for lv in GetDependentVariable(x)]) for x in G]
 		domain_lengths = [length(d) for d in all_domains]
-		# # println(countmap(domain_lengths))
+		# println(countmap(domain_lengths))
 		# if (sum(argmax(domain_lengths) .== domain_lengths) == length(domain_lengths))
 		domains = [LV for LV in (reduce(vcat, all_domains))]
 		lv_freq_map = countmap(domains)
 		# println(length(domain_lengths))
-		# println(length(values(lv_freq_map)))
-		if maximum(domain_lengths; init=0) <= maximum(values(lv_freq_map); init=0)
+		# println((values(lv_freq_map)))
+		# if maximum(domain_lengths; init=0) <= maximum(values(lv_freq_map); init=0)
 			# println(values(lv_freq_map))
 			next_conditions = domains #setdiff(domains, conditioned_domains)
 			lv_freq_map = filter(x -> x[1] in next_conditions, lv_freq_map)
 			top_order = sortperm(collect(values(lv_freq_map)); rev=true)
 			next_conditions = collect(keys(lv_freq_map))[top_order]
-		else
-			next_conditions = all_domains[argmax(domain_lengths)]
-		end
+		# else
+		# 	next_conditions = all_domains[argmax(domain_lengths)]
+		# end
 		# domains = unique([LV for LV in (reduce(vcat, all_domains))])
 		# best = [(lv_set(lv, 1); L = length(getIndependentSets(G)); lv_set(lv, 0); L) for lv in domains]
 		# next_conditions = length(best) == 0 ? [] : [domains[argmax(best)]]
@@ -621,6 +624,8 @@ function posterior_initalize(conditions, X::Vector{Observation}, density::Parsa_
 	domain_map = Dict([x => GetDependentVariable(x) for x in X_sub])
 	tau = Vector{}()
 	Pi = Vector{}()
+	# println(length(X_sub))
+	# println("HERE")
 	posterior_initalize!(domains, X_sub, density, Vector{}(), domain_map, tau, Pi)
 	tau_l = length(tau)
 	vv = Vector{BigFloat}(undef, tau_l)

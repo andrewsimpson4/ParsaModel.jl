@@ -1,35 +1,40 @@
 # using ParsaModel
 
 using CSV, DataFrames, Clustering, Distances, LinearAlgebra, StatsBase, ProgressBars, Distributions
+using Random
 include("../src/Types.jl")
 include("../src/Core.jl")
 # include("../src/Macros.jl")
 include("../src/Models.jl")
 include("../src/Notation.jl")
 
-p = 25
+p = 5
 K = 3
-n = 100
+n = 200
 true_id = rand(1:K, n);
 mu = [ones(p), ones(p) .+ 6, ones(p) .- 6];
 cov = [diagm(ones(p)), diagm(ones(p)), diagm(ones(p)) .+ 1];
 X = Observation.([vec(rand(MvNormal(mu[true_id[i]], cov[true_id[i]]), 1)) for i in 1:n]);
 
+Random.seed!(1)
 N = MtvNormalSafe(p);
 Z = categorical(4;name="Z");
 for i in eachindex(X)
     X[i] ~ N(:mu => Z[i], :cov => Z[i])
 end
 EM!(N; verbose=true)
+BIC(N)
+
+3639.489262411928
 val(Z)
 val(N[:cov])
 
 
-n = 50
-p = 5
-K = 2
+n = 800
+p = 7
+K = 3
 mu = [ones(p) .+ i for i in 1:n];
-cov = [diagm(ones(p)) .+ i^4 for i in 1:2];
+cov = [diagm(ones(p)) .+ i^4 for i in 1:K];
 class_id = [Int(ceil(i / 5)) for i in 1:n];
 n_classes = length(unique(class_id))
 true_id = rand(1:2, n_classes);
@@ -46,8 +51,25 @@ EM!(F; n_init = 1, n_wild = 1)
 i = length(X) + 1
 n_new = Observation(zeros(p))
 n_new ~ F(:mu => class[i], :cov => Z[class[i]])
-@time f(class[i]);
+@time ff = f(class[i]);
+ff()
 
+N = ParsimoniousNormal(length(X[1].X));
+Za = categorical(3)
+ZL = categorical(3)
+ZV = categorical(3)
+cl = categorical(length(unique(class_id)))
+for i in eachindex(X)
+    cl[i] = class_id[i]
+    X[i] ~ N(:mu => cl[i], :a => Za[cl[i]], :L => ZV[cl[i]], :V => ZV[cl[i]])
+end
+EM!(N; n_init = 1, n_wild = 1)
+i = length(X) + 1
+X_new_ob = Observation(X[1].X)
+X_new_ob ~ N(:mu => cl[i], :a => Za[cl[i]], :L => ZV[cl[i]], :V => ZV[cl[i]])
+@time pr = f(cl[i])
+post(x) = (X_new_ob.X = x; pr().max[1])
+pr()
 
 
 F = MtvNormal(p);

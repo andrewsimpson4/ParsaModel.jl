@@ -216,9 +216,6 @@ end
 function initialize_density_evaluation(X::Vector{Observation}, conditioned_domains::Vector, density::Parsa_Base, domain_map::Dict, map_collector::Dict)
 	independent_sets = getIndependentSets(X)
 	# println(length(independent_sets))
-	# println("---")
-	# sleep(0.1)
-	# println(length(independent_sets))
 	# println("--")
 	# sleep(0.1)
 	# println(length(independent_sets))
@@ -234,15 +231,15 @@ function initialize_density_evaluation(X::Vector{Observation}, conditioned_domai
 		lv_freq_map = countmap(domains)
 		# println(length(domain_lengths))
 		# println((values(lv_freq_map)))
-		# if maximum(domain_lengths; init=0) <= maximum(values(lv_freq_map); init=0)
+		if maximum(domain_lengths; init=0) <= maximum(values(lv_freq_map); init=0)
 			# println(values(lv_freq_map))
 			next_conditions = domains #setdiff(domains, conditioned_domains)
 			lv_freq_map = filter(x -> x[1] in next_conditions, lv_freq_map)
 			top_order = sortperm(collect(values(lv_freq_map)); rev=true)
 			next_conditions = collect(keys(lv_freq_map))[top_order]
-		# else
-		# 	next_conditions = all_domains[argmax(domain_lengths)]
-		# end
+		else
+			next_conditions = all_domains[argmax(domain_lengths)]
+		end
 		# domains = unique([LV for LV in (reduce(vcat, all_domains))])
 		# best = [(lv_set(lv, 1); L = length(getIndependentSets(G)); lv_set(lv, 0); L) for lv in domains]
 		# next_conditions = length(best) == 0 ? [] : [domains[argmax(best)]]
@@ -473,6 +470,7 @@ function E_step_initalize(X::Vector{Observation}, density::Parsa_Base, all_domai
     all_dependent_observations = getDependentOnX(X)
    for i in 1:n
 		dependent_observations = unique(collect(all_dependent_observations[X[i]]))
+		# dependent_observations = unique([X[i]; sample(dependent_observations, 20)])
 		tau_init_i = E_step_i_initalize_initzial_values(X[i], dependent_observations, density, Vector{}(), Vector{}())
 		# tau_init_i = E_step_i_initalize_initzial_values(X[i], dependent_observations, density, Vector{}(), (all_domains[X[i]]))
         # (tau_i, parameters_used_i, pi_parameters_used_i) = E_step_i_initalize(X[i], dependent_observations, density, Vector{}(), (all_domains[X[i]]), all_domains, map_collector)

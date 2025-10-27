@@ -40,6 +40,19 @@ n_classes = length(unique(class_id))
 true_id = rand(1:2, n_classes);
 X = Observation.([vec(rand(MvNormal(mu[class_id[i]], cov[true_id[class_id[i]]]), 1)) for i in 1:n]);
 
+p = length(X[1].X)
+# X = Observation.(X)
+N = ParsimoniousNormal(length(X[1].X))
+Z = categorical(4; name="Z")
+ZV = categorical(2; name="ZV")
+cl = categorical(length(unique(class_id)); name = "cl")
+for i in eachindex(X)
+    cl[i] = class_id[i]
+    X[i] ~ N(:mu => cl[i], :a => Z[cl[i]], :L => Z[cl[i]], :V => ZV[Z[cl[i]]])
+end
+EM!(N; n_init = 1, n_wild = 1, verbose=true)
+
+
 F = MtvNormal(p);
 class = categorical(n_classes)
 Z = categorical(K)

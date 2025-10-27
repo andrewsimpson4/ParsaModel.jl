@@ -199,6 +199,7 @@ Base.@kwdef mutable struct Parameter
 	run_update::Function = (X, taus, parameter_maps, log_pdf) -> value.value = update(value.value, zip(X, taus, parameter_maps), log_pdf)
 	is_const::Bool = false
 	post_processing = nothing
+	value_original = nothing
 end
 
 Parameter(initial_value, update_function::Function) = Parameter(value = ParameterValue(value = initial_value), update = update_function)

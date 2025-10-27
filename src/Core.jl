@@ -319,6 +319,7 @@ function LMEM(X::Set{Observation}, base::Parsa_Base;
 	verbose ? update(pbar) : nothing
 	tau_wild = [wild_tau(ta()) for ta in tau_init]
 	M = M_step_init(X, tau_wild, parameter_map, base)
+	param_reset = set_original_parameters(base)
 	Pi = Pi_init(X, tau_wild, pi_parameters_used)
 	init_likelihoods = zeros(n_init, n_wild)
 	if should_initialize
@@ -331,6 +332,7 @@ function LMEM(X::Set{Observation}, base::Parsa_Base;
 		Pi(tau_wild)
 		M(X, tau_wild, parameter_map, base)
 		for i_init in 1:n_init
+			param_reset()
 			tau_wild::Vector{Vector{Real}} = [wild_tau(ta()) for ta in tau_init]
 			Pi(tau_wild)
 			M(X, tau_wild, parameter_map, base)
@@ -422,6 +424,22 @@ function zip_package(mapping, X::Vector{Observation}, tau::Vector{Vector{Real}},
 	return (x, pr, map)
 end
 
+function set_original_parameters(base::Parsa_Base)
+	for ke in base.parameter_order
+		for (ke2, param) in base.parameters[ke].parameter_map
+			param.value_original = deepcopy(param.value)
+		end
+	end
+
+	return function()
+		for ke in base.parameter_order
+			for (ke2, param) in base.parameters[ke].parameter_map
+				param.value.value = param.value_original.value
+			end
+		end
+	end
+end
+
 function M_step_init(X::Vector{Observation}, tau::Vector{Vector{Real}}, parameter_map::Vector{Vector{Any}}, base::Parsa_Base)
 	mappings = Vector{}()
 	for ke in base.parameter_order
@@ -470,7 +488,6 @@ function E_step_initalize(X::Vector{Observation}, density::Parsa_Base, all_domai
     all_dependent_observations = getDependentOnX(X)
    for i in 1:n
 		dependent_observations = unique(collect(all_dependent_observations[X[i]]))
-		# dependent_observations = unique([X[i]; sample(dependent_observations, 20)])
 		tau_init_i = E_step_i_initalize_initzial_values(X[i], dependent_observations, density, Vector{}(), Vector{}())
 		# tau_init_i = E_step_i_initalize_initzial_values(X[i], dependent_observations, density, Vector{}(), (all_domains[X[i]]))
         # (tau_i, parameters_used_i, pi_parameters_used_i) = E_step_i_initalize(X[i], dependent_observations, density, Vector{}(), (all_domains[X[i]]), all_domains, map_collector)

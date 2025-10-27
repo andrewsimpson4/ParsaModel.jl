@@ -356,7 +356,7 @@ for i in eachindex(iris_m);
     cl[i] = class[i]
 end
 F[:V][1] = diagm(ones(p));
-EM!(F)
+EM!(F; n_init=10, n_wild=10)
 
 
 new_x = Observation(zeros(p));

@@ -311,11 +311,13 @@ function LMEM(X::Set{Observation}, base::Parsa_Base;
 	# domain_map = Dict([x => [LV for LV in GetDependentVariable(x) if !lv_isKnown(LV)] for x in X])
 	map_collector = Dict()
 	(tau_chain, parameter_map, pi_parameters_used, tau_init) = E_step_initalize(X, base, Dict(), map_collector, verbose)
-	likelihood = () -> 1
-	if verbose
-		likelihood_ = initialize_density_evaluation(X, Vector{}(), base, Dict(), map_collector)
-		likelihood = () -> log(likelihood_())
-	end
+	likelihood_ = initialize_density_evaluation(X, Vector{}(), base, Dict(), map_collector)
+	likelihood = () -> log(likelihood_())
+	# likelihood = () -> 1
+	# if verbose
+	# 	likelihood_ = initialize_density_evaluation(X, Vector{}(), base, Dict(), map_collector)
+	# 	likelihood = () -> log(likelihood_())
+	# end
 	verbose ? update(pbar) : nothing
 	tau_wild = [wild_tau(ta()) for ta in tau_init]
 	M = M_step_init(X, tau_wild, parameter_map, base)

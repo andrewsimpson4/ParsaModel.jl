@@ -238,10 +238,10 @@ function normal_parsa_V_update(V, package_index, log_pdf)
         step = step + 1
 
         # println(abs(sum(opt_new .- opt_old)) / abs(sum(opt_old)))
-        for _ in 1:4
-                i,j = sample(1:p, 2, replace=false)
-        # for i in 1:(p - 1)
-        #     for j in (i+1):p
+        # for _ in 1:4
+        #         i,j = sample(1:p, 2, replace=false)
+        for i in 1:(p - 1)
+            for j in (i+1):p
                 # d1 = V[:,i]
                 # d2 = V[:,j]
                 d12 = V[:,[i,j]]
@@ -253,7 +253,7 @@ function normal_parsa_V_update(V, package_index, log_pdf)
                 end
                 V[:,i] = d12 * eigvecs(D)[:,1]
                 V[:,j] = d12 * eigvecs(D)[:,2]
-        #     end
+            end
         # end
             end
         opt_old = opt_new

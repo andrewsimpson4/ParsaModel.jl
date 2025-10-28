@@ -373,7 +373,8 @@ function LMEM(X::Set{Observation}, base::Parsa_Base;
 	i = 2
 	while ((abs(lik_new - lik_old) / abs(lik_new)) > eps && max_steps > 0) || i <= 5
 		if (lik_new < lik_old)
-			println("error")
+			println("non-increasing likelihood... stopping here")
+			break
 		end
         lik_old = lik_new
         lik_new = ((likelihood()))

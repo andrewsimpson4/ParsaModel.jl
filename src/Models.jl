@@ -291,7 +291,7 @@ function normal_parsa_pdf_log_2(X, params)
 end
 
 
-parsa_V(p) = Parameter(diagm(ones(p)), p * (p + 1) / 2, normal_parsa_V_update)
+parsa_V(p) = Parameter(diagm(ones(p)), p * (p - 1) / 2, normal_parsa_V_update)
 # parsa_V_opt(p) = Parameter(diagm(ones(p)), optimizeOrthogonal)
 parsa_L(p) = Parameter( ones(p), p-1, normal_parsa_L_update)
 parsa_a() = Parameter(1, 1,  normal_parsa_a_update)

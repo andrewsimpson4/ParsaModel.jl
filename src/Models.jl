@@ -231,9 +231,9 @@ function normal_parsa_V_update(V, package_index, log_pdf)
         push!(ZZ, pr * (val(x) - val(params[:mu])) * (val(x) - val(params[:mu]))')
     end
     zipped_az = zip(AA, ZZ)
-    while abs(sum(opt_new .- opt_old)) / abs(sum(opt_old)) > 10^-3
+    while abs(sum(opt_new .- opt_old)) / abs(sum(opt_old)) > 10^-5
         # println(abs(sum(opt_new .- opt_old)) / abs(sum(opt_old)))
-        for _ in 1:3
+        for _ in 1:4
         i,j = sample(1:p, 2, replace=false)
         # for i in 1:(p - 1)
         #     for j in (i+1):p

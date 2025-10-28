@@ -234,7 +234,7 @@ function normal_parsa_V_update(V, package_index, log_pdf)
     # while abs(sum(opt_new .- opt_old)) / abs(sum(opt_old)) > 10^-5
     # println(V' * V)
     step = 0
-    while abs.(sum(V'*V - I)) > 10^-10 || step <= 3
+    while abs.(sum(V'*V - I)) > 10^-5 || step <= 3
         step = step + 1
 
         # println(abs(sum(opt_new .- opt_old)) / abs(sum(opt_old)))

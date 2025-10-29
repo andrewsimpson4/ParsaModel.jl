@@ -41,7 +41,7 @@ true_id = rand(1:2, n_classes);
 X = Observation.([vec(rand(MvNormal(mu[class_id[i]], cov[true_id[class_id[i]]]), 1)) for i in 1:n]);
 
 K = 4
-KV = 1
+KV = 2
 N = ParsimoniousNormal(length(X[1].X))
 Z = categorical(K; name="Z")
 ZV = categorical(KV; name = "ZV")

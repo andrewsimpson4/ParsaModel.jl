@@ -356,9 +356,9 @@ function LMEM(X::Set{Observation}, base::Parsa_Base;
 		tau_start::Vector{Vector{Real}} = best_tau
 		best_prams()
 		Pi(tau_start)
-		M(X, tau_start, parameter_map, base)
-		Pi(tau_start)
-		M(X, tau_start, parameter_map, base)
+		# M(X, tau_start, parameter_map, base)
+		# Pi(tau_start)
+		# M(X, tau_start, parameter_map, base)
 	else
 		tau_start = [(ta()) for ta in tau_init]
 		Pi(tau_start)
@@ -370,7 +370,7 @@ function LMEM(X::Set{Observation}, base::Parsa_Base;
 	##########
 
 	lik_old = -Inf
-	lik_new = ((likelihood()))
+	lik_new = likelihood()
 	all_likelihoods::Vector{Real} = [Float64(lik_new)]
 	all_steps::Vector{Real} = [1]
 	i = 2

@@ -327,6 +327,7 @@ function LMEM(X::Set{Observation}, base::Parsa_Base;
 	if should_initialize
 		best_likelihood = -Inf
 		best_tau = nothing
+		best_prams = nothing
 		domain_post_catch = Vector{Vector}(undef, n_init)
 		tau_wild = [wild_tau(ta()) for ta in tau_init]
 		Pi(tau_wild)
@@ -349,13 +350,15 @@ function LMEM(X::Set{Observation}, base::Parsa_Base;
 			if lik_new > best_likelihood
 				best_likelihood = lik_new
 				best_tau = tau_wild
+				best_prams = save_parameters(base)
 			end
 		end
-		tau_start::Vector{Vector{Real}} = best_tau
-		Pi(tau_start)
-		M(X, tau_start, parameter_map, base)
-		Pi(tau_start)
-		M(X, tau_start, parameter_map, base)
+		# tau_start::Vector{Vector{Real}} = best_tau
+		best_prams()
+		# Pi(tau_start)
+		# M(X, tau_start, parameter_map, base)
+		# Pi(tau_start)
+		# M(X, tau_start, parameter_map, base)
 	else
 		tau_start = [(ta()) for ta in tau_init]
 		Pi(tau_start)
@@ -438,6 +441,29 @@ function set_original_parameters(base::Parsa_Base)
 		for ke in base.parameter_order
 			for (ke2, param) in base.parameters[ke].parameter_map
 				param.value.value = param.value_original.value
+			end
+		end
+	end
+end
+
+function save_parameters(base::Parsa_Base)
+	all_params = Vector{}()
+	for ke in base.parameter_order
+		for (_, param) in base.parameters[ke].parameter_map
+			if !param.is_const
+				push!(all_params, param.value.value)
+			end
+		end
+	end
+
+	return function ()
+		i = 1
+		for ke in base.parameter_order
+			for (_, param) in base.parameters[ke].parameter_map
+				if !param.is_const
+					param.value.value = all_params[i]
+					i = i + 1
+				end
 			end
 		end
 	end

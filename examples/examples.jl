@@ -22,7 +22,7 @@ Z = categorical(4;name="Z");
 for i in eachindex(X)
     X[i] ~ N(:mu => Z[i], :cov => Z[i])
 end
-EM!(N; n_init=10, n_wild = 10,verbose=true)
+EM!(N; n_init=10, n_wild = 20,verbose=true)
 BIC(N)
 
 3639.489262411928
@@ -402,7 +402,7 @@ for i in eachindex(iris_m);
     iris_m[i] ~ F(:mu => [cl[i], Z[cl[i]][i]], :a => cov[cl[i], Z[cl[i]][i]], :L => cov[cl[i], Z[cl[i]][i]], :V => 1)
     cl[i] = class[i]
 end
-EM!(F)
+EM!(F; n_init=10, n_wild=15)
 val(F[:L])
 val(F[:V])
 

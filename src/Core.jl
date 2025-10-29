@@ -359,7 +359,6 @@ function LMEM(X::Set{Observation}, base::Parsa_Base;
 		end
 		best_Pi()
 		best_prams()
-		println(likelihood() - best_likelihood)
 		# tau_start::Vector{Vector{Real}} = best_tau
 		# Pi(tau_start)
 		# best_Pi()

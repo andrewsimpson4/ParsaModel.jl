@@ -32,13 +32,32 @@ val(N[:cov])
 
 n = 800
 p = 7
-K = 3
+K = 4
 mu = [ones(p) .+ i for i in 1:n];
-cov = [diagm(ones(p)) .+ i^4 for i in 1:K];
-class_id = [Int(ceil(i / 5)) for i in 1:n];
+cov = [diagm(ones(p)) .+ i^1.1 for i in 1:K];
+class_id = [Int(ceil(i / 4)) for i in 1:n];
 n_classes = length(unique(class_id))
 true_id = rand(1:2, n_classes);
 X = Observation.([vec(rand(MvNormal(mu[class_id[i]], cov[true_id[class_id[i]]]), 1)) for i in 1:n]);
+
+K = 4
+KV = 1
+N = ParsimoniousNormal(length(X[1].X))
+Z = categorical(K; name="Z")
+ZV = categorical(KV; name = "ZV")
+for k in 1:K
+    ZV[k] = (k % KV) + 1
+end
+cl = categorical(length(unique(class_id)); name="cl")
+for i in eachindex(X)
+    cl[i] = class_id[i]
+    X[i] ~ N(:mu => cl[i], :a => Z[cl[i]], :L => Z[cl[i]], :V => ZV[Z[cl[i]]])
+end
+EM!(N; n_init = 3, n_wild = 10, verbose=true)
+val(Z)
+val(ZV)
+val(N[:V])[2]' * val(N[:V])[2]
+
 
 p = length(X[1].X)
 # X = Observation.(X)

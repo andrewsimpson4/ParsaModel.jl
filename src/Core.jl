@@ -215,9 +215,8 @@ end
 
 function initialize_density_evaluation(X::Vector{Observation}, conditioned_domains::Vector, density::Parsa_Base, domain_map::Dict, map_collector::Dict)
 	independent_sets = getIndependentSets(X)
+	# println("u")
 	# println(length(independent_sets))
-	# println("--")
-	# sleep(0.1)
 	# println(length(independent_sets))
 	# println(length(independent_sets))
 	mult_list = Vector{Function}()
@@ -253,7 +252,8 @@ function initialize_density_evaluation(X::Vector{Observation}, conditioned_domai
 				lv_set(next_condition, k)
 				new_conditions = [conditioned_domains; next_condition]
 				lik_new = initialize_density_evaluation(G, new_conditions, density, domain_map, map_collector)
-				sum_list[i_k] = () -> (next_condition.Z.Pi[k] * lik_new())
+				pi_c = () -> (typeof(next_condition.value_) == Unknown ? next_condition.Z.Pi[k] : next_condition.Z.Pi[k])
+				sum_list[i_k] = () -> (pi_c() * lik_new())
 				lv_set(next_condition, 0)
 			end
 			ff = function()
@@ -433,14 +433,14 @@ end
 function set_original_parameters(base::Parsa_Base)
 	for ke in base.parameter_order
 		for (ke2, param) in base.parameters[ke].parameter_map
-			param.value_original = deepcopy(param.value)
+			param.value_original = param.value.value
 		end
 	end
 
 	return function()
 		for ke in base.parameter_order
 			for (ke2, param) in base.parameters[ke].parameter_map
-				param.value.value = param.value_original.value
+				param.value.value = param.value_original
 			end
 		end
 	end
@@ -517,6 +517,7 @@ function E_step_initalize(X::Vector{Observation}, density::Parsa_Base, all_domai
     all_dependent_observations = getDependentOnX(X)
    for i in 1:n
 		dependent_observations = unique(collect(all_dependent_observations[X[i]]))
+		# println(length(dependent_observations))
 		tau_init_i = E_step_i_initalize_initzial_values(X[i], dependent_observations, density, Vector{}(), Vector{}())
 		# tau_init_i = E_step_i_initalize_initzial_values(X[i], dependent_observations, density, Vector{}(), (all_domains[X[i]]))
         # (tau_i, parameters_used_i, pi_parameters_used_i) = E_step_i_initalize(X[i], dependent_observations, density, Vector{}(), (all_domains[X[i]]), all_domains, map_collector)
@@ -573,8 +574,8 @@ function E_step_i_initalize(X_i::Observation, X::Vector{Observation}, density::P
 			push!(Pi_used, Tuple([(d.Z, lv_v(d)) for d in used_conditions]))
 			params = index_to_parameters(rawCallDomain(X_i.T), density.parameters)
 			tau = initialize_density_evaluation(X, used_conditions, density, domain_map, map_collector)
-			current_ks = [lv_v(d) for d in used_conditions]
-			Pi_val = () -> prod([d.Z.Pi[current_ks[i]] for (i, d) in enumerate(used_conditions)])
+			current_ks = [(lv_v(d), typeof(condition.value_) == Unknown ) for d in used_conditions]
+			Pi_val = () -> prod([current_ks[i][2] ? d.Z.Pi[current_ks[i][1]] : d.Z.Pi[current_ks[i][1]] for (i, d) in enumerate(used_conditions)])
 			push!(tau_chain, () -> Pi_val() * tau())
 			push!(params_used, params)
 		end

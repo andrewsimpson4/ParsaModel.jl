@@ -353,12 +353,12 @@ function LMEM(X::Set{Observation}, base::Parsa_Base;
 				best_prams = save_parameters(base)
 			end
 		end
-		# tau_start::Vector{Vector{Real}} = best_tau
+		tau_start::Vector{Vector{Real}} = best_tau
 		best_prams()
-		# Pi(tau_start)
-		# M(X, tau_start, parameter_map, base)
-		# Pi(tau_start)
-		# M(X, tau_start, parameter_map, base)
+		Pi(tau_start)
+		M(X, tau_start, parameter_map, base)
+		Pi(tau_start)
+		M(X, tau_start, parameter_map, base)
 	else
 		tau_start = [(ta()) for ta in tau_init]
 		Pi(tau_start)

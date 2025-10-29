@@ -53,7 +53,7 @@ for i in eachindex(X)
     cl[i] = class_id[i]
     X[i] ~ N(:mu => cl[i], :a => Z[cl[i]], :L => Z[cl[i]], :V => ZV[Z[cl[i]]])
 end
-EM!(N; n_init = 3, n_wild = 10, verbose=true)
+EM!(N; n_init = 3, n_wild = 10, verbose=false)
 val(Z)
 val(ZV)
 val(N[:V])[2]' * val(N[:V])[2]
@@ -79,7 +79,7 @@ for i in eachindex(X)
     class[i] = class_id[i]
     X[i] ~ F(:mu => class[i], :cov => Z[class[i]])
 end
-EM!(F; n_init = 1, n_wild = 1)
+EM!(F; n_init = 10, n_wild = 10, verbose=false)
 i = length(X) + 1
 n_new = Observation(zeros(p))
 n_new ~ F(:mu => class[i], :cov => Z[class[i]])
@@ -87,15 +87,18 @@ n_new ~ F(:mu => class[i], :cov => Z[class[i]])
 ff()
 
 N = ParsimoniousNormal(length(X[1].X));
-Za = categorical(3)
-ZL = categorical(3)
-ZV = categorical(3)
+Za = categorical(2)
+ZL = categorical(2)
+ZV = categorical(2)
 cl = categorical(length(unique(class_id)))
 for i in eachindex(X)
     cl[i] = class_id[i]
     X[i] ~ N(:mu => cl[i], :a => Za[cl[i]], :L => ZV[cl[i]], :V => ZV[cl[i]])
 end
-EM!(N; n_init = 1, n_wild = 1)
+EM!(N; n_init = 3, n_wild = 5, verbose=true, eps=0.01)
+val(Za)
+val(ZL)
+val(ZV)
 i = length(X) + 1
 X_new_ob = Observation(X[1].X)
 X_new_ob ~ N(:mu => cl[i], :a => Za[cl[i]], :L => ZV[cl[i]], :V => ZV[cl[i]])

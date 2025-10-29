@@ -220,7 +220,8 @@ function normal_parsa_L_update(L, package_index, log_pdf)
     return L_new
 end
 
-function normal_parsa_V_update(V, package_index, log_pdf)
+function normal_parsa_V_update(V_, package_index, log_pdf)
+    V = copy(V_)
     opt_new = sum(V)
     opt_old = sum(V) + 10
     AA = Vector{}()

@@ -268,7 +268,7 @@ function initialize_density_evaluation(X::Vector{Observation}, conditioned_domai
 			for g in G
 				ma = rawCallDomain(g.T)
 				mm = index_to_parameters(ma, density.parameters)
-				push!(mult_list, () -> BigFloat(density.evaluate(g,  mm)[1]))
+				push!(mult_list, () -> BigFloat(density.evaluate(g,  mm)))
 			end
 
 		end
@@ -322,12 +322,14 @@ function LMEM(X::Set{Observation}, base::Parsa_Base;
 	tau_wild = [wild_tau(ta()) for ta in tau_init]
 	M = M_step_init(X, tau_wild, parameter_map, base)
 	param_reset = set_original_parameters(base)
+	pi_reset = reset_Pi(X)
 	Pi = Pi_init(X, tau_wild, pi_parameters_used)
 	init_likelihoods = zeros(n_init, n_wild)
 	if should_initialize
 		best_likelihood = -Inf
 		best_tau = nothing
 		best_prams = nothing
+		best_Pi = nothing
 		domain_post_catch = Vector{Vector}(undef, n_init)
 		tau_wild = [wild_tau(ta()) for ta in tau_init]
 		Pi(tau_wild)
@@ -336,6 +338,7 @@ function LMEM(X::Set{Observation}, base::Parsa_Base;
 		M(X, tau_wild, parameter_map, base)
 		for i_init in 1:n_init
 			param_reset()
+			pi_reset()
 			tau_wild::Vector{Vector{Real}} = [wild_tau(ta()) for ta in tau_init]
 			Pi(tau_wild)
 			M(X, tau_wild, parameter_map, base)
@@ -351,12 +354,17 @@ function LMEM(X::Set{Observation}, base::Parsa_Base;
 				best_likelihood = lik_new
 				best_tau = tau_wild
 				best_prams = save_parameters(base)
+				best_Pi = save_Pi(X)
 			end
 		end
-		tau_start::Vector{Vector{Real}} = best_tau
+		best_Pi()
 		best_prams()
-		Pi(tau_start)
-		# M(X, tau_start, parameter_map, base)
+		println(likelihood() - best_likelihood)
+		# tau_start::Vector{Vector{Real}} = best_tau
+		# Pi(tau_start)
+		# best_Pi()
+		# best_prams()
+		# println(likelihood() - best_likelihood)
 		# Pi(tau_start)
 		# M(X, tau_start, parameter_map, base)
 	else
@@ -371,6 +379,7 @@ function LMEM(X::Set{Observation}, base::Parsa_Base;
 
 	lik_old = -Inf
 	lik_new = likelihood()
+
 	all_likelihoods::Vector{Real} = [Float64(lik_new)]
 	all_steps::Vector{Real} = [1]
 	i = 2
@@ -382,12 +391,12 @@ function LMEM(X::Set{Observation}, base::Parsa_Base;
 		tau::Vector{Vector{Real}} = [(ta()) for ta in tau_chain]
 		Pi(tau)
 		M(X, tau, parameter_map, base)
+		lik_old = lik_new
+        lik_new = ((likelihood()))
 		all_likelihoods = [all_likelihoods; Float64(lik_new)]
 		all_steps = [all_steps; i]
 		verbose ? plotit(init_likelihoods, all_likelihoods) : nothing
 		i = i + 1
-		lik_old = lik_new
-        lik_new = ((likelihood()))
 	end
     post_process_params(base)
 	return (log_likelihood = likelihood, n = length(X))
@@ -623,6 +632,31 @@ function getRelaventTausIndex(parameter::Tuple{CategoricalZ, Int}, X::Vector{Obs
 		end
 	end
 	return indx
+end
+
+function save_Pi(X::Vector{Observation})
+	domains = unique(reduce(vcat, [GetDependentVariable(x) for x in X]))
+	all_Z = unique([LV.Z for LV in domains])
+	vals = Vector{}()
+	for Z in all_Z
+		push!(vals, Z.Pi)
+	end
+	return function()
+		for (Z, v) in zip(all_Z, vals)
+			Z.Pi = v
+		end
+	end
+end
+
+function reset_Pi(X::Vector{Observation})
+	domains = unique(reduce(vcat, [GetDependentVariable(x) for x in X]))
+	all_Z = unique([LV.Z for LV in domains])
+	return function()
+		for Z in all_Z
+			k = length(Z.Pi)
+			Z.Pi = zeros(k) .+ 1/k
+		end
+	end
 end
 
 function Pi_init(X::Vector{Observation}, tau::Vector{Vector{Real}}, pi_parameters_used::Vector{Vector{Any}})

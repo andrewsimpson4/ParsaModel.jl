@@ -379,8 +379,6 @@ function LMEM(X::Set{Observation}, base::Parsa_Base;
 			println("non-increasing likelihood... stopping here")
 			break
 		end
-        lik_old = lik_new
-        lik_new = ((likelihood()))
 		tau::Vector{Vector{Real}} = [(ta()) for ta in tau_chain]
 		Pi(tau)
 		M(X, tau, parameter_map, base)
@@ -388,6 +386,8 @@ function LMEM(X::Set{Observation}, base::Parsa_Base;
 		all_steps = [all_steps; i]
 		verbose ? plotit(init_likelihoods, all_likelihoods) : nothing
 		i = i + 1
+		lik_old = lik_new
+        lik_new = ((likelihood()))
 	end
     post_process_params(base)
 	return (log_likelihood = likelihood, n = length(X))

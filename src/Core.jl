@@ -474,7 +474,7 @@ end
 function wild_tau(tau)
 	G = Categorical(tau)
 	g = rand(G)
-	tau_new = zeros(length(tau))
+	tau_new = zeros(length(tau)) .+ 0.99
 	tau_new[g] = 1
 	tau_new /= sum(tau_new)
 	return tau_new

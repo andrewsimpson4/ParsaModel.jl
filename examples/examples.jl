@@ -53,7 +53,7 @@ for i in eachindex(X)
     cl[i] = class_id[i]
     X[i] ~ N(:mu => cl[i], :a => Z[cl[i]], :L => Z[cl[i]], :V => ZV[Z[cl[i]]])
 end
-EM!(N; n_init = 3, n_wild = 10, verbose=false)
+EM!(N; n_init = 10, n_wild = 40, verbose=true)
 val(Z)
 val(ZV)
 val(N[:V])[2]' * val(N[:V])[2]

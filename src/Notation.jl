@@ -96,10 +96,14 @@ function f(LV::LV_wrap...)
 end
 
 function EM!(PB::Parsa_Base; args...)
-    l1, l2 = LMEM(PB.X, PB; args...)
+    l1, l2, flag = LMEM(PB.X, PB; args...)
     PB.full_likelihood = l1
     PB.n = l2
-    return nothing
+    if flag
+        return (descresing_likelihood = true,)
+    else
+        return nothing
+    end
 end
 
 function Base.getindex(PB::Parsa_Base, sym::Symbol)

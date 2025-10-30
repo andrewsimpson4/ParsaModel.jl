@@ -342,14 +342,22 @@ function LMEM(X::Set{Observation}, base::Parsa_Base;
 			tau_wild::Vector{Vector{Real}} = [wild_tau(ta()) for ta in tau_init]
 			Pi(tau_wild)
 			M(X, tau_wild, parameter_map, base)
+			lik_old = -Inf
+			lik_new = likelihood()
 			for i_wild in 1:n_wild
 				tau_wild = [(ta()) for ta in tau_chain]
 				Pi(tau_wild)
 				M(X, tau_wild, parameter_map, base)
+				lik_old = lik_new
+				lik_new = likelihood()
+				if lik_new < lik_old
+					init_likelihoods[i_init, i_wild:end] .= minimum(init_likelihoods[i_init, 1:(i_wild-1)])
+					break
+				end
 				init_likelihoods[i_init, i_wild] = likelihood()
 				verbose ? plotit(init_likelihoods, Vector{}()) : nothing
 			end
-			lik_new = likelihood()
+			# lik_new = likelihood()
 			if lik_new > best_likelihood
 				best_likelihood = lik_new
 				best_tau = tau_wild
@@ -382,10 +390,13 @@ function LMEM(X::Set{Observation}, base::Parsa_Base;
 	all_likelihoods::Vector{Real} = [Float64(lik_new)]
 	all_steps::Vector{Real} = [1]
 	i = 2
+	neg_lik_flag = false
 	while ((abs(lik_new - lik_old) / abs(lik_new)) > eps && max_steps > 0) || i <= 5
 		if (lik_new < lik_old)
-			println("non-increasing likelihood... stopping here")
-			break
+			# println("non-increasing likelihood... stopping here")
+			# neg_lik_flag = true
+			# break
+			error("non-increasing likelihood...")
 		end
 		tau::Vector{Vector{Real}} = [(ta()) for ta in tau_chain]
 		Pi(tau)
@@ -398,7 +409,7 @@ function LMEM(X::Set{Observation}, base::Parsa_Base;
 		i = i + 1
 	end
     post_process_params(base)
-	return (log_likelihood = likelihood, n = length(X))
+	return (log_likelihood = likelihood, n = length(X), neg_lik_flag = neg_lik_flag)
 end
 
 function plotit(lines, final_lines)

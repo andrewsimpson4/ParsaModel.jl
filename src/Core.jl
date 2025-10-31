@@ -358,7 +358,7 @@ function LMEM(X::Set{Observation}, base::Parsa_Base;
 					verbose ? plotit(init_likelihoods, Vector{}()) : nothing
 				end
 			catch e
-				if !catch_catch_init_error
+				if !catch_init_error
 					rethrow(e)
 				else
 					@warn e

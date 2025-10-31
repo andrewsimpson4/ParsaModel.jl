@@ -295,11 +295,10 @@ function LMEM(X::Set{Observation}, base::Parsa_Base;
 	eps = 10^-6,
 	n_init = 1,
 	n_wild = 5,
-	approx = false,
 	verbose = true,
 	should_initialize = true,
-	Q_func = false,
     max_steps=1000,
+    catch_init_error = false,
     independent_by = Vector{CategoricalZ}())
 	##########
 	X = collect(X)
@@ -344,18 +343,26 @@ function LMEM(X::Set{Observation}, base::Parsa_Base;
 			M(X, tau_wild, parameter_map, base)
 			lik_old = -Inf
 			lik_new = likelihood()
-			for i_wild in 1:n_wild
-				tau_wild = [(ta()) for ta in tau_chain]
-				Pi(tau_wild)
-				M(X, tau_wild, parameter_map, base)
-				lik_old = lik_new
-				lik_new = likelihood()
-				if lik_new < lik_old
-					init_likelihoods[i_init, i_wild:end] .= minimum(init_likelihoods[i_init, 1:(i_wild-1)])
-					break
+			try
+				for i_wild in 1:n_wild
+					tau_wild = [(ta()) for ta in tau_chain]
+					Pi(tau_wild)
+					M(X, tau_wild, parameter_map, base)
+					lik_old = lik_new
+					lik_new = likelihood()
+					if lik_new < lik_old
+						init_likelihoods[i_init, i_wild:end] .= minimum(init_likelihoods[i_init, 1:(i_wild-1)])
+						break
+					end
+					init_likelihoods[i_init, i_wild] = likelihood()
+					verbose ? plotit(init_likelihoods, Vector{}()) : nothing
 				end
-				init_likelihoods[i_init, i_wild] = likelihood()
-				verbose ? plotit(init_likelihoods, Vector{}()) : nothing
+			catch e
+				if catch_catch_init_error
+					rethrow(e)
+				end
+				@warn e
+				continue
 			end
 			# lik_new = likelihood()
 			if lik_new > best_likelihood

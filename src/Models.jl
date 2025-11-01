@@ -286,7 +286,9 @@ function normal_parsa_pdf_2(X, params)
     cov_inv = (Symmetric(1 / p_v(params[:a]) * p_v(params[:V]) * diagm(1 ./ p_v(params[:L])) * p_v(params[:V])'))
     p = length(X)
     y = (X - val(params[:mu]))
-    (2pi)^(-p/2) * p_v(params[:a])^(-p/2) * exp((-1/2 * y' * cov_inv * y))
+    # (2pi)^(-p/2) * p_v(params[:a])^(-p/2) * exp((-1/2 * y' * cov_inv * y))
+
+    exp(BigFloat(-p/2 * log(2pi) - p/2 * log(p_v(params[:a])) + (-1/2 * y' * cov_inv * y)))
 end
 
 function normal_parsa_pdf_log_2(X, params)

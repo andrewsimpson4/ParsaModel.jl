@@ -293,8 +293,9 @@ end
 
 function LMEM(X::Set{Observation}, base::Parsa_Base;
 	eps = 10^-6,
+	init_eps = 10^-6,
 	n_init = 1,
-	n_wild = 5,
+	n_wild = 50,
 	verbose = true,
 	should_initialize = true,
     max_steps=1000,
@@ -323,7 +324,8 @@ function LMEM(X::Set{Observation}, base::Parsa_Base;
 	param_reset = set_original_parameters(base)
 	pi_reset = reset_Pi(X)
 	Pi = Pi_init(X, tau_wild, pi_parameters_used)
-	init_likelihoods = zeros(n_init, n_wild)
+	#init_likelihoods = zeros(n_init, n_wild)
+	init_likelihoods = [[] for _ in 1:n_init]
 	if should_initialize
 		best_likelihood = -Inf
 		best_tau = nothing
@@ -354,8 +356,12 @@ function LMEM(X::Set{Observation}, base::Parsa_Base;
 						init_likelihoods[i_init, i_wild:end] .= minimum(init_likelihoods[i_init, 1:(i_wild-1)])
 						break
 					end
-					init_likelihoods[i_init, i_wild] = likelihood()
+					# init_likelihoods[i_init, i_wild] = likelihood()
+					push!(init_likelihoods[i_init], Float64(lik_new))
 					verbose ? plotit(init_likelihoods, Vector{}()) : nothing
+					if abs(lik_new - lik_old) / abs(lik_old) < init_eps
+						break
+					end
 				end
 			catch e
 				if !catch_init_error
@@ -424,19 +430,20 @@ function plotit(lines, final_lines)
 	println("\33[H")
 	print("\33c\e[3J")
 	terminal = displaysize(stdout)
-	lll = [l for l in [vec(lines); final_lines] if l != 0]
-	ymax = maximum([l for l in lll])
-	ymin = minimum([l for l in lll])
+	lll = [l for l in [reduce(vcat, lines); final_lines] if l != 0]
+	ymax = maximum(lll)
+	ymin = minimum(lll)
 	xmin = 0
-	xmax = length(findall(lines[1, :] .!= 0)) + length(final_lines)
+	xmax_init = maximum([length(ll) for ll in lines])
+	xmax = xmax_init + length(final_lines)
 	plt = UnicodePlots.lineplot([0], [0]; ylim = (ymin, ymax), xlim = (xmin, xmax), xlabel = "steps", ylabel = "log-likelihood", height = Int(round(terminal[1] / 2)), width = Int(round(terminal[2] / 2)), color = :red)
 	for i in 1:size(lines)[1]
-		n_l = [l for l in lines[i, :] if l != 0]
+		n_l = lines[i] #[l for l in lines[i, :] if l != 0]
 		UnicodePlots.lineplot!(plt, 1:length(n_l), n_l, color = :blue)
 	end
 	if length(final_lines) > 0
 		n_l = final_lines
-		UnicodePlots.lineplot!(plt, size(lines)[2]:(length(n_l)+size(lines)[2]-1), n_l)
+		UnicodePlots.lineplot!(plt, xmax_init:(length(n_l)+xmax_init-1), n_l)
 	end
 	display(plt)
 	sleep(0.001)

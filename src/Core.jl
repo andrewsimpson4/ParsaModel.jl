@@ -252,7 +252,7 @@ function initialize_density_evaluation(X::Vector{Observation}, conditioned_domai
 				lv_set(next_condition, k)
 				new_conditions = [conditioned_domains; next_condition]
 				lik_new = initialize_density_evaluation(G, new_conditions, density, domain_map, map_collector)
-				pi_c = () -> (typeof(next_condition.value_) == Unknown ? next_condition.Z.Pi[k] : next_condition.Z.Pi[k])
+				pi_c = () -> (typeof(next_condition.value_) == Unknown ? next_condition.Z.Pi[k] : 1)
 				sum_list[i_k] = () -> (pi_c() * lik_new())
 				lv_set(next_condition, 0)
 			end

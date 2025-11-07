@@ -679,7 +679,9 @@ function reset_Pi(X::Vector{Observation})
 	return function()
 		for Z in all_Z
 			k = length(Z.Pi)
-			Z.Pi = zeros(k) .+ 1/k
+			if !Z.constant
+				Z.Pi = zeros(k) .+ 1/k
+			end
 		end
 	end
 end

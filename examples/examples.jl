@@ -44,7 +44,7 @@ K = 4
 KV = 2
 N = ParsimoniousNormal(length(X[1].X))
 Z = categorical(K; name="Z")
-ZV = categorical(KV; name = "ZV")
+ZV = categorical(ones(KV))
 for k in 1:K
     ZV[k] = (k % KV) + 1
 end
@@ -55,6 +55,7 @@ for i in eachindex(X)
 end
 EM!(N; n_init = 10, init_eps=10^-2, verbose=true)
 val(Z)
+
 val(ZV)
 val(N[:V])[2]' * val(N[:V])[2]
 

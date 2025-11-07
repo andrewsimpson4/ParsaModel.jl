@@ -17,6 +17,7 @@ end
 function categorical(V::Vector{Float64}; name ="LV")
     LV = CategoricalZ(K = length(V), name=name)
     LV.Pi = V
+    LV.constant = true
     return LV
 end
 function categorical(V::Vector{Real}; name ="LV")

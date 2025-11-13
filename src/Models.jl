@@ -236,10 +236,10 @@ function normal_parsa_V_update(V_, package_index, log_pdf)
     # while abs(sum(opt_new .- opt_old)) / abs(sum(opt_old)) > 10^-5
     # println(V' * V)
     step = 0
-    while (abs.(sum(V'*V - I)) > 10^-5 || step <= 3) && step < 1000
+    while (abs.(sum(V'*V - I)) > 10^-5 || step <= 3) && step < 10000
         step = step + 1
 
-        if step == 1000
+        if step == 10000
             @warn "max iter on V reached"
         end
 

@@ -236,15 +236,15 @@ function normal_parsa_V_update(V_, package_index, log_pdf)
     # while abs(sum(opt_new .- opt_old)) / abs(sum(opt_old)) > 10^-5
     # println(V' * V)
     step = 0
-    while (abs.(sum(V'*V - I)) > 10^-5 || step <= 3) && step < 10000
+    while (abs.(sum(V'*V - I)) > 10^-3 || step <= 3) && step < 1000
         step = step + 1
 
-        if step == 10000
+        if step == 1000
             @warn "max iter on V reached"
         end
 
         # println(abs(sum(opt_new .- opt_old)) / abs(sum(opt_old)))
-        for _ in 1:4
+        for _ in 1:3
                 i,j = sample(1:p, 2, replace=false)
         # for i in 1:(p - 1)
         #     for j in (i+1):p
@@ -253,12 +253,12 @@ function normal_parsa_V_update(V_, package_index, log_pdf)
                 d12 = V[:,[i,j]]
                 D = zeros(size(2,2))
                 for (A, Zz) in zipped_az
-                    # Z = [d1 d2]' * Zz * [d1 d2]
                     Z = d12' * Zz * d12
                     D = D .+ ((1 / A[i] - 1 / A[j]) .* Z)
                 end
-                V[:,i] = d12 * eigvecs(D)[:,1]
-                V[:,j] = d12 * eigvecs(D)[:,2]
+                eig = eigvecs(D)
+                V[:,i] = d12 * eig[:,1]
+                V[:,j] = d12 * eig[:,2]
         #     end
         # end
             end

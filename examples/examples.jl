@@ -18,19 +18,26 @@ X = Observation.([vec(rand(MvNormal(mu[true_id[i]], cov[true_id[i]]), 1)) for i 
 
 Random.seed!(1)
 N = MtvNormalSafe(p);
-Z = categorical(4;name="Z");
+Z = categorical(3;name="Z");
 for i in eachindex(X)
     X[i] ~ N(:mu => Z[i], :cov => Z[i])
 end
-EM!(N; n_init=10, init_eps = 10^-3,verbose=true)
+EM!(N; n_init=1, n_wild=1,init_eps = 10^-6,verbose=true)
 BIC(N)
+
+length(getIndependentSets(X))
 
 3639.489262411928
 val(Z)
 val(N[:cov])
 
+test = Dict()
+test["b"] = 2
+test["a"] = 1
+test["c"] = 3
 
-n = 800
+
+n = 400
 p = 7
 K = 4
 mu = [ones(p) .+ i for i in 1:n];
@@ -59,9 +66,8 @@ val(Z)
 val(ZV)
 val(N[:V])[2]' * val(N[:V])[2]
 
-
 p = length(X[1].X)
-# X = Observation.(X)
+# X = Observation.(X)s
 N = ParsimoniousNormal(length(X[1].X))
 Z = categorical(4; name="Z")
 ZV = categorical(2; name="ZV")
@@ -80,7 +86,7 @@ for i in eachindex(X)
     class[i] = class_id[i]
     X[i] ~ F(:mu => class[i], :cov => Z[class[i]])
 end
-EM!(F; n_init = 10, n_wild = 10, verbose=false)
+EM!(F; n_init = 10, n_wild = 10, verbose=true)
 i = length(X) + 1
 n_new = Observation(zeros(p))
 n_new ~ F(:mu => class[i], :cov => Z[class[i]])
@@ -163,7 +169,9 @@ Z = categorical(K);
 for i in eachindex(iris_m);
     iris_m[i] ~ F(:mu => Z[i], :cov => Z[i])
 end
-EM!(F; n_init=30, n_wild = 20)
+EM!(F; n_init=1, n_wild = 1)
+
+f(iris_m[1])()
 
 n_params(F)
 BIC(F)
@@ -179,6 +187,7 @@ for i in eachindex(iris_m);
     Z[i] <-- init_id[i]
 end
 EM!(F)
+
 
 id = [f(Z[i])().max[1] for i in 1:n];
 randindex(id, class)
@@ -400,7 +409,7 @@ for i in eachindex(iris_m);
     iris_m[i] ~ F(:mu => [cl[i], Z[cl[i]][i]], :cov => cov[cl[i], Z[cl[i]][i]])
     cl[i] = class[i]
 end
-EM!(F)
+@profview EM!(F; eps=10^-2, n_wild=1, verbose=true)
 val(F[:cov])
 val(cov)
 val(Z)

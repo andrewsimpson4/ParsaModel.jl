@@ -1,5 +1,7 @@
 using UnicodePlots
 using Distributions
+using OrderedCollections
+using Base: IdSet
 
 function getRelaventTaus(parameter::Parameter, X::Vector{Observation}, tau::Vector{Vector{Real}}, parameter_map::Vector{Vector{Any}})
 	reduce(vcat, [[(x, pr, param) for (pr, param) in zip(tau_x, params_x) if parameter in values(param)] for (x, tau_x, params_x) in zip(X, tau, parameter_map)])
@@ -36,7 +38,7 @@ function rawCallDomain(map::Vector{<:Pair})
 end
 
 function callDomain(map::Vector{<:Pair})
-	LV = Vector{LatentVaraible}()
+	LV = IdSet()
 	for (ke, va) in map
 		if isa(va, LV_wrap)
 			push!(LV, va.LV())
@@ -48,7 +50,7 @@ function callDomain(map::Vector{<:Pair})
 			end
 		end
 	end
-	return unique(LV)
+	return collect(LV)
 end
 
 function callDomain(X::Observation)
@@ -79,73 +81,116 @@ function GetDependentVariable!(X_i::Observation, used_conditions::Vector)
 	end
 end
 
-function getIndependentSets(X::Vector{Observation}, Z, domain_map)
-	domain_map = Dict()
+# function getIndependentSets(X::Vector{Observation}, Z, domain_map)
+# 	domain_map = Dict()
+# 	for x in X
+# 			domain_map[x] = GetDependentVariable(x)
+# 	end
+# 	n = length(X)
+# 	# if length(domain_map) == 0
+# 	# 	for x in X
+# 	# 		domain_map[x] = GetDependentVariable(x)
+# 	# 	end
+# 	# end
+# 	indo_sets = Vector{Any}(undef, n)
+# 	for i in 1:n
+# 		sets = unique([X[i]; conditional_dependent_search(domain_map[X[i]], domain_map, Z, X)])
+# 		indo_sets[i] = sets[sortperm([objectid(x) for x in sets])]
+# 	end
+# 	return unique(indo_sets)
+# end
+
+# function conditional_dependent_search(D, domain_map, Z, X)
+# 	x_depo = Vector{Observation}()
+# 	new_d = setdiff(D, Z)
+# 	for d in new_d
+# 		if !lv_isKnown(d)
+# 			d_depo = collect(values(d.dependent_X))
+# 			new_Z = setdiff(reduce(vcat, [domain_map[x] for x in d_depo if x in X]), [D; Z])
+# 			if length(new_Z) > 0
+# 				d_depo = [d_depo; conditional_dependent_search(new_Z, domain_map, [Z; D], X)]
+# 			end
+# 			for x in d_depo
+# 				if x in X
+# 					x_depo = [x_depo; x]
+# 				end
+# 			end
+# 		end
+# 	end
+# 	return x_depo
+# end
+
+# function getIndependentSets(X::Vector{Observation})
+# 	domains = Dict([x => [lv for lv in GetDependentVariable(x) if !lv_isKnown(lv)] for x in X])
+# 	indo_sets = Dict([x => IdSet() for x in X])
+# 	indo_sets_obs = Vector{Vector{Observation}}(undef, length(X))
+# 	for x in X
+# 		push!(indo_sets[x], x)
+# 		for condition in domains[x]
+# 				for va in condition.dependent_X
+# 					if !(va in indo_sets[x]) && va in X && condition in domains[va]
+# 						push!(indo_sets[x], va)
+# 					end
+# 				end
+# 		end
+# 	end
+
+# 	for (i, x) in enumerate(X)
+# 		for y in indo_sets[x]
+# 			conditional_dependent_search!(y, indo_sets, indo_sets[x], X)
+# 		end
+# 		collected_x = collect(indo_sets[x])
+# 		indo_sets_obs[i] = collected_x[sortperm([objectid(x) for x in collected_x])]
+# 	end
+# 	return unique(indo_sets_obs)
+# end
+
+# function conditional_dependent_search!(x, indo_sets, set, X)
+# 	for y in indo_sets[x]
+# 		if !(y in set) && y in X
+# 			push!(set, y)
+# 			conditional_dependent_search!(y, indo_sets, set, X)
+# 		end
+# 	end
+# end
+
+
+function getIndependentSets(X::Vector{Observation}, conditions, independent_map, domain_map)
+	magic_key = (X, conditions)
+	if haskey(independent_map, magic_key)
+		return independent_map[magic_key]
+	end
+	domains = Dict([x => Set([lv for lv in setdiff(domain_map[x], conditions) if !lv_isKnown(lv)]) for x in X])
+	Xset = Set(X)
+	domainSet = Set{LatentVaraible}()
+	independent_sets = Vector{Vector{Observation}}()
 	for x in X
-			domain_map[x] = GetDependentVariable(x)
+		if x in Xset
+			current_set = Vector{Observation}()
+			push!(independent_sets, current_set)
+			independent_search!(x, Xset, current_set, domains, domainSet)
+		end
 	end
-	n = length(X)
-	# if length(domain_map) == 0
-	# 	for x in X
-	# 		domain_map[x] = GetDependentVariable(x)
-	# 	end
-	# end
-	indo_sets = Vector{Any}(undef, n)
-	for i in 1:n
-		sets = unique([X[i]; conditional_dependent_search(domain_map[X[i]], domain_map, Z, X)])
-		indo_sets[i] = sets[sortperm([objectid(x) for x in sets])]
-	end
-	return unique(indo_sets)
+	independent_map[magic_key] = independent_sets
+	return independent_sets
 end
 
-function conditional_dependent_search(D, domain_map, Z, X)
-	x_depo = Vector{Observation}()
-	new_d = setdiff(D, Z)
-	for d in new_d
-		if !lv_isKnown(d)
-			d_depo = collect(values(d.dependent_X))
-			new_Z = setdiff(reduce(vcat, [domain_map[x] for x in d_depo if x in X]), [D; Z])
-			if length(new_Z) > 0
-				d_depo = [d_depo; conditional_dependent_search(new_Z, domain_map, [Z; D], X)]
-			end
-			for x in d_depo
-				if x in X
-					x_depo = [x_depo; x]
-				end
+function independent_search!(x, Xset, current_set, domains, domainSet)
+	push!(current_set, x)
+	delete!(Xset, x)
+	for condition in setdiff(domains[x], domainSet)
+		push!(domainSet, condition)
+		for va in condition.dependent_X
+			if (va in Xset)
+				independent_search!(va, Xset, current_set, domains, domainSet)
 			end
 		end
 	end
-	return x_depo
-end
-
-function getIndependentSets(X::Vector{Observation})
-	domains = Dict([x => [lv for lv in GetDependentVariable(x) if !lv_isKnown(lv)] for x in X])
-	indo_sets = Dict([x => Set{Observation}() for x in X])
-	indo_sets_obs = Vector{Vector{Observation}}(undef, length(X))
-	for x in X
-		push!(indo_sets[x], x)
-		for condition in domains[x]
-				for va in condition.dependent_X
-					if !(va in indo_sets[x]) && va in X && condition in domains[va]
-						push!(indo_sets[x], va)
-					end
-				end
-		end
-	end
-
-	for (i, x) in enumerate(X)
-		for y in indo_sets[x]
-			conditional_dependent_search!(y, indo_sets, indo_sets[x], X)
-		end
-		collected_x = collect(indo_sets[x])
-		indo_sets_obs[i] = collected_x[sortperm([objectid(x) for x in collected_x])]
-	end
-	return unique(indo_sets_obs)
 end
 
 function conditional_dependent_search!(x, indo_sets, set, X)
 	for y in indo_sets[x]
-		if !(y in set) && y in X
+		if !(y in set) #&& y in X
 			push!(set, y)
 			conditional_dependent_search!(y, indo_sets, set, X)
 		end
@@ -213,25 +258,40 @@ function initialize_density_evaluation(X::Vector{Observation}, conditioned_domai
 	end
 end
 
-function initialize_density_evaluation(X::Vector{Observation}, conditioned_domains::Vector, density::Parsa_Base, domain_map::Dict, map_collector::Dict)
-	independent_sets = getIndependentSets(X)
-	# println("u")
-	# println(length(independent_sets))
-	# println(length(independent_sets))
-	# println(length(independent_sets))
-	mult_list = Vector{Function}()
-	for G in independent_sets
+struct EVAL{F}
+	f::F
+end
+(f::EVAL)() = f.f()
+prod_foldl(G) = foldl((a, g) -> a * g(), G; init=1)
+sum_foldl(G) = foldl((a, g) -> a + g(), G; init=0)
 
-		all_domains = [unique([lv for lv in GetDependentVariable(x)]) for x in G]
+Base.@kwdef mutable struct HOLDER
+	f::EVAL
+	val::BigFloat = 0.0
+end
+
+function initialize_density_evaluation(X::Vector{Observation}, conditioned_domains::Vector, density::Parsa_Base, domain_map::Dict, map_collector::OrderedDict, independent_map::Dict)
+	# relavent_conditions = intersect(relavent_conditions, conditioned_domains)
+	relavent_conditions = intersect(reduce(vcat, [domain_map[x] for x in X]), conditioned_domains)
+	relavent_conditions_id = [objectid(r) for r in relavent_conditions]
+	conditions_key = [(LV, lv_v(LV)) for LV in relavent_conditions[sortperm(relavent_conditions_id)]]
+	magic_key = (X, conditions_key)
+	if haskey(map_collector, magic_key)
+		return EVAL(() -> map_collector[magic_key].val)
+		# return map_collector[(X, all_domains_key)]
+	end
+	independent_sets = getIndependentSets(X, relavent_conditions, independent_map, domain_map)
+	mult_list = Vector{EVAL}()
+	for G in independent_sets
+		all_domains = Vector{Vector{LatentVaraible}}(undef, length(G))
+		for (i, x) in enumerate(G)
+			all_domains[i] = setdiff(domain_map[x], conditioned_domains) #GetDependentVariable(x)
+		end
+		# all_domains = [GetDependentVariable(x) for x in G] #[unique([lv for lv in GetDependentVariable(x)]) for x in G]
 		domain_lengths = [length(d) for d in all_domains]
-		# println(countmap(domain_lengths))
-		# if (sum(argmax(domain_lengths) .== domain_lengths) == length(domain_lengths))
 		domains = [LV for LV in (reduce(vcat, all_domains))]
 		lv_freq_map = countmap(domains)
-		# println(length(domain_lengths))
-		# println((values(lv_freq_map)))
 		if maximum(domain_lengths; init=0) <= maximum(values(lv_freq_map); init=0)
-			# println(values(lv_freq_map))
 			next_conditions = domains #setdiff(domains, conditioned_domains)
 			lv_freq_map = filter(x -> x[1] in next_conditions, lv_freq_map)
 			top_order = sortperm(collect(values(lv_freq_map)); rev=true)
@@ -239,50 +299,93 @@ function initialize_density_evaluation(X::Vector{Observation}, conditioned_domai
 		else
 			next_conditions = all_domains[argmax(domain_lengths)]
 		end
-		# domains = unique([LV for LV in (reduce(vcat, all_domains))])
-		# best = [(lv_set(lv, 1); L = length(getIndependentSets(G)); lv_set(lv, 0); L) for lv in domains]
-		# next_conditions = length(best) == 0 ? [] : [domains[argmax(best)]]
 		if length(next_conditions) != 0
 			next_condition = next_conditions[1]
-			# display(next_condition)
-			# sleep(0.1)
 			K = typeof(next_condition.value_) == Unknown ? (1:next_condition.Z.K) : lv_v(next_condition)
-			sum_list = Vector{Function}(undef, length(K))
+			sum_list = Vector{EVAL}(undef, length(K))
 			for (i_k, k) in enumerate(K)
 				lv_set(next_condition, k)
 				new_conditions = [conditioned_domains; next_condition]
-				lik_new = initialize_density_evaluation(G, new_conditions, density, domain_map, map_collector)
+				lik_new = initialize_density_evaluation(G, new_conditions, density, domain_map, map_collector, independent_map)
 				pi_c = () -> (typeof(next_condition.value_) == Unknown ? next_condition.Z.Pi[k] : 1)
-				sum_list[i_k] = () -> (pi_c() * lik_new())
+				sum_list[i_k] = EVAL(() -> (pi_c() * lik_new()))
 				lv_set(next_condition, 0)
 			end
-			ff = function()
-				pp::BigFloat = 0.0
-				for t in sum_list
-					pp += t()
-				end
-				return pp
-			end
-			push!(mult_list, ff)
+			sum_list = Tuple(sum_list)
+			push!(mult_list, EVAL(() -> sum_foldl(sum_list)))
 		else
 			for g in G
 				ma = rawCallDomain(g.T)
 				mm = index_to_parameters(ma, density.parameters)
-				push!(mult_list, () -> BigFloat(density.evaluate(g,  mm)))
+				push!(mult_list, EVAL(() -> BigFloat(density.evaluate(g,  mm))))
 			end
 
 		end
 
 	end
-	FF =  function()
-		pp2::BigFloat = 1.0
-		for t in mult_list
-			pp2 *= t()
-		end
-		return pp2
-	end
-	return FF
+	mult_list = Tuple(mult_list)
+	# return EVAL(() -> prod_foldl(mult_list))
+	map_collector[magic_key] = HOLDER(f = EVAL(() -> prod_foldl(mult_list)))
+	return EVAL(() -> map_collector[magic_key].val)
+	# return EVAL(() -> prod_foldl(mult_list))
 end
+
+
+# function initialize_density_evaluation(X::Vector{Observation}, conditioned_domains::Vector, density::Parsa_Base, domain_map::Dict, map_collector::Dict)
+# 	independent_sets = getIndependentSets(X)
+# 	mult_list = Vector{Function}()
+# 	for G in independent_sets
+# 		all_domains = [unique([lv for lv in GetDependentVariable(x)]) for x in G]
+# 		domain_lengths = [length(d) for d in all_domains]
+# 		domains = [LV for LV in (reduce(vcat, all_domains))]
+# 		lv_freq_map = countmap(domains)
+# 		if maximum(domain_lengths; init=0) <= maximum(values(lv_freq_map); init=0)
+# 			next_conditions = domains #setdiff(domains, conditioned_domains)
+# 			lv_freq_map = filter(x -> x[1] in next_conditions, lv_freq_map)
+# 			top_order = sortperm(collect(values(lv_freq_map)); rev=true)
+# 			next_conditions = collect(keys(lv_freq_map))[top_order]
+# 		else
+# 			next_conditions = all_domains[argmax(domain_lengths)]
+# 		end
+# 		if length(next_conditions) != 0
+# 			next_condition = next_conditions[1]
+# 			K = typeof(next_condition.value_) == Unknown ? (1:next_condition.Z.K) : lv_v(next_condition)
+# 			sum_list = Vector{Function}(undef, length(K))
+# 			for (i_k, k) in enumerate(K)
+# 				lv_set(next_condition, k)
+# 				new_conditions = [conditioned_domains; next_condition]
+# 				lik_new = initialize_density_evaluation(G, new_conditions, density, domain_map, map_collector)
+# 				pi_c = () -> (typeof(next_condition.value_) == Unknown ? next_condition.Z.Pi[k] : 1)
+# 				sum_list[i_k] = () -> (pi_c() * lik_new())
+# 				lv_set(next_condition, 0)
+# 			end
+# 			ff = function()
+# 				pp::BigFloat = 0.0
+# 				for t in sum_list
+# 					pp += t()
+# 				end
+# 				return pp
+# 			end
+# 			push!(mult_list, ff)
+# 		else
+# 			for g in G
+# 				ma = rawCallDomain(g.T)
+# 				mm = index_to_parameters(ma, density.parameters)
+# 				push!(mult_list, () -> BigFloat(density.evaluate(g,  mm)))
+# 			end
+
+# 		end
+
+# 	end
+# 	FF = function()
+# 		pp2::BigFloat = 1.0
+# 		for t in mult_list
+# 			pp2 *= t()
+# 		end
+# 		return pp2
+# 	end
+# 	return FF
+# end
 
 function prime_X(X::Observation)
     domains = GetDependentVariable(X)
@@ -291,11 +394,17 @@ function prime_X(X::Observation)
     end
 end
 
+function call_collection(C::OrderedDict)
+	for (ke,va) in C
+		va.val = va.f()
+	end
+end
+
 function LMEM(X::Set{Observation}, base::Parsa_Base;
 	eps = 10^-6,
 	init_eps = 10^-6,
 	n_init = 1,
-	n_wild = 50,
+	n_wild = 100,
 	verbose = true,
 	should_initialize = true,
     max_steps=1000,
@@ -308,11 +417,14 @@ function LMEM(X::Set{Observation}, base::Parsa_Base;
 	global pbar = ProgressBar(total = length(X) + 1)
 	set_description(pbar, "Compiling")
 	# domain_map = Dict([x => [LV for LV in unique(flattenConditionalDomain(x.T.domain)) if !lv_isKnown(LV)] for x in X])
-	# domain_map = Dict([x => [LV for LV in GetDependentVariable(x) if !lv_isKnown(LV)] for x in X])
-	map_collector = Dict()
-	(tau_chain, parameter_map, pi_parameters_used, tau_init) = E_step_initalize(X, base, Dict(), map_collector, verbose)
-	likelihood_ = initialize_density_evaluation(X, Vector{}(), base, Dict(), map_collector)
-	likelihood = () -> log(likelihood_())
+	domain_map = Dict([x => unique([LV for LV in GetDependentVariable(x)]) for x in X])
+	map_collector = OrderedDict()
+	independent_map = Dict()
+	# map_collector_lik = OrderedDict()
+	(tau_chain, parameter_map, pi_parameters_used, tau_init) = E_step_initalize(X, base, domain_map, map_collector, independent_map, verbose)
+	# return (0, 0, true)
+	likelihood_ = initialize_density_evaluation(X, Vector{}(), base, domain_map, map_collector, independent_map)
+	likelihood = () -> (log(likelihood_()))
 	# likelihood = () -> 1
 	# if verbose
 	# 	likelihood_ = initialize_density_evaluation(X, Vector{}(), base, Dict(), map_collector)
@@ -347,6 +459,7 @@ function LMEM(X::Set{Observation}, base::Parsa_Base;
 			lik_new = likelihood()
 			try
 				for i_wild in 1:n_wild
+					call_collection(map_collector)
 					tau_wild = [(ta()) for ta in tau_chain]
 					Pi(tau_wild)
 					M(X, tau_wild, parameter_map, base)
@@ -399,6 +512,7 @@ function LMEM(X::Set{Observation}, base::Parsa_Base;
 	##########
 
 	lik_old = -Inf
+	call_collection(map_collector)
 	lik_new = likelihood()
 
 	all_likelihoods::Vector{Real} = [Float64(lik_new)]
@@ -412,6 +526,7 @@ function LMEM(X::Set{Observation}, base::Parsa_Base;
 			# break
 			error("non-increasing likelihood...")
 		end
+		call_collection(map_collector)
 		tau::Vector{Vector{Real}} = [(ta()) for ta in tau_chain]
 		Pi(tau)
 		M(X, tau, parameter_map, base)
@@ -540,7 +655,7 @@ function wild_tau(tau)
 	return tau_new
 end
 
-function E_step_initalize(X::Vector{Observation}, density::Parsa_Base, all_domains, map_collector, verbose)
+function E_step_initalize(X::Vector{Observation}, density::Parsa_Base, all_domains, map_collector, independent_map, verbose)
 	n = length(X)
 	tau = Vector{Function}(undef, n)
 	Q = Vector{Function}(undef, n)
@@ -551,11 +666,10 @@ function E_step_initalize(X::Vector{Observation}, density::Parsa_Base, all_domai
     all_dependent_observations = getDependentOnX(X)
    for i in 1:n
 		dependent_observations = unique(collect(all_dependent_observations[X[i]]))
-		# println(length(dependent_observations))
 		tau_init_i = E_step_i_initalize_initzial_values(X[i], dependent_observations, density, Vector{}(), Vector{}())
 		# tau_init_i = E_step_i_initalize_initzial_values(X[i], dependent_observations, density, Vector{}(), (all_domains[X[i]]))
         # (tau_i, parameters_used_i, pi_parameters_used_i) = E_step_i_initalize(X[i], dependent_observations, density, Vector{}(), (all_domains[X[i]]), all_domains, map_collector)
-		(tau_i, parameters_used_i, pi_parameters_used_i) = E_step_i_initalize(X[i], dependent_observations, density, Vector{}(), Vector{}(), all_domains, map_collector)
+		(tau_i, parameters_used_i, pi_parameters_used_i) = E_step_i_initalize(X[i], dependent_observations, density, Vector{}(), Vector{}(), all_domains, map_collector, independent_map)
         tau_i_func = () -> (tau_eval = tau_i(); Float64.(tau_eval / sum(tau_eval)))
 		tau_i_init_func = () -> (L = tau_init_i; length(L) != 0 ? L ./ sum(L) : nothing)
 
@@ -578,11 +692,11 @@ function get_pre_set_factor(condition::Vector{LatentVaraible}, k_list)
 	end
 end
 
-function E_step_i_initalize(X_i::Observation, X::Vector{Observation}, density::Parsa_Base, used_conditions::Vector, domains::Vector, domain_map::Dict, map_collector::Dict)
+function E_step_i_initalize(X_i::Observation, X::Vector{Observation}, density::Parsa_Base, used_conditions::Vector, domains::Vector, domain_map::Dict, map_collector::OrderedDict, independent_map::Dict)
 	tau_chain = Vector{Function}()
 	params_used = Vector{Any}()
 	Pi_used = Vector{Any}()
-	E_step_i_initalize(X_i, X, density, used_conditions, domain_map, map_collector, tau_chain, params_used, Pi_used)
+	E_step_i_initalize(X_i, X, density, used_conditions, domain_map, map_collector, independent_map, tau_chain, params_used, Pi_used)
 	es = Vector{BigFloat}(undef, length(tau_chain))
 	F = function()
 		for (i,t) in enumerate(tau_chain)
@@ -593,7 +707,7 @@ function E_step_i_initalize(X_i::Observation, X::Vector{Observation}, density::P
 	return (F, params_used, Pi_used)
 end
 
-function E_step_i_initalize(X_i::Observation, X::Vector{Observation}, density::Parsa_Base, used_conditions::Vector, domain_map::Dict, map_collector::Dict, tau_chain::Vector{Function}, params_used::Vector{Any}, Pi_used::Vector{Any})
+function E_step_i_initalize(X_i::Observation, X::Vector{Observation}, density::Parsa_Base, used_conditions::Vector, domain_map::Dict, map_collector::OrderedDict, independent_map::Dict, tau_chain::Vector{Function}, params_used::Vector{Any}, Pi_used::Vector{Any})
 	condition = callDomain(X_i) #domains_left[1]
 	if isnothing(condition)
 		return nothing
@@ -603,11 +717,11 @@ function E_step_i_initalize(X_i::Observation, X::Vector{Observation}, density::P
 	for k in K
 		lv_set(condition, k)
 		if !isnothing(callDomain(X_i))
-			E_step_i_initalize(X_i, X, density, used_conditions, domain_map, map_collector, tau_chain, params_used, Pi_used)
+			E_step_i_initalize(X_i, X, density, used_conditions, domain_map, map_collector, independent_map, tau_chain, params_used, Pi_used)
 		else
 			push!(Pi_used, Tuple([(d.Z, lv_v(d)) for d in used_conditions]))
 			params = index_to_parameters(rawCallDomain(X_i.T), density.parameters)
-			tau = initialize_density_evaluation(X, used_conditions, density, domain_map, map_collector)
+			tau = initialize_density_evaluation(X, used_conditions, density, domain_map, map_collector, independent_map)
 			current_ks = [(lv_v(d), typeof(condition.value_) == Unknown ) for d in used_conditions]
 			Pi_val = () -> prod([current_ks[i][2] ? d.Z.Pi[current_ks[i][1]] : d.Z.Pi[current_ks[i][1]] for (i, d) in enumerate(used_conditions)])
 			push!(tau_chain, () -> Pi_val() * tau())
@@ -728,14 +842,17 @@ function posterior_initalize(conditions, X::Vector{Observation}, density::Parsa_
 		X_sub=[X[1]]
 	end
 	domain_map = Dict([x => GetDependentVariable(x) for x in X_sub])
+	map_collector = OrderedDict()
+	independent_map = Dict()
 	tau = Vector{}()
 	Pi = Vector{}()
 	# println(length(X_sub))
 	# println("HERE")
-	posterior_initalize!(domains, X_sub, density, Vector{}(), domain_map, tau, Pi)
+	posterior_initalize!(domains, X_sub, density, Vector{}(), domain_map, tau, Pi, map_collector, independent_map)
 	tau_l = length(tau)
 	vv = Vector{BigFloat}(undef, tau_l)
 	function ()
+		call_collection(map_collector)
 		for i in 1:tau_l
 			vv[i] = tau[i]()
 		end
@@ -746,7 +863,7 @@ function posterior_initalize(conditions, X::Vector{Observation}, density::Parsa_
 	end
 end
 
-function posterior_initalize!(domains, X::Vector{Observation}, density::Parsa_Base, used_conditions::Vector, domain_map::Dict, tau_chain::Vector, Pi_used::Vector)
+function posterior_initalize!(domains, X::Vector{Observation}, density::Parsa_Base, used_conditions::Vector, domain_map::Dict, tau_chain::Vector, Pi_used::Vector, map_collector::OrderedDict, independent_map::Dict)
 	domains_left = setdiff(domains, used_conditions)
 	condition = domains_left[1]
 	# display(condition)
@@ -755,9 +872,9 @@ function posterior_initalize!(domains, X::Vector{Observation}, density::Parsa_Ba
 	for k in K
 		lv_set(condition, k)
 		if length(domains_left) > 1
-			posterior_initalize!(domains, X, density, used_conditions, domain_map, tau_chain::Vector, Pi_used::Vector)
+			posterior_initalize!(domains, X, density, used_conditions, domain_map, tau_chain::Vector, Pi_used::Vector, map_collector)
 		else
-			tau = initialize_density_evaluation(X, domains, density, domain_map, Dict())
+			tau = initialize_density_evaluation(X, domains, density, domain_map, map_collector, independent_map)
 			push!(Pi_used, Tuple([(d.Z, lv_v(d)) for d in domains]))
 			current_ks = [lv_v(d) for d in used_conditions]
 			Pi_val = () -> prod([d.Z.Pi[current_ks[i]] for (i, d) in enumerate(used_conditions)])

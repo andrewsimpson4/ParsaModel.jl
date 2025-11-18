@@ -86,7 +86,13 @@ end
 
 function f(X::Observation...)
     X = collect(X)
-    initialize_density_evaluation(X, Vector{}(), X[1].base, Dict(), Dict())
+    map_collector = OrderedDict()
+    domain_map = Dict([x => unique([LV for LV in GetDependentVariable(x) if !lv_isKnown(LV)]) for x in X])
+    tt = initialize_density_evaluation(X, Vector{}(), X[1].base, domain_map, map_collector)
+    function()
+        call_collection(map_collector)
+        tt()
+    end
 end
 
 function f(LV::LV_wrap...)

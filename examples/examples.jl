@@ -37,7 +37,7 @@ test["a"] = 1
 test["c"] = 3
 
 
-n = 400
+n = 800
 p = 7
 K = 4
 mu = [ones(p) .+ i for i in 1:n];
@@ -80,8 +80,8 @@ EM!(N; n_init = 1, n_wild = 1, verbose=true)
 
 
 F = MtvNormal(p);
-class = categorical(n_classes)
-Z = categorical(K)
+class = categorical(n_classes; name="class")
+Z = categorical(K; name="Z")
 for i in eachindex(X)
     class[i] = class_id[i]
     X[i] ~ F(:mu => class[i], :cov => Z[class[i]])
@@ -90,8 +90,9 @@ EM!(F; n_init = 10, n_wild = 10, verbose=true)
 i = length(X) + 1
 n_new = Observation(zeros(p))
 n_new ~ F(:mu => class[i], :cov => Z[class[i]])
-@time ff = f(class[i]);
+ff = f(class[i]);
 ff()
+
 
 N = ParsimoniousNormal(length(X[1].X));
 Za = categorical(2)

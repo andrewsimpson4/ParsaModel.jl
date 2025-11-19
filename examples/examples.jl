@@ -25,7 +25,6 @@ end
 EM!(N; n_init=1, n_wild=1,init_eps = 10^-6,verbose=true)
 BIC(N)
 
-length(getIndependentSets(X))
 
 3639.489262411928
 val(Z)
@@ -81,23 +80,30 @@ EM!(N; n_init = 1, n_wild = 1, verbose=true)
 
 F = MtvNormal(p);
 class = categorical(n_classes; name="class")
-Z = categorical(K; name="Z")
+Z = categorical(6; name="Z")
 for i in eachindex(X)
     class[i] = class_id[i]
     X[i] ~ F(:mu => class[i], :cov => Z[class[i]])
 end
 EM!(F; n_init = 10, n_wild = 10, verbose=true)
 i = length(X) + 1
-n_new = Observation(zeros(p))
+n_new = Observation()
 n_new ~ F(:mu => class[i], :cov => Z[class[i]])
 ff = f(class[i]);
+post(x) = (n_new.X = x; ff().max[1])
+@time post(X[30].X)
+
+ff = f(n_new);
+post(x) = (n_new.X = x; ff())
+@time post(X[10].X)
+
 ff()
 
 
 N = ParsimoniousNormal(length(X[1].X));
 Za = categorical(2)
-ZL = categorical(2)
-ZV = categorical(2)
+ZL = categorical(3)
+ZV = categorical(6)
 cl = categorical(length(unique(class_id)))
 for i in eachindex(X)
     cl[i] = class_id[i]
@@ -108,11 +114,11 @@ val(Za)
 val(ZL)
 val(ZV)
 i = length(X) + 1
-X_new_ob = Observation(X[1].X)
+X_new_ob = Observation()
 X_new_ob ~ N(:mu => cl[i], :a => Za[cl[i]], :L => ZV[cl[i]], :V => ZV[cl[i]])
 @time pr = f(cl[i])
 post(x) = (X_new_ob.X = x; pr().max[1])
-pr()
+@time post(X[3].X)
 
 
 F = MtvNormal(p);
@@ -369,7 +375,7 @@ for i in eachindex(iris_m);
 end
 EM!(F)
 
-new_x = Observation(zeros(p));
+new_x = Observation();
 i = n+1
 new_x ~ F(:mu => [cl[i], Z[cl[i]][i]], :cov => [cl[i], Z[cl[i]][i]])
 pr = f(cl[n+1]);
@@ -410,13 +416,13 @@ for i in eachindex(iris_m);
     iris_m[i] ~ F(:mu => [cl[i], Z[cl[i]][i]], :cov => cov[cl[i], Z[cl[i]][i]])
     cl[i] = class[i]
 end
-@profview EM!(F; eps=10^-2, n_wild=1, verbose=true)
+EM!(F; eps=10^-2, n_wild=1, verbose=true)
 val(F[:cov])
 val(cov)
 val(Z)
 
 
-new_x = Observation(zeros(p));
+new_x = Observation();
 i = n+1
 new_x ~ F(:mu => [cl[i], Z[cl[i]][i]], :cov => cov[cl[i], Z[cl[i]][i]])
 pr = f(cl[n+1]);

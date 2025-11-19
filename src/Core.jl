@@ -239,28 +239,29 @@ end
 # 	return dependent_vec
 # end
 
-function initialize_density_evaluation(X::Vector{Observation}, density::Parsa_Base, independent_by)
-	if length(independent_by) == 0
-		D = Vector{Any}()
-		return (initialize_density_evaluation(X, D, density))
-	else
-		D = Vector{Any}()
-		return (initialize_density_evaluation_ind(X, D, density, independent_by))
-	end
-end
+# function initialize_density_evaluation(X::Vector{Observation}, density::Parsa_Base, independent_by)
+# 	if length(independent_by) == 0
+# 		D = Vector{Any}()
+# 		return (initialize_density_evaluation(X, D, density))
+# 	else
+# 		D = Vector{Any}()
+# 		return (initialize_density_evaluation_ind(X, D, density, independent_by))
+# 	end
+# end
 
-function initialize_density_evaluation(X::Vector{Observation}, conditioned_domains::Vector, density::Parsa_Base, independent_by)
-	if length(independent_by) == 0
-		D = Vector{Any}()
-		return (initialize_density_evaluation(X, conditioned_domains, density))
-	else
-		D = Vector{Any}()
-		return (initialize_density_evaluation_ind(X, conditioned_domains, density, independent_by))
-	end
-end
+# function initialize_density_evaluation(X::Vector{Observation}, conditioned_domains::Vector, density::Parsa_Base, independent_by)
+# 	if length(independent_by) == 0
+# 		D = Vector{Any}()
+# 		return (initialize_density_evaluation(X, conditioned_domains, density))
+# 	else
+# 		D = Vector{Any}()
+# 		return (initialize_density_evaluation_ind(X, conditioned_domains, density, independent_by))
+# 	end
+# end
 
 struct EVAL{F}
 	f::F
+	is_eval::Bool
 end
 (f::EVAL)() = f.f()
 prod_foldl(G) = foldl((a, g) -> a * g(), G; init=1)
@@ -268,20 +269,21 @@ sum_foldl(G) = foldl((a, g) -> a + g(), G; init=0)
 
 Base.@kwdef mutable struct HOLDER
 	f::EVAL
+	is_eval::Bool
 	val::BigFloat = 0.0
 end
 
-function initialize_density_evaluation(X::Vector{Observation}, conditioned_domains::Vector, density::Parsa_Base, domain_map::Dict, map_collector::OrderedDict, independent_map::Dict)
+function initialize_density_evaluation(X::Vector{Observation}, conditioned_domains::Vector, density::Parsa_Base, domain_map::Dict, map_collector::OrderedDict, independent_map::Dict; should_eval=false)
 	# println(length(conditioned_domains))
 	# relavent_conditions = intersect(relavent_conditions, conditioned_domains)
 	relavent_conditions = intersect(reduce(vcat, [domain_map[x] for x in X]), conditioned_domains)
-	# relavent_conditions_id = [objectid(r) for r in relavent_conditions]
-	# conditions_key = [(LV, lv_v(LV)) for LV in relavent_conditions[sortperm(relavent_conditions_id)]]
-	conditions_key = [(LV, lv_v(LV)) for LV in relavent_conditions]
+	relavent_conditions_id = [objectid(r) for r in relavent_conditions]
+	conditions_key = [(LV, lv_v(LV)) for LV in relavent_conditions[sortperm(relavent_conditions_id)]]
+	# conditions_key = [(LV, lv_v(LV)) for LV in relavent_conditions]
 	magic_key = (X, conditions_key)
 	if haskey(map_collector, magic_key)
 		# println("here")
-		return EVAL(() -> map_collector[magic_key].val)
+		return EVAL(() -> map_collector[magic_key].val, map_collector[magic_key].is_eval)
 		# return map_collector[(X, all_domains_key)]
 	end
 	independent_sets = getIndependentSets(X, relavent_conditions, independent_map, domain_map)
@@ -315,28 +317,49 @@ function initialize_density_evaluation(X::Vector{Observation}, conditioned_domai
 			for (i_k, k) in enumerate(K)
 				lv_set(next_condition, k)
 				new_conditions = [conditioned_domains; next_condition]
-				lik_new = initialize_density_evaluation(G, new_conditions, density, domain_map, map_collector, independent_map)
+				lik_new = initialize_density_evaluation(G, new_conditions, density, domain_map, map_collector, independent_map; should_eval = should_eval)
 				pi_c = () -> (typeof(next_condition.value_) == Unknown ? next_condition.Z.Pi[k] : 1)
-				sum_list[i_k] = EVAL(() -> (pi_c() * lik_new()))
+				sum_list[i_k] = EVAL(() -> (pi_c() * lik_new()), false)
+				# if lik_new.is_eval && should_eval
+				# 	val = (pi_c() * lik_new())
+				# 	sum_list[i_k] = EVAL(() -> val, true)
+				# else
+				# 	sum_list[i_k] = EVAL(() -> (pi_c() * lik_new()), false)
+				# end
 				lv_set(next_condition, 0)
 			end
 			sum_list = Tuple(sum_list)
-			push!(mult_list, EVAL(() -> sum_foldl(sum_list)))
+			if should_eval && sum([m.is_eval for m in sum_list]) == length(sum_list)
+				val = sum_foldl(sum_list)
+				push!(mult_list, EVAL(() -> val, true))
+			else
+				push!(mult_list, EVAL(() -> sum_foldl(sum_list), false))
+			end
 		else
 			for g in G
 				ma = rawCallDomain(g.T)
 				mm = index_to_parameters(ma, density.parameters)
-				push!(mult_list, EVAL(() -> BigFloat(density.evaluate(g,  mm))))
+				if should_eval && !isnothing(g.X)
+					val = BigFloat(density.evaluate(g,  mm))
+					push!(mult_list, EVAL(() -> val, true))
+				else
+					push!(mult_list, EVAL(() -> BigFloat(density.evaluate(g,  mm)), false))
+					# push!(mult_list, EVAL(() -> (println("do eval"); BigFloat(density.evaluate(g,  mm))), false))
+				end
 			end
 
 		end
 
 	end
 	mult_list = Tuple(mult_list)
-	# return EVAL(() -> prod_foldl(mult_list))
-	map_collector[magic_key] = HOLDER(f = EVAL(() -> prod_foldl(mult_list)))
-	return EVAL(() -> map_collector[magic_key].val)
-	# return EVAL(() -> prod_foldl(mult_list))
+	if should_eval && sum([m.is_eval for m in mult_list]) == length(mult_list)
+		val = prod_foldl(mult_list)
+		map_collector[magic_key] = HOLDER(f = EVAL(() -> val, true), is_eval=true)
+		return EVAL(() -> map_collector[magic_key].val, true)
+	else
+		map_collector[magic_key] = HOLDER(f = EVAL(() -> prod_foldl(mult_list), false), is_eval=false)
+		return EVAL(() -> map_collector[magic_key].val, false)
+	end
 end
 
 
@@ -882,7 +905,7 @@ function posterior_initalize!(domains, X::Vector{Observation}, density::Parsa_Ba
 		if length(domains_left) > 1
 			posterior_initalize!(domains, X, density, used_conditions, domain_map, tau_chain::Vector, Pi_used::Vector, map_collector, independent_map)
 		else
-			tau = initialize_density_evaluation(X, used_conditions, density, domain_map, map_collector, independent_map)
+			tau = initialize_density_evaluation(X, used_conditions, density, domain_map, map_collector, independent_map; should_eval=true)
 			push!(Pi_used, Tuple([(d.Z, lv_v(d)) for d in domains]))
 			current_ks = [lv_v(d) for d in used_conditions]
 			Pi_val = () -> prod([d.Z.Pi[current_ks[i]] for (i, d) in enumerate(used_conditions)])

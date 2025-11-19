@@ -282,6 +282,7 @@ mutable struct Observation
 end
 
 Observation(x) = Observation(x, nothing, nothing)
+Observation() = Observation(nothing, nothing, nothing)
 
 function p_v(p::Parameter)
 	p.value.value

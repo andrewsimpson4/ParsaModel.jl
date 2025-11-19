@@ -280,6 +280,7 @@ mutable struct Observation
 	T::Any
 	base::Any
 end
+(f::Observation)(x) = f.X = x
 
 Observation(x) = Observation(x, nothing, nothing)
 Observation() = Observation(nothing, nothing, nothing)

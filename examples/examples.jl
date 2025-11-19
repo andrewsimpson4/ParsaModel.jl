@@ -117,8 +117,8 @@ i = length(X) + 1
 X_new_ob = Observation()
 X_new_ob ~ N(:mu => cl[i], :a => Za[cl[i]], :L => ZV[cl[i]], :V => ZV[cl[i]])
 @time pr = f(cl[i])
-post(x) = (X_new_ob.X = x; pr().max[1])
-@time post(X[3].X)
+post(x) = (X_new_ob(x); pr().max[1])
+@time post(X[1].X)
 
 
 F = MtvNormal(p);

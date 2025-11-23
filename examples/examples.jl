@@ -426,7 +426,7 @@ new_x = Observation();
 i = n+1
 new_x ~ F(:mu => [cl[i], Z[cl[i]][i]], :cov => cov[cl[i], Z[cl[i]][i]])
 pr = f(cl[n+1]);
-post(x) = (new_x.X = x; pr().max[1])
+post(x) = (new_x(x); pr().max[1])
 class_pred = [post(x.X) for x in iris_m];
 mean(class_pred .== class)
 

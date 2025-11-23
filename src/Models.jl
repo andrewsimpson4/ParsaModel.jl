@@ -240,7 +240,8 @@ function normal_parsa_V_update(V_, package_index, log_pdf)
         step = step + 1
 
         if step == 10000
-            @warn "max iter on V reached"
+            # @warn "max iter on V reached"
+            error("max iter on V reached")
         end
 
         # println(abs(sum(opt_new .- opt_old)) / abs(sum(opt_old)))

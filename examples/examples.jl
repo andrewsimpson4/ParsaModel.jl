@@ -317,10 +317,10 @@ K = 3
 F = MtvNormal(p);
 cl = categorical(K);
 for i in eachindex(iris_m);
-    iris_m[i] ~ F(:mu => cl[i], :cov => cl[i])
+    iris_m[i] ~ F(:mu => cl[i], :cov => 1)
     cl[i] = class[i]
 end
-EM!(F)
+EM!(F;verbose=false)
 
 new_x = Observation(zeros(p));
 new_x ~ F(:mu => cl[n+1], :cov => cl[n+1]);

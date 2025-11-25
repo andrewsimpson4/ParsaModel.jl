@@ -456,7 +456,7 @@ function LMEM(X::Set{Observation}, base::Parsa_Base;
 	(tau_chain, parameter_map, pi_parameters_used, tau_init) = E_step_initalize(X, base, domain_map, map_collector, independent_map, verbose)
 	# return (0, 0, true)
 	likelihood_ = initialize_density_evaluation(X, Vector{}(), base, domain_map, map_collector, independent_map)
-	likelihood = () -> (log(likelihood_()))
+	likelihood = () -> Float64(log(likelihood_()))
 	# likelihood = () -> 1
 	# if verbose
 	# 	likelihood_ = initialize_density_evaluation(X, Vector{}(), base, Dict(), map_collector)
@@ -551,7 +551,7 @@ function LMEM(X::Set{Observation}, base::Parsa_Base;
 	all_steps::Vector{Real} = [1]
 	i = 2
 	neg_lik_flag = false
-	while ((abs(lik_new - lik_old) / abs(lik_new)) > eps && max_steps > 0) || i <= 5
+	while ((abs(lik_new - lik_old) / abs(lik_new)) > eps && max_steps > 0) #|| i <= 5
 		if (lik_new < lik_old)
 			# println("non-increasing likelihood... stopping here")
 			# neg_lik_flag = true

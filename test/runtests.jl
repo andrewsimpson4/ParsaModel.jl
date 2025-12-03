@@ -19,7 +19,7 @@ using LinearAlgebra, Distributions, ParsaModel
 		class[i] = class_id[i]
 		X[i] ~ F(:mu => class[i], :cov => Z[class[i]])
 	end
-	EM!(F; n_init = 10, n_wild = 10)
+	EM!(F; n_init = 10, init_eps=10^-3)
 
 	F = ParsimoniousNormal(p);
 	class = categorical(n_classes)
@@ -28,5 +28,5 @@ using LinearAlgebra, Distributions, ParsaModel
 		class[i] = class_id[i]
 		X[i] ~ F(:mu => class[i], :a => Z[class[i]], :L => Z[class[i]], :V => 1)
 	end
-	EM!(F; n_init = 10, n_wild = 10)
+	EM!(F; n_init = 10, init_eps=10^-3)
 end

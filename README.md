@@ -115,17 +115,17 @@ Z = categorical(K);
 for i in eachindex(iris_m);
     iris_m[i] ~ F(:mu => Z[i], :cov => Z[i])
 end
-EM!(F; n_init=10, n_wild = 10)
+EM!(F; n_init=10, init_eps = 10^-2)
 ```
 The following is a description of what each function above is doing.
 - `MtvNormal(p)` defines the base distributional assumption we are making for the data. In this case, a $p$-dimensional multivariate normal distribution.
 - `Z = categorical(K)` creates a new categorical distribution named `Z` with `K` categories.
 - `iris_m[i] ~ F(:mu => Z[i], :cov => Z[i])` says `iris_m[i]` was sampled from `F` with the mapping `(:mu => Z[i], :cov => Z[i])`. The parameters `:mu` and `:cov` are exposed by `MtvNormal` and different base models will have different associated parameters. `Z[i]` represents a random variable sampled from `Z` which can take on values from $1$ to `K`.
-- `EM!(F; n_init=10, n_wild=10)` simply fits the model! `n_init` is the number of initializations to run and `n_wild` is the number of steps per initializations run.
+- `EM!(F; n_init=10, init_eps = 10^-2)` simply fits the model! `n_init` is the number of initializations to run and `init_eps` is the threshold to stop each initialization run.
 
 ⚠️ This package currently uses random initialization by default. This can have mixed results for finding the maximum likelihood estimates but allows for package to fit ANY model which can be defined using the package. Just proceed with caution and watch the likelihood plot output for incite.
 
-After running `EM!(model; n_init=10, n_wild=10)` you should see sometime like the following with your terminal.
+After running `EM!(model; n_init=10, init_eps = 10^-2)` you should see sometime like the following with your terminal.
 
 Note: A alternate mathematical notation for the model that may better align with the syntax of the package may be $X_i | Z[i] \sim N(\mu(Z[i]), \Sigma(Z[i]))$.
 
@@ -509,7 +509,7 @@ end
 for (ke, va) in known_map
     Z[ke] = va
 end
-EM!(F; n_init=10, n_wild = 10)
+EM!(F; n_init=10, init_eps = 10^-2)
 
 id = [f(Z[i])().max[1] for i in 1:n];
 randindex(id, class)

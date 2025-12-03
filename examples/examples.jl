@@ -176,7 +176,7 @@ Z = categorical(K);
 for i in eachindex(iris_m);
     iris_m[i] ~ F(:mu => Z[i], :cov => Z[i])
 end
-EM!(F; n_init=1, n_wild = 1)
+EM!(F; n_init=100, init_eps=10^-3)
 
 f(iris_m[1])()
 

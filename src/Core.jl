@@ -434,9 +434,8 @@ end
 
 function LMEM(X::Set{Observation}, base::Parsa_Base;
 	eps = 10^-6,
-	init_eps = 10^-6,
+	init_eps = 10^-4,
 	n_init = 1,
-	n_wild = 100,
 	verbose = true,
 	should_initialize = true,
     max_steps=1000,
@@ -490,7 +489,7 @@ function LMEM(X::Set{Observation}, base::Parsa_Base;
 			lik_old = -Inf
 			lik_new = likelihood()
 			try
-				for i_wild in 1:n_wild
+				for i_wild in 1:max_steps
 					call_collection(map_collector)
 					tau_wild = [(ta()) for ta in tau_chain]
 					Pi(tau_wild)
@@ -581,7 +580,8 @@ function plotit(lines, final_lines)
 	ymax = maximum(lll)
 	ymin = minimum(lll)
 	xmin = 0
-	xmax_init = maximum([length(ll) for ll in lines])
+	xmax_init = argmax([maximum(l, init=1) for l in lines]) #maximum([length(ll) for ll in lines])
+	xmax_init = length(lines[xmax_init])
 	xmax = xmax_init + length(final_lines)
 	plt = UnicodePlots.lineplot([0], [0]; ylim = (ymin, ymax), xlim = (xmin, xmax), xlabel = "steps", ylabel = "log-likelihood", height = Int(round(terminal[1] / 2)), width = Int(round(terminal[2] / 2)), color = :red)
 	for i in 1:size(lines)[1]

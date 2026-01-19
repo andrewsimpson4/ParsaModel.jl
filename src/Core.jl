@@ -810,7 +810,7 @@ function save_Pi(X::Vector{Observation})
 	all_Z = unique([LV.Z for LV in domains])
 	vals = Vector{}()
 	for Z in all_Z
-		push!(vals, Z.Pi)
+		push!(vals, deepcopy(Z.Pi))
 	end
 	return function()
 		for (Z, v) in zip(all_Z, vals)

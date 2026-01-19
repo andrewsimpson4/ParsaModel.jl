@@ -543,8 +543,8 @@ function LMEM(X::Set{Observation}, base::Parsa_Base;
 	##########
 
 	lik_old = -Inf
-	call_collection(map_collector)
-	lik_new = likelihood()
+	# call_collection(map_collector)
+	lik_new = best_likelihood #likelihood()
 
 	all_likelihoods::Vector{Real} = [Float64(lik_new)]
 	all_steps::Vector{Real} = [1]

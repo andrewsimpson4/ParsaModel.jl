@@ -80,12 +80,13 @@ EM!(N; n_init = 1, n_wild = 1, verbose=true)
 
 F = MtvNormal(p);
 class = categorical(n_classes; name="class")
-Z = categorical(6; name="Z")
+Z = categorical(5; name="Z")
 for i in eachindex(X)
     class[i] = class_id[i]
     X[i] ~ F(:mu => class[i], :cov => Z[class[i]])
 end
-EM!(F; n_init = 10, n_wild = 10, verbose=true)
+EM!(F; n_init = 10, init_eps=10^-3, verbose=true)
+
 i = length(X) + 1
 n_new = Observation()
 n_new ~ F(:mu => class[i], :cov => Z[class[i]])

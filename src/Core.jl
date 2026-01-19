@@ -614,7 +614,7 @@ end
 function set_original_parameters(base::Parsa_Base)
 	for ke in base.parameter_order
 		for (ke2, param) in base.parameters[ke].parameter_map
-			param.value_original = param.value.value
+			param.value_original = deepcopy(param.value.value)
 		end
 	end
 
@@ -632,7 +632,7 @@ function save_parameters(base::Parsa_Base)
 	for ke in base.parameter_order
 		for (_, param) in base.parameters[ke].parameter_map
 			if !param.is_const
-				push!(all_params, param.value.value)
+				push!(all_params, deepcopy(param.value.value))
 			end
 		end
 	end

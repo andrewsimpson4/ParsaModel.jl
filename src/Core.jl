@@ -1,5 +1,6 @@
 using UnicodePlots
 using Distributions
+using Random
 using OrderedCollections
 using Base: IdSet
 
@@ -437,11 +438,13 @@ function LMEM(X::Set{Observation}, base::Parsa_Base;
 	init_eps = 10^-4,
 	n_init = 1,
 	verbose = true,
-	should_initialize = true,
     max_steps=1000,
     catch_init_error = false,
-    independent_by = Vector{CategoricalZ}())
+	seed = nothing)
 	##########
+	if !isnothing(seed)
+		Random.seed!(seed)
+	end
 	X = collect(X)
 	prime_X.(X)
 	base.eval_catch = Dict()
@@ -469,77 +472,62 @@ function LMEM(X::Set{Observation}, base::Parsa_Base;
 	Pi = Pi_init(X, tau_wild, pi_parameters_used)
 	#init_likelihoods = zeros(n_init, n_wild)
 	init_likelihoods = [[] for _ in 1:n_init]
-	if should_initialize
-		best_likelihood = -Inf
-		best_tau = nothing
-		best_prams = nothing
-		best_Pi = nothing
-		domain_post_catch = Vector{Vector}(undef, n_init)
-		tau_wild = [wild_tau(ta()) for ta in tau_init]
+	best_likelihood = -Inf
+	best_tau = nothing
+	best_prams = nothing
+	best_Pi = nothing
+	domain_post_catch = Vector{Vector}(undef, n_init)
+	tau_wild = [wild_tau(ta()) for ta in tau_init]
+	Pi(tau_wild)
+	M(X, tau_wild, parameter_map, base)
+	Pi(tau_wild)
+	M(X, tau_wild, parameter_map, base)
+	for i_init in 1:n_init
+		param_reset()
+		pi_reset()
+		tau_wild::Vector{Vector{Real}} = [wild_tau(ta()) for ta in tau_init]
 		Pi(tau_wild)
 		M(X, tau_wild, parameter_map, base)
-		Pi(tau_wild)
-		M(X, tau_wild, parameter_map, base)
-		for i_init in 1:n_init
-			param_reset()
-			pi_reset()
-			tau_wild::Vector{Vector{Real}} = [wild_tau(ta()) for ta in tau_init]
-			Pi(tau_wild)
-			M(X, tau_wild, parameter_map, base)
-			lik_old = -Inf
-			lik_new = likelihood()
-			try
-				for i_wild in 1:max_steps
-					call_collection(map_collector)
-					tau_wild = [(ta()) for ta in tau_chain]
-					Pi(tau_wild)
-					M(X, tau_wild, parameter_map, base)
-					lik_old = lik_new
-					lik_new = likelihood()
-					if lik_new < lik_old
-						# init_likelihoods[i_init, i_wild:end] .= minimum(init_likelihoods[i_init, 1:(i_wild-1)])
-						break
-					end
-					# init_likelihoods[i_init, i_wild] = likelihood()
-					push!(init_likelihoods[i_init], Float64(lik_new))
-					verbose ? plotit(init_likelihoods, Vector{}()) : nothing
-					if abs(lik_new - lik_old) / abs(lik_old) < init_eps
-						break
-					end
+		lik_old = -Inf
+		lik_new = likelihood()
+		try
+			for i_wild in 1:max_steps
+				call_collection(map_collector)
+				tau_wild = [(ta()) for ta in tau_chain]
+				Pi(tau_wild)
+				M(X, tau_wild, parameter_map, base)
+				lik_old = lik_new
+				lik_new = likelihood()
+				# println(lik_new)
+				if lik_new < lik_old
+					# init_likelihoods[i_init, i_wild:end] .= minimum(init_likelihoods[i_init, 1:(i_wild-1)])
+					error("init error... decreasing likelihood")
 				end
-			catch e
-				if !catch_init_error
-					rethrow(e)
-				else
-					@warn e
-					continue
+				# init_likelihoods[i_init, i_wild] = likelihood()
+				push!(init_likelihoods[i_init], Float64(lik_new))
+				verbose ? plotit(init_likelihoods, Vector{}()) : nothing
+				if abs(lik_new - lik_old) / abs(lik_old) < init_eps
+					break
 				end
 			end
-			# lik_new = likelihood()
-			if lik_new > best_likelihood
-				best_likelihood = lik_new
-				best_tau = tau_wild
-				best_prams = save_parameters(base)
-				best_Pi = save_Pi(X)
+		catch e
+			if !catch_init_error
+				rethrow(e)
+			else
+				if !verbose @warn e end
+				continue
 			end
 		end
-		best_Pi()
-		best_prams()
-		# tau_start::Vector{Vector{Real}} = best_tau
-		# Pi(tau_start)
-		# best_Pi()
-		# best_prams()
-		# println(likelihood() - best_likelihood)
-		# Pi(tau_start)
-		# M(X, tau_start, parameter_map, base)
-	else
-		tau_start = [(ta()) for ta in tau_init]
-		Pi(tau_start)
-		M(X, tau_start, parameter_map, base)
-		Pi(tau_start)
-		M(X, tau_start, parameter_map, base)
+		# lik_new = likelihood()
+		if lik_new > best_likelihood
+			best_likelihood = lik_new
+			best_tau = tau_wild
+			best_prams = save_parameters(base)
+			best_Pi = save_Pi(X)
+		end
 	end
-
+	best_Pi()
+	best_prams()
 	##########
 
 	lik_old = -Inf

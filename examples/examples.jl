@@ -17,12 +17,13 @@ cov = [diagm(ones(p)), diagm(ones(p)), diagm(ones(p)) .+ 1];
 X = Observation.([vec(rand(MvNormal(mu[true_id[i]], cov[true_id[i]]), 1)) for i in 1:n]);
 
 Random.seed!(1)
+
 N = MtvNormalSafe(p);
 Z = categorical(3;name="Z");
 for i in eachindex(X)
     X[i] ~ N(:mu => Z[i], :cov => Z[i])
 end
-EM!(N; n_init=1, n_wild=1,init_eps = 10^-6,verbose=true)
+EM!(N; n_init=1,init_eps = 10^-6,verbose=true, seed=1)
 BIC(N)
 
 
@@ -453,3 +454,5 @@ pr = f(cl[n+1]);
 post(x) = (new_x.X = x; pr().max[1])
 class_pred = [post(x.X) for x in iris_m];
 mean(class_pred .== class)
+
+

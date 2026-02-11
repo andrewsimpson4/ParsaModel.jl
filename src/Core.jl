@@ -485,6 +485,7 @@ function LMEM(X::Set{Observation}, base::Parsa_Base;
 	for i_init in 1:n_init
 		param_reset()
 		pi_reset()
+		call_collection(map_collector)
 		tau_wild::Vector{Vector{Real}} = [wild_tau(ta()) for ta in tau_init]
 		Pi(tau_wild)
 		M(X, tau_wild, parameter_map, base)
@@ -496,9 +497,9 @@ function LMEM(X::Set{Observation}, base::Parsa_Base;
 				tau_wild = [(ta()) for ta in tau_chain]
 				Pi(tau_wild)
 				M(X, tau_wild, parameter_map, base)
+				# println(lik_new)
 				lik_old = lik_new
 				lik_new = likelihood()
-				# println(lik_new)
 				if lik_new < lik_old
 					# init_likelihoods[i_init, i_wild:end] .= minimum(init_likelihoods[i_init, 1:(i_wild-1)])
 					error("init error... decreasing likelihood")

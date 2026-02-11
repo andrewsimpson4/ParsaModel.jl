@@ -23,7 +23,8 @@ Z = categorical(3;name="Z");
 for i in eachindex(X)
     X[i] ~ N(:mu => Z[i], :cov => Z[i])
 end
-EM!(N; n_init=1,init_eps = 10^-6,verbose=true, seed=1)
+EM!(N; n_init=10,init_eps = 10^-6,verbose=true, seed=1)
+val(Z)
 BIC(N)
 
 

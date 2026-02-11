@@ -500,7 +500,7 @@ function LMEM(X::Set{Observation}, base::Parsa_Base;
 				# println(lik_new)
 				lik_old = lik_new
 				lik_new = likelihood()
-				if lik_new < lik_old
+				if lik_new < lik_old && i_wild != 1
 					# init_likelihoods[i_init, i_wild:end] .= minimum(init_likelihoods[i_init, 1:(i_wild-1)])
 					error("init error... decreasing likelihood")
 				end

@@ -1,6 +1,5 @@
 using UnicodePlots
 using Distributions
-using Random
 using OrderedCollections
 using Base: IdSet
 
@@ -440,11 +439,8 @@ function LMEM(X::Set{Observation}, base::Parsa_Base;
 	verbose = true,
     max_steps=1000,
     catch_init_error = false,
-	seed = nothing)
+    allow_desc_likelihood = false)
 	##########
-	if !isnothing(seed)
-		Random.seed!(seed)
-	end
 	X = collect(X)
 	prime_X.(X)
 	base.eval_catch = Dict()
@@ -500,7 +496,7 @@ function LMEM(X::Set{Observation}, base::Parsa_Base;
 				# println(lik_new)
 				lik_old = lik_new
 				lik_new = likelihood()
-				if lik_new < lik_old && i_wild != 1
+				if lik_new < lik_old && i_wild != 1 && !allow_desc_likelihood
 					# init_likelihoods[i_init, i_wild:end] .= minimum(init_likelihoods[i_init, 1:(i_wild-1)])
 					error("init error... decreasing likelihood")
 				end

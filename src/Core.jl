@@ -501,8 +501,10 @@ function LMEM(X::Set{Observation}, base::Parsa_Base;
 					error("init error... decreasing likelihood")
 				end
 				# init_likelihoods[i_init, i_wild] = likelihood()
-				push!(init_likelihoods[i_init], Float64(lik_new))
-				verbose ? plotit(init_likelihoods, Vector{}()) : nothing
+				if i_wild > 1
+					push!(init_likelihoods[i_init], Float64(lik_new))
+					verbose ? plotit(init_likelihoods, Vector{}()) : nothing
+				end
 				if abs(lik_new - lik_old) / abs(lik_old) < init_eps
 					break
 				end

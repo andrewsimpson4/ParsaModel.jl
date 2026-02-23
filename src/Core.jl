@@ -496,7 +496,7 @@ function LMEM(X::Set{Observation}, base::Parsa_Base;
 				# println(lik_new)
 				lik_old = lik_new
 				lik_new = likelihood()
-				if lik_new < lik_old && i_wild != 1 && !allow_desc_likelihood
+				if (lik_new < lik_old && i_wild != 1) && !allow_desc_likelihood
 					# init_likelihoods[i_init, i_wild:end] .= minimum(init_likelihoods[i_init, 1:(i_wild-1)])
 					error("init error... decreasing likelihood")
 				end
@@ -538,7 +538,7 @@ function LMEM(X::Set{Observation}, base::Parsa_Base;
 	i = 2
 	neg_lik_flag = false
 	while ((abs(lik_new - lik_old) / abs(lik_new)) > eps && max_steps > 0) #|| i <= 5
-		if (lik_new < lik_old)
+		if (lik_new < lik_old) && !allow_desc_likelihood
 			# println("non-increasing likelihood... stopping here")
 			# neg_lik_flag = true
 			# break

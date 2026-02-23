@@ -29,8 +29,9 @@ end
 function normal_pdf(X::Any, params::Dict)
     p = length(X)
     y = (X - val(params[:mu]))
-    # (2pi)^(-p/2) * val(params[:cov]).det^(-1/2) * exp((-1/2 * y' * val(params[:cov]).inv * y))
+    # ll = (2pi)^(-p/2) * val(params[:cov]).det^(-1/2) * exp((-1/2 * y' * val(params[:cov]).inv * y))
     exp(BigFloat(-p/2 * log(2pi) - 1/2 * log(val(params[:cov]).det) + (-1/2 * y' * val(params[:cov]).inv * y)))
+    # max(ll, floatmin(Float64))
 end
 
 function normal_pdf_log(X::Any, params::Dict)

@@ -16,16 +16,23 @@ mu = [ones(p), ones(p) .+ 6, ones(p) .- 6];
 cov = [diagm(ones(p)), diagm(ones(p)), diagm(ones(p)) .+ 1];
 X = Observation.([vec(rand(MvNormal(mu[true_id[i]], cov[true_id[i]]), 1)) for i in 1:n]);
 
-Random.seed!(1)
+n_test = 100000
+true_id_test = rand(1:K, n_test);
+X_test = ([vec(rand(MvNormal(mu[true_id_test[i]], cov[true_id_test[i]]), 1)) for i in 1:n_test]);
 
-N = MtvNormalSafe(p);
+N = MtvNormal(p);
 Z = categorical(3;name="Z");
 for i in eachindex(X)
     X[i] ~ N(:mu => Z[i], :cov => Z[i])
 end
-EM!(N; n_init=10,init_eps = 10^-6,verbose=true, seed=1)
-val(Z)
-BIC(N)
+EM!(N; n_init=10,init_eps = 10^-6,verbose=true)
+
+X_new = Observation();
+i = length(X) + 1
+X_new ~ N(:mu => Z[i], :cov => Z[i])
+lik = f(X_new);
+pr(x) = (X_new(x); lik());
+@profview [pr(x) for x in X_test];
 
 
 3639.489262411928

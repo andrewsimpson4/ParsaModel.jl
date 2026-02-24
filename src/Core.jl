@@ -81,80 +81,6 @@ function GetDependentVariable!(X_i::Observation, used_conditions::Vector)
 	end
 end
 
-# function getIndependentSets(X::Vector{Observation}, Z, domain_map)
-# 	domain_map = Dict()
-# 	for x in X
-# 			domain_map[x] = GetDependentVariable(x)
-# 	end
-# 	n = length(X)
-# 	# if length(domain_map) == 0
-# 	# 	for x in X
-# 	# 		domain_map[x] = GetDependentVariable(x)
-# 	# 	end
-# 	# end
-# 	indo_sets = Vector{Any}(undef, n)
-# 	for i in 1:n
-# 		sets = unique([X[i]; conditional_dependent_search(domain_map[X[i]], domain_map, Z, X)])
-# 		indo_sets[i] = sets[sortperm([objectid(x) for x in sets])]
-# 	end
-# 	return unique(indo_sets)
-# end
-
-# function conditional_dependent_search(D, domain_map, Z, X)
-# 	x_depo = Vector{Observation}()
-# 	new_d = setdiff(D, Z)
-# 	for d in new_d
-# 		if !lv_isKnown(d)
-# 			d_depo = collect(values(d.dependent_X))
-# 			new_Z = setdiff(reduce(vcat, [domain_map[x] for x in d_depo if x in X]), [D; Z])
-# 			if length(new_Z) > 0
-# 				d_depo = [d_depo; conditional_dependent_search(new_Z, domain_map, [Z; D], X)]
-# 			end
-# 			for x in d_depo
-# 				if x in X
-# 					x_depo = [x_depo; x]
-# 				end
-# 			end
-# 		end
-# 	end
-# 	return x_depo
-# end
-
-# function getIndependentSets(X::Vector{Observation})
-# 	domains = Dict([x => [lv for lv in GetDependentVariable(x) if !lv_isKnown(lv)] for x in X])
-# 	indo_sets = Dict([x => IdSet() for x in X])
-# 	indo_sets_obs = Vector{Vector{Observation}}(undef, length(X))
-# 	for x in X
-# 		push!(indo_sets[x], x)
-# 		for condition in domains[x]
-# 				for va in condition.dependent_X
-# 					if !(va in indo_sets[x]) && va in X && condition in domains[va]
-# 						push!(indo_sets[x], va)
-# 					end
-# 				end
-# 		end
-# 	end
-
-# 	for (i, x) in enumerate(X)
-# 		for y in indo_sets[x]
-# 			conditional_dependent_search!(y, indo_sets, indo_sets[x], X)
-# 		end
-# 		collected_x = collect(indo_sets[x])
-# 		indo_sets_obs[i] = collected_x[sortperm([objectid(x) for x in collected_x])]
-# 	end
-# 	return unique(indo_sets_obs)
-# end
-
-# function conditional_dependent_search!(x, indo_sets, set, X)
-# 	for y in indo_sets[x]
-# 		if !(y in set) && y in X
-# 			push!(set, y)
-# 			conditional_dependent_search!(y, indo_sets, set, X)
-# 		end
-# 	end
-# end
-
-
 function getIndependentSets(X::Vector{Observation}, conditions, independent_map, domain_map)
 	magic_key = (X, conditions)
 	if haskey(independent_map, magic_key)
@@ -222,43 +148,6 @@ function getDependentOnX(X::Vector{Observation})
 end
 
 
-# function getDependentOnX(X::Vector{Observation})
-# 	indo_sets = getIndependentSets(X)
-# 	println("#####")
-# 	println(length(indo_sets))
-# 	println("#####")
-# 	dependent_vec = Vector{}()
-# 	for (i, x) in enumerate(X)
-# 		for set in indo_sets
-# 			if x in set
-# 				push!(dependent_vec, set)
-# 				break
-# 			end
-# 		end
-# 	end
-# 	return dependent_vec
-# end
-
-# function initialize_density_evaluation(X::Vector{Observation}, density::Parsa_Base, independent_by)
-# 	if length(independent_by) == 0
-# 		D = Vector{Any}()
-# 		return (initialize_density_evaluation(X, D, density))
-# 	else
-# 		D = Vector{Any}()
-# 		return (initialize_density_evaluation_ind(X, D, density, independent_by))
-# 	end
-# end
-
-# function initialize_density_evaluation(X::Vector{Observation}, conditioned_domains::Vector, density::Parsa_Base, independent_by)
-# 	if length(independent_by) == 0
-# 		D = Vector{Any}()
-# 		return (initialize_density_evaluation(X, conditioned_domains, density))
-# 	else
-# 		D = Vector{Any}()
-# 		return (initialize_density_evaluation_ind(X, conditioned_domains, density, independent_by))
-# 	end
-# end
-
 struct EVAL{F}
 	f::F
 	is_eval::Bool
@@ -274,23 +163,14 @@ Base.@kwdef mutable struct HOLDER
 end
 
 function initialize_density_evaluation(X::Vector{Observation}, conditioned_domains::Vector, density::Parsa_Base, domain_map::Dict, map_collector::OrderedDict, independent_map::Dict; should_eval=false)
-	# println(length(conditioned_domains))
-	# relavent_conditions = intersect(relavent_conditions, conditioned_domains)
 	relavent_conditions = intersect(reduce(vcat, [domain_map[x] for x in X]), conditioned_domains)
 	relavent_conditions_id = [objectid(r) for r in relavent_conditions]
 	conditions_key = [(LV, lv_v(LV)) for LV in relavent_conditions[sortperm(relavent_conditions_id)]]
-	# conditions_key = [(LV, lv_v(LV)) for LV in relavent_conditions]
 	magic_key = (X, conditions_key)
 	if haskey(map_collector, magic_key)
-		# println("here")
 		return EVAL(() -> map_collector[magic_key].val, map_collector[magic_key].is_eval)
-		# return map_collector[(X, all_domains_key)]
 	end
 	independent_sets = getIndependentSets(X, relavent_conditions, independent_map, domain_map)
-	# println(length(independent_sets))
-	# println(length(X))
-	# println("----")
-	# sleep(0.1)
 	mult_list = Vector{EVAL}()
 	for G in independent_sets
 		all_domains = Vector{Vector{LatentVaraible}}(undef, length(G))
@@ -320,12 +200,6 @@ function initialize_density_evaluation(X::Vector{Observation}, conditioned_domai
 				lik_new = initialize_density_evaluation(G, new_conditions, density, domain_map, map_collector, independent_map; should_eval = should_eval)
 				pi_c = () -> (typeof(next_condition.value_) == Unknown ? next_condition.Z.Pi[k] : 1)
 				sum_list[i_k] = EVAL(() -> (pi_c() * lik_new()), false)
-				# if lik_new.is_eval && should_eval
-				# 	val = (pi_c() * lik_new())
-				# 	sum_list[i_k] = EVAL(() -> val, true)
-				# else
-				# 	sum_list[i_k] = EVAL(() -> (pi_c() * lik_new()), false)
-				# end
 				lv_set(next_condition, 0)
 			end
 			sum_list = Tuple(sum_list)
@@ -344,7 +218,6 @@ function initialize_density_evaluation(X::Vector{Observation}, conditioned_domai
 					push!(mult_list, EVAL(() -> val, true))
 				else
 					push!(mult_list, EVAL(() -> BigFloat(density.evaluate(g,  mm)), false))
-					# push!(mult_list, EVAL(() -> (println("do eval"); BigFloat(density.evaluate(g,  mm))), false))
 				end
 			end
 
@@ -361,63 +234,6 @@ function initialize_density_evaluation(X::Vector{Observation}, conditioned_domai
 		return EVAL(() -> map_collector[magic_key].val, false)
 	end
 end
-
-
-# function initialize_density_evaluation(X::Vector{Observation}, conditioned_domains::Vector, density::Parsa_Base, domain_map::Dict, map_collector::Dict)
-# 	independent_sets = getIndependentSets(X)
-# 	mult_list = Vector{Function}()
-# 	for G in independent_sets
-# 		all_domains = [unique([lv for lv in GetDependentVariable(x)]) for x in G]
-# 		domain_lengths = [length(d) for d in all_domains]
-# 		domains = [LV for LV in (reduce(vcat, all_domains))]
-# 		lv_freq_map = countmap(domains)
-# 		if maximum(domain_lengths; init=0) <= maximum(values(lv_freq_map); init=0)
-# 			next_conditions = domains #setdiff(domains, conditioned_domains)
-# 			lv_freq_map = filter(x -> x[1] in next_conditions, lv_freq_map)
-# 			top_order = sortperm(collect(values(lv_freq_map)); rev=true)
-# 			next_conditions = collect(keys(lv_freq_map))[top_order]
-# 		else
-# 			next_conditions = all_domains[argmax(domain_lengths)]
-# 		end
-# 		if length(next_conditions) != 0
-# 			next_condition = next_conditions[1]
-# 			K = typeof(next_condition.value_) == Unknown ? (1:next_condition.Z.K) : lv_v(next_condition)
-# 			sum_list = Vector{Function}(undef, length(K))
-# 			for (i_k, k) in enumerate(K)
-# 				lv_set(next_condition, k)
-# 				new_conditions = [conditioned_domains; next_condition]
-# 				lik_new = initialize_density_evaluation(G, new_conditions, density, domain_map, map_collector)
-# 				pi_c = () -> (typeof(next_condition.value_) == Unknown ? next_condition.Z.Pi[k] : 1)
-# 				sum_list[i_k] = () -> (pi_c() * lik_new())
-# 				lv_set(next_condition, 0)
-# 			end
-# 			ff = function()
-# 				pp::BigFloat = 0.0
-# 				for t in sum_list
-# 					pp += t()
-# 				end
-# 				return pp
-# 			end
-# 			push!(mult_list, ff)
-# 		else
-# 			for g in G
-# 				ma = rawCallDomain(g.T)
-# 				mm = index_to_parameters(ma, density.parameters)
-# 				push!(mult_list, () -> BigFloat(density.evaluate(g,  mm)))
-# 			end
-
-# 		end
-
-# 	end
-# 	FF = function()
-# 		pp2::BigFloat = 1.0
-# 		for t in mult_list
-# 			pp2 *= t()
-# 		end
-# 		return pp2
-# 	end
-# 	return FF
-# end
 
 function prime_X(X::Observation)
     domains = GetDependentVariable(X)

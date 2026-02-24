@@ -153,13 +153,108 @@ struct EVAL{F}
 	is_eval::Bool
 end
 (f::EVAL)() = f.f()
-prod_foldl(G) = foldl((a, g) -> a * g(), G; init=1)
+# prod_foldl(G) = foldl((a, g) -> a * g(), G; init=1)
+# sum_foldl(G) = foldl((a, g) -> a + g(), G; init=0)
+
+# prod_foldl(G) = foldl((a, g) -> a * g(), G; init=1)
+# sum_foldl(G) = foldl((a, g) -> a + g(), G; init=0)
+
+# Base.@kwdef mutable struct HOLDER
+# 	f::EVAL
+# 	is_eval::Bool
+# 	val::Float64 = 0.0
+# end
+
+# function initialize_density_evaluation(X::Vector{Observation}, conditioned_domains::Vector, density::Parsa_Base, domain_map::Dict, map_collector::OrderedDict, independent_map::Dict; should_eval=false)
+# 	relavent_conditions = intersect(reduce(vcat, [domain_map[x] for x in X]), conditioned_domains)
+# 	relavent_conditions_id = [objectid(r) for r in relavent_conditions]
+# 	conditions_key = [(LV, lv_v(LV)) for LV in relavent_conditions[sortperm(relavent_conditions_id)]]
+# 	magic_key = (X, conditions_key)
+# 	if haskey(map_collector, magic_key)
+# 		return EVAL(() -> map_collector[magic_key].val, map_collector[magic_key].is_eval)
+# 	end
+# 	independent_sets = getIndependentSets(X, relavent_conditions, independent_map, domain_map)
+# 	mult_list = Vector{EVAL}()
+# 	for G in independent_sets
+# 		all_domains = Vector{Vector{LatentVaraible}}(undef, length(G))
+# 		for (i, x) in enumerate(G)
+# 			# all_domains[i] = setdiff(domain_map[x], conditioned_domains) #GetDependentVariable(x)
+# 			all_domains[i] = GetDependentVariable(x) #GetDependentVariable(x)
+# 		end
+# 		# all_domains = [GetDependentVariable(x) for x in G] #[unique([lv for lv in GetDependentVariable(x)]) for x in G]
+# 		domain_lengths = [length(d) for d in all_domains]
+# 		domains = [LV for LV in (reduce(vcat, all_domains))]
+# 		lv_freq_map = countmap(domains)
+# 		if maximum(domain_lengths; init=0) <= maximum(values(lv_freq_map); init=0)
+# 			next_conditions = domains #setdiff(domains, conditioned_domains)
+# 			lv_freq_map = filter(x -> x[1] in next_conditions, lv_freq_map)
+# 			top_order = sortperm(collect(values(lv_freq_map)); rev=true)
+# 			next_conditions = collect(keys(lv_freq_map))[top_order]
+# 		else
+# 			next_conditions = all_domains[argmax(domain_lengths)]
+# 		end
+# 		if length(next_conditions) != 0
+# 			next_condition = next_conditions[1]
+# 			K = typeof(next_condition.value_) == Unknown ? (1:next_condition.Z.K) : lv_v(next_condition)
+# 			sum_list = Vector{EVAL}(undef, length(K))
+# 			for (i_k, k) in enumerate(K)
+# 				lv_set(next_condition, k)
+# 				new_conditions = [conditioned_domains; next_condition]
+# 				lik_new = initialize_density_evaluation(G, new_conditions, density, domain_map, map_collector, independent_map; should_eval = should_eval)
+# 				pi_c = () -> (typeof(next_condition.value_) == Unknown ? next_condition.Z.Pi[k] : 1)
+# 				sum_list[i_k] = EVAL(() -> (pi_c() * lik_new()), false)
+# 				lv_set(next_condition, 0)
+# 			end
+# 			sum_list = Tuple(sum_list)
+# 			if should_eval && sum([m.is_eval for m in sum_list]) == length(sum_list)
+# 				val = sum_foldl(sum_list)
+# 				push!(mult_list, EVAL(() -> val, true))
+# 			else
+# 				push!(mult_list, EVAL(() -> sum_foldl(sum_list), false))
+# 			end
+# 		else
+# 			for g in G
+# 				ma = rawCallDomain(g.T)
+# 				mm = index_to_parameters(ma, density.parameters)
+# 				if should_eval && !isnothing(g.X)
+# 					val = Float64(density.evaluate(g,  mm))
+# 					push!(mult_list, EVAL(() -> val, true))
+# 				else
+# 					push!(mult_list, EVAL(() -> Float64(density.evaluate(g,  mm)), false))
+# 				end
+# 			end
+
+# 		end
+
+# 	end
+# 	mult_list = Tuple(mult_list)
+# 	if should_eval && sum([m.is_eval for m in mult_list]) == length(mult_list)
+# 		val = prod_foldl(mult_list)
+# 		map_collector[magic_key] = HOLDER(f = EVAL(() -> val, true), is_eval=true)
+# 		return EVAL(() -> map_collector[magic_key].val, true)
+# 	else
+# 		map_collector[magic_key] = HOLDER(f = EVAL(() -> prod_foldl(mult_list), false), is_eval=false)
+# 		return EVAL(() -> map_collector[magic_key].val, false)
+# 	end
+# end
+
+prod_foldl(G) = foldl((a, g) -> a + g(), G; init=0)
 sum_foldl(G) = foldl((a, g) -> a + g(), G; init=0)
+function sum_foldl(G)
+	vv = Vector{Float64}(undef, length(G))
+	function()
+		for (i,g) in enumerate(G)
+			vv[i] = g()
+		end
+		mm = maximum(vv)
+		return mm + log(sum(exp.(vv .- mm)))
+	end
+end
 
 Base.@kwdef mutable struct HOLDER
 	f::EVAL
 	is_eval::Bool
-	val::BigFloat = 0.0
+	val::Float64 = 0.0
 end
 
 function initialize_density_evaluation(X::Vector{Observation}, conditioned_domains::Vector, density::Parsa_Base, domain_map::Dict, map_collector::OrderedDict, independent_map::Dict; should_eval=false)
@@ -199,25 +294,26 @@ function initialize_density_evaluation(X::Vector{Observation}, conditioned_domai
 				new_conditions = [conditioned_domains; next_condition]
 				lik_new = initialize_density_evaluation(G, new_conditions, density, domain_map, map_collector, independent_map; should_eval = should_eval)
 				pi_c = () -> (typeof(next_condition.value_) == Unknown ? next_condition.Z.Pi[k] : 1)
-				sum_list[i_k] = EVAL(() -> (pi_c() * lik_new()), false)
+				sum_list[i_k] = EVAL(() -> (log(pi_c()) + lik_new()), false)
 				lv_set(next_condition, 0)
 			end
 			sum_list = Tuple(sum_list)
 			if should_eval && sum([m.is_eval for m in sum_list]) == length(sum_list)
-				val = sum_foldl(sum_list)
+				val = sum_foldl(sum_list)()
 				push!(mult_list, EVAL(() -> val, true))
 			else
-				push!(mult_list, EVAL(() -> sum_foldl(sum_list), false))
+				ss = sum_foldl(sum_list)
+				push!(mult_list, EVAL(() -> ss(), false))
 			end
 		else
 			for g in G
 				ma = rawCallDomain(g.T)
 				mm = index_to_parameters(ma, density.parameters)
 				if should_eval && !isnothing(g.X)
-					val = BigFloat(density.evaluate(g,  mm))
+					val = (density.evaluate(g,  mm))
 					push!(mult_list, EVAL(() -> val, true))
 				else
-					push!(mult_list, EVAL(() -> BigFloat(density.evaluate(g,  mm)), false))
+					push!(mult_list, EVAL(() -> (density.evaluate(g,  mm)), false))
 				end
 			end
 
@@ -270,7 +366,7 @@ function LMEM(X::Set{Observation}, base::Parsa_Base;
 	(tau_chain, parameter_map, pi_parameters_used, tau_init) = E_step_initalize(X, base, domain_map, map_collector, independent_map, verbose)
 	# return (0, 0, true)
 	likelihood_ = initialize_density_evaluation(X, Vector{}(), base, domain_map, map_collector, independent_map)
-	likelihood = () -> Float64(log(likelihood_()))
+	likelihood = () -> likelihood_() #Float64(log(likelihood_()))
 	# likelihood = () -> 1
 	# if verbose
 	# 	likelihood_ = initialize_density_evaluation(X, Vector{}(), base, Dict(), map_collector)
@@ -490,6 +586,18 @@ function wild_tau(tau)
 	return tau_new
 end
 
+function normalize_log_post(L)
+	po = zeros(length(L)) #Vector{Float64}(undef, length(L))
+	for (i, l) in enumerate(L)
+		for ll in L
+			po[i] = po[i] + exp(ll - l)
+		end
+	end
+	return 1 ./ po
+end
+
+normalize_log_post([-9.807042136428763, -9.174499241907007, -11.574418692427368])
+
 function E_step_initalize(X::Vector{Observation}, density::Parsa_Base, all_domains, map_collector, independent_map, verbose)
 	n = length(X)
 	tau = Vector{Function}(undef, n)
@@ -505,7 +613,8 @@ function E_step_initalize(X::Vector{Observation}, density::Parsa_Base, all_domai
 		# tau_init_i = E_step_i_initalize_initzial_values(X[i], dependent_observations, density, Vector{}(), (all_domains[X[i]]))
         # (tau_i, parameters_used_i, pi_parameters_used_i) = E_step_i_initalize(X[i], dependent_observations, density, Vector{}(), (all_domains[X[i]]), all_domains, map_collector)
 		(tau_i, parameters_used_i, pi_parameters_used_i) = E_step_i_initalize(X[i], dependent_observations, density, Vector{}(), Vector{}(), all_domains, map_collector, independent_map)
-        tau_i_func = () -> (tau_eval = tau_i(); Float64.(tau_eval / sum(tau_eval)))
+        # tau_i_func = () -> (tau_eval = tau_i(); Float64.(tau_eval / sum(tau_eval)))
+		tau_i_func = () -> normalize_log_post(tau_i())
 		tau_i_init_func = () -> (L = tau_init_i; length(L) != 0 ? L ./ sum(L) : nothing)
 
 		tau[i] = tau_i_func
@@ -532,7 +641,7 @@ function E_step_i_initalize(X_i::Observation, X::Vector{Observation}, density::P
 	params_used = Vector{Any}()
 	Pi_used = Vector{Any}()
 	E_step_i_initalize(X_i, X, density, used_conditions, domain_map, map_collector, independent_map, tau_chain, params_used, Pi_used)
-	es = Vector{BigFloat}(undef, length(tau_chain))
+	es = Vector{Float64}(undef, length(tau_chain))
 	F = function()
 		for (i,t) in enumerate(tau_chain)
 			es[i] = t()
@@ -559,7 +668,7 @@ function E_step_i_initalize(X_i::Observation, X::Vector{Observation}, density::P
 			tau = initialize_density_evaluation(X, used_conditions, density, domain_map, map_collector, independent_map)
 			current_ks = [(lv_v(d), typeof(condition.value_) == Unknown ) for d in used_conditions]
 			Pi_val = () -> prod([current_ks[i][2] ? d.Z.Pi[current_ks[i][1]] : d.Z.Pi[current_ks[i][1]] for (i, d) in enumerate(used_conditions)])
-			push!(tau_chain, () -> Pi_val() * tau())
+			push!(tau_chain, () -> log(Pi_val()) + tau())
 			push!(params_used, params)
 		end
 		lv_set(condition, 0)
@@ -684,7 +793,7 @@ function posterior_initalize(conditions, X::Vector{Observation}, density::Parsa_
 	Pi = Vector{}()
 	posterior_initalize!(domains, X_sub, density, Vector{}(), domain_map, tau, Pi, map_collector, independent_map)
 	tau_l = length(tau)
-	vv = Vector{BigFloat}(undef, tau_l)
+	vv = Vector{Float64}(undef, tau_l)
 	function ()
 		call_collection(map_collector)
 		for i in 1:tau_l
@@ -712,7 +821,7 @@ function posterior_initalize!(domains, X::Vector{Observation}, density::Parsa_Ba
 			push!(Pi_used, Tuple([(d.Z, lv_v(d)) for d in domains]))
 			current_ks = [lv_v(d) for d in used_conditions]
 			Pi_val = () -> prod([d.Z.Pi[current_ks[i]] for (i, d) in enumerate(used_conditions)])
-			push!(tau_chain, () -> Pi_val() * tau())
+			push!(tau_chain, () -> log(Pi_val()) + tau())
 		end
 		lv_set(condition, 0)
 

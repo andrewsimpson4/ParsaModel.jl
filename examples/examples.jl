@@ -12,11 +12,11 @@ p = 5
 K = 3
 n = 200
 true_id = rand(1:K, n);
-mu = [ones(p), ones(p) .+ 6, ones(p) .- 6];
+mu = [ones(p), ones(p) .+ 3, ones(p) .- 3];
 cov = [diagm(ones(p)), diagm(ones(p)), diagm(ones(p)) .+ 1];
 X = Observation.([vec(rand(MvNormal(mu[true_id[i]], cov[true_id[i]]), 1)) for i in 1:n]);
 
-n_test = 100000
+n_test = 1000000
 true_id_test = rand(1:K, n_test);
 X_test = ([vec(rand(MvNormal(mu[true_id_test[i]], cov[true_id_test[i]]), 1)) for i in 1:n_test]);
 
@@ -25,7 +25,7 @@ Z = categorical(3;name="Z");
 for i in eachindex(X)
     X[i] ~ N(:mu => Z[i], :cov => Z[i])
 end
-EM!(N; n_init=10,init_eps = 10^-6,verbose=false)
+EM!(N; n_init=10,init_eps = 10^-6,verbose=true)
 
 X_new = Observation();
 i = length(X) + 1
@@ -34,6 +34,7 @@ lik = f(X_new);
 pr(x) = (X_new(x); lik());
 @profview [pr(x) for x in X_test];
 
+inv(cholesky(diagm(ones(p))).L) * ones(p)
 
 3639.489262411928
 val(Z)

@@ -30,9 +30,9 @@ EM!(N; n_init=10,init_eps = 10^-6,verbose=true)
 X_new = Observation();
 i = length(X) + 1
 X_new ~ N(:mu => Z[i], :cov => Z[i])
-lik = f(X_new);
+lik = f(Z[i]);
 pr(x) = (X_new(x); lik());
-@profview [pr(x) for x in X_test];
+@time [pr(x) for x in X_test];
 
 inv(cholesky(diagm(ones(p))).L) * ones(p)
 

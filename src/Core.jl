@@ -799,7 +799,7 @@ function posterior_initalize(conditions, X::Vector{Observation}, density::Parsa_
 		for i in 1:tau_l
 			vv[i] = tau[i]()
 		end
-		tau_vec = (vv ./ sum(vv))
+		tau_vec = normalize_log_post(vv)
 		Pi_val = [[y for (_, y) in pi_i] for pi_i in Pi]
 		PV = Dict([pp => vv for (pp, vv) in zip(Pi_val, tau_vec)])
 		return (max = max_posterior(PV), probability = PV)

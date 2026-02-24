@@ -234,7 +234,7 @@ end
 
 function index_to_parameters(p, parameters)
 	new = Dict()
-	keys = Vector{}()
+	keys = Dict()
 	for (key, indx) in p
 		V = indx
 		if !isa(indx, AbstractVector) && !isa(indx, Int)
@@ -246,7 +246,7 @@ function index_to_parameters(p, parameters)
 		end
 		V = length(V) == 1 ? V[1] : V
 		new[key] = parameters[key][V]
-		push!(keys, V)
+		keys[key] = V
 	end
 	new[:index_key] = keys
 	return new

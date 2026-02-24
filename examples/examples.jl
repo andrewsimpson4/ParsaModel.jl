@@ -25,7 +25,7 @@ Z = categorical(3;name="Z");
 for i in eachindex(X)
     X[i] ~ N(:mu => Z[i], :cov => Z[i])
 end
-EM!(N; n_init=10,init_eps = 10^-6,verbose=true)
+EM!(N; n_init=10,init_eps = 10^-6,verbose=false)
 
 X_new = Observation();
 i = length(X) + 1

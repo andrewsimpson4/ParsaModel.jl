@@ -351,7 +351,8 @@ function LMEM(X::Set{Observation}, base::Parsa_Base;
 	verbose = true,
     max_steps=1000,
     catch_init_error = false,
-    allow_desc_likelihood = false)
+    allow_desc_likelihood = false,
+	n_M_steps = 1)
 	##########
 	X = collect(X)
 	prime_X.(X)
@@ -404,8 +405,8 @@ function LMEM(X::Set{Observation}, base::Parsa_Base;
 				call_collection(map_collector)
 				tau_wild = [(ta()) for ta in tau_chain]
 				Pi(tau_wild)
-				# for _ in 1:n_M_steps M(X, tau_wild, parameter_map, base) end
-				M(X, tau_wild, parameter_map, base)
+				for _ in 1:n_M_steps M(X, tau_wild, parameter_map, base) end
+				# M(X, tau_wild, parameter_map, base)
 				# println(lik_new)
 				lik_old = lik_new
 				lik_new = likelihood()
@@ -460,8 +461,8 @@ function LMEM(X::Set{Observation}, base::Parsa_Base;
 		call_collection(map_collector)
 		tau::Vector{Vector{Real}} = [(ta()) for ta in tau_chain]
 		Pi(tau)
-		# for _ in 1:n_M_steps M(X, tau_wild, parameter_map, base) end
-		M(X, tau_wild, parameter_map, base)
+		for _ in 1:n_M_steps M(X, tau_wild, parameter_map, base) end
+		# M(X, tau_wild, parameter_map, base)
 		lik_old = lik_new
         lik_new = ((likelihood()))
 		all_likelihoods = [all_likelihoods; Float64(lik_new)]

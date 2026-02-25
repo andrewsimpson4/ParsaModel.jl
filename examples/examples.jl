@@ -25,7 +25,7 @@ Z = categorical(3;name="Z");
 for i in eachindex(X)
     X[i] ~ N(:mu => Z[i], :cov => Z[i])
 end
-EM!(N; n_init=10,init_eps = 10^-6,verbose=true)
+EM!(N; n_init=10,init_eps = 10^-3,verbose=true)
 
 X_new = Observation();
 i = length(X) + 1
@@ -187,7 +187,7 @@ Z = categorical(K);
 for i in eachindex(iris_m);
     iris_m[i] ~ F(:mu => Z[i], :cov => Z[i])
 end
-EM!(F; n_init=100, init_eps=10^-3)
+EM!(F; n_init=10, init_eps=10^-3)
 
 f(iris_m[1])()
 
@@ -265,7 +265,7 @@ randindex(id, class)
 
 
 
-known_samples = sample(1:n, 30; replace=false)
+known_samples = sample(1:n, 20; replace=false)
 known_map = Dict([s => class[s] for s in known_samples])
 K = 3
 F = MtvNormal(p);
@@ -276,7 +276,9 @@ end
 for (ke, va) in known_map
     Z[ke] = va
 end
-EM!(F; n_init=10, n_wild = 10)
+EM!(F; n_init=10, init_eps = 10^-3, verbose=true)
+val(Z)
+
 
 id = [f(Z[i])().max[1] for i in 1:n];
 randindex(id, class)
@@ -384,7 +386,10 @@ for i in eachindex(iris_m);
     iris_m[i] ~ F(:mu => [cl[i], Z[cl[i]][i]], :cov => [cl[i], Z[cl[i]][i]])
     cl[i] = class[i]
 end
-EM!(F)
+EM!(F; n_init=10, init_eps=10^-2)
+val(Z)
+
+val(F[:cov])
 
 new_x = Observation();
 i = n+1
@@ -406,7 +411,7 @@ for i in eachindex(iris_m);
     cl[i] = class[i]
 end
 F[:V][1] = diagm(ones(p));
-EM!(F; n_init=10, n_wild=10)
+EM!(F; n_init=10, init_eps=10^-5)
 
 
 new_x = Observation(zeros(p));
@@ -427,7 +432,7 @@ for i in eachindex(iris_m);
     iris_m[i] ~ F(:mu => [cl[i], Z[cl[i]][i]], :cov => cov[cl[i], Z[cl[i]][i]])
     cl[i] = class[i]
 end
-EM!(F; eps=10^-6, init_eps=10^-3, verbose=true)
+EM!(F; n_init=10, eps=10^-6, init_eps=10^-3, verbose=true)
 val(F[:cov])
 val(cov)
 val(Z)
@@ -452,7 +457,7 @@ for i in eachindex(iris_m);
     iris_m[i] ~ F(:mu => [cl[i], Z[cl[i]][i]], :a => cov[cl[i], Z[cl[i]][i]], :L => cov[cl[i], Z[cl[i]][i]], :V => 1)
     cl[i] = class[i]
 end
-EM!(F; n_init=5, init_eps = 10^-1)
+EM!(F; n_init=5, init_eps = 10^-3)
 val(F[:L])
 val(F[:V])
 

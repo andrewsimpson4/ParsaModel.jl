@@ -239,7 +239,7 @@ end
 # end
 
 prod_foldl(G) = foldl((a, g) -> a + g(), G; init=0)
-sum_foldl(G) = foldl((a, g) -> a + g(), G; init=0)
+# sum_foldl(G) = foldl((a, g) -> a + g(), G; init=0)
 function sum_foldl(G)
 	vv = Vector{Float64}(undef, length(G))
 	function()
@@ -293,7 +293,7 @@ function initialize_density_evaluation(X::Vector{Observation}, conditioned_domai
 				lv_set(next_condition, k)
 				new_conditions = [conditioned_domains; next_condition]
 				lik_new = initialize_density_evaluation(G, new_conditions, density, domain_map, map_collector, independent_map; should_eval = should_eval)
-				pi_c = () -> (typeof(next_condition.value_) == Unknown ? next_condition.Z.Pi[k] : 1)
+				pi_c = () -> (typeof(next_condition.value_) == Unknown ? next_condition.Z.Pi[k] : next_condition.Z.Pi[k])
 				sum_list[i_k] = EVAL(() -> (log(pi_c()) + lik_new()), false)
 				lv_set(next_condition, 0)
 			end
@@ -404,6 +404,7 @@ function LMEM(X::Set{Observation}, base::Parsa_Base;
 				call_collection(map_collector)
 				tau_wild = [(ta()) for ta in tau_chain]
 				Pi(tau_wild)
+				# for _ in 1:n_M_steps M(X, tau_wild, parameter_map, base) end
 				M(X, tau_wild, parameter_map, base)
 				# println(lik_new)
 				lik_old = lik_new
@@ -414,7 +415,7 @@ function LMEM(X::Set{Observation}, base::Parsa_Base;
 				end
 				# init_likelihoods[i_init, i_wild] = likelihood()
 				if i_wild > 0
-					push!(init_likelihoods[i_init], Float64(lik_new))
+					push!(init_likelihoods[i_init], (lik_new))
 					verbose ? plotit(init_likelihoods, Vector{}()) : nothing
 				end
 				if abs(lik_new - lik_old) / abs(lik_old) < init_eps
@@ -442,8 +443,8 @@ function LMEM(X::Set{Observation}, base::Parsa_Base;
 	##########
 
 	lik_old = -Inf
-	# call_collection(map_collector)
-	lik_new = best_likelihood #likelihood()
+	call_collection(map_collector)
+	lik_new = likelihood() #best_likelihood #likelihood()
 
 	all_likelihoods::Vector{Real} = [Float64(lik_new)]
 	all_steps::Vector{Real} = [1]
@@ -459,7 +460,8 @@ function LMEM(X::Set{Observation}, base::Parsa_Base;
 		call_collection(map_collector)
 		tau::Vector{Vector{Real}} = [(ta()) for ta in tau_chain]
 		Pi(tau)
-		M(X, tau, parameter_map, base)
+		# for _ in 1:n_M_steps M(X, tau_wild, parameter_map, base) end
+		M(X, tau_wild, parameter_map, base)
 		lik_old = lik_new
         lik_new = ((likelihood()))
 		all_likelihoods = [all_likelihoods; Float64(lik_new)]
@@ -587,7 +589,7 @@ function wild_tau(tau)
 end
 
 function normalize_log_post(L)
-	po = zeros(length(L)) #Vector{Float64}(undef, length(L))
+	po = zeros(length(L))
 	for (i, l) in enumerate(L)
 		for ll in L
 			po[i] = po[i] + exp(ll - l)
@@ -595,8 +597,6 @@ function normalize_log_post(L)
 	end
 	return 1 ./ po
 end
-
-normalize_log_post([-9.807042136428763, -9.174499241907007, -11.574418692427368])
 
 function E_step_initalize(X::Vector{Observation}, density::Parsa_Base, all_domains, map_collector, independent_map, verbose)
 	n = length(X)

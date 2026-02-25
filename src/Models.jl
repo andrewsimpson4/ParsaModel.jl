@@ -23,18 +23,16 @@ function normal_covariance_update(value::Any, index_package::SummationPackage, l
     end
     taus = [d[2] for d in index_package]
     cov_new ./= sum(taus)
-    # return (inv = inv(cov_new), det = det(cov_new))
-    return (inv = inv(cov_new), chol = inv(cholesky(cov_new).L), det = logdet(cov_new))
+    return (inv = inv(cov_new), det = det(cov_new))
+    # return (inv = inv(cov_new), chol = inv(cholesky(cov_new).L), det = logdet(cov_new))
 end
 
 function normal_pdf(X::Any, params::Dict)
     p = length(X)
-    # y = (X - val(params[:mu]))
-    # (-p/2) * log(2pi) + (-1/2) * log(val(params[:cov]).det) + ((-1/2 * y' * val(params[:cov]).inv * y))
-    y = val(params[:cov]).chol * (X - val(params[:mu]))
-    (-p/2) * log(2pi) + (-1/2) * (val(params[:cov]).det) + ((-1/2 * y' * y))
-    # exp(BigFloat(-p/2 * log(2pi) - 1/2 * log(val(params[:cov]).det) + (-1/2 * y' * val(params[:cov]).inv * y)))
-    # max(ll, floatmin(Float64))
+    y = (X - val(params[:mu]))
+    (-p/2) * log(2pi) + (-1/2) * log(val(params[:cov]).det) + ((-1/2 * y' * val(params[:cov]).inv * y))
+    # y = val(params[:cov]).chol * (X - val(params[:mu]))
+    # (-p/2) * log(2pi) + (-1/2) * (val(params[:cov]).det) + ((-1/2 * y' * y))
 end
 
 function normal_pdf_log(X::Any, params::Dict)
@@ -51,7 +49,7 @@ normal_input(x, p) = length(x) == p && all(isa.(x, Real))
 
 MtvNormal(p) = ParsaDensity(normal_pdf, normal_pdf_log, (x) -> normal_input(x, p),
                                 :mu => Parameter(zeros(p), normal_mean_update),
-                                :cov => Parameter((chol = cholesky(diagm(ones(p))).L, inv = diagm(ones(p)), det = 1), p * (p + 1) / 2, normal_covariance_update))
+                                :cov => Parameter((inv = diagm(ones(p)), det = 1), p * (p + 1) / 2, normal_covariance_update))
 
 
 #### safe normal

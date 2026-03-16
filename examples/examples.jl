@@ -457,7 +457,7 @@ for i in eachindex(iris_m);
     iris_m[i] ~ F(:mu => [cl[i], Z[cl[i]][i]], :a => cov[cl[i], Z[cl[i]][i]], :L => cov[cl[i], Z[cl[i]][i]], :V => 1)
     cl[i] = class[i]
 end
-EM!(F; n_init=5, init_eps = 10^-3)
+EM!(F; n_init=5, init_eps = 10^-1, eps=10^-6)
 val(F[:L])
 val(F[:V])
 

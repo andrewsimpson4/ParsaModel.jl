@@ -435,23 +435,29 @@ function LMEM(X::Set{Observation}, base::Parsa_Base;
 		if lik_new > best_likelihood
 			best_likelihood = lik_new
 			best_tau = tau_wild
-			best_prams = save_parameters(base)
-			best_Pi = save_Pi(X)
+			# best_prams = save_parameters(base)
+			# best_Pi = save_Pi(X)
 		end
 	end
-	best_Pi()
-	best_prams()
+	# best_Pi()
+	# best_prams()
+	for _ in 1:1
+		call_collection(map_collector)
+		tau_wild = [(ta()) for ta in tau_chain]
+		Pi(tau_wild)
+		for _ in 1:n_M_steps M(X, tau_wild, parameter_map, base) end
+	end
 	##########
 
 	lik_old = -Inf
 	call_collection(map_collector)
-	lik_new = likelihood() #best_likelihood #likelihood()
+	lik_new = likelihood()#best_likelihood #likelihood()
 
-	all_likelihoods::Vector{Real} = []
+	all_likelihoods::Vector{Real} = [lik_new]
 	all_steps::Vector{Real} = [1]
 	i = 2
 	neg_lik_flag = false
-	while ((abs(lik_new - lik_old) / abs(lik_new)) > eps && max_steps > 0) #|| i <= 5
+	while ((abs(lik_new - lik_old) / abs(lik_new)) > eps && max_steps > 0) || i <= 3
 		if (lik_new < lik_old) && !allow_desc_likelihood
 			# println("non-increasing likelihood... stopping here")
 			# neg_lik_flag = true
@@ -464,7 +470,7 @@ function LMEM(X::Set{Observation}, base::Parsa_Base;
 		for _ in 1:n_M_steps M(X, tau_wild, parameter_map, base) end
 		# M(X, tau_wild, parameter_map, base)
 		lik_old = lik_new
-        lik_new = ((likelihood()))
+        lik_new = likelihood()
 		all_likelihoods = [all_likelihoods; Float64(lik_new)]
 		all_steps = [all_steps; i]
 		verbose ? plotit(init_likelihoods, all_likelihoods) : nothing

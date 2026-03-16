@@ -447,7 +447,7 @@ function LMEM(X::Set{Observation}, base::Parsa_Base;
 	call_collection(map_collector)
 	lik_new = likelihood() #best_likelihood #likelihood()
 
-	all_likelihoods::Vector{Real} = [Float64(lik_new)]
+	all_likelihoods::Vector{Real} = []
 	all_steps::Vector{Real} = [1]
 	i = 2
 	neg_lik_flag = false

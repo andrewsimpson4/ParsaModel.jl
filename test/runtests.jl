@@ -30,3 +30,4 @@ using LinearAlgebra, Distributions, ParsaModel
 	end
 	EM!(F; n_init = 10, init_eps=10^-3)
 end
+

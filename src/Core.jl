@@ -441,7 +441,7 @@ function LMEM(X::Set{Observation}, base::Parsa_Base;
 	end
 	# best_Pi()
 	# best_prams()
-	for _ in 1:1
+	for _ in 1:2
 		call_collection(map_collector)
 		tau_wild = [(ta()) for ta in tau_chain]
 		Pi(tau_wild)

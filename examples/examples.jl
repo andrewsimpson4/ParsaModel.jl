@@ -191,6 +191,8 @@ EM!(F; n_init=10, init_eps=10^-3)
 
 f(iris_m[1])()
 
+clip
+
 n_params(F)
 BIC(F)
 
@@ -335,8 +337,9 @@ for i in eachindex(iris_m);
 end
 EM!(F;verbose=false)
 
-new_x = Observation(zeros(p));
-new_x ~ F(:mu => cl[n+1], :cov => cl[n+1]);
+n = length(iris_m)
+new_x = Observation();
+new_x ~ F(:mu => cl[n+1], :cov => 1);
 pr = f(cl[n+1]);
 post(x) = (new_x.X = x; pr().max[1])
 class_pred = [post(x.X) for x in iris_m];
@@ -370,7 +373,7 @@ for i in eachindex(iris_m);
 end
 EM!(F)
 
-new_x = Observation(zeros(p));
+new_x = Observation();
 new_x ~ F(:mu => cl[n+1], :a => cl[n+1], :L => 1, :V => 1);
 pr = f(cl[n+1]);
 post(x) = (new_x.X = x; pr().max[1])
@@ -414,7 +417,7 @@ F[:V][1] = diagm(ones(p));
 EM!(F; n_init=10, init_eps=10^-5)
 
 
-new_x = Observation(zeros(p));
+new_x = Observation();
 i = n+1
 new_x ~ F(:mu => [cl[i], Z[cl[i]][i]], :a => [cl[i], Z[cl[i]][i]], :L => [cl[i], Z[cl[i]][i]], :V => 1)
 pr = f(cl[n+1]);
@@ -432,11 +435,7 @@ for i in eachindex(iris_m);
     iris_m[i] ~ F(:mu => [cl[i], Z[cl[i]][i]], :cov => cov[cl[i], Z[cl[i]][i]])
     cl[i] = class[i]
 end
-EM!(F; n_init=10, eps=10^-6, init_eps=10^-3, verbose=true)
-val(F[:cov])
-val(cov)
-val(Z)
-
+EM!(F; n_init=5, eps=10^-6, init_eps=10^-2, verbose=true)
 
 new_x = Observation();
 i = n+1
@@ -461,12 +460,13 @@ EM!(F; n_init=5, init_eps = 10^-1, eps=10^-6)
 val(F[:L])
 val(F[:V])
 
-new_x = Observation(zeros(p));
+new_x = Observation();
 i = n+1
 new_x ~  F(:mu => [cl[i], Z[cl[i]][i]], :a => cov[cl[i], Z[cl[i]][i]], :L => cov[cl[i], Z[cl[i]][i]], :V => 1)
 pr = f(cl[n+1]);
 post(x) = (new_x.X = x; pr().max[1])
 class_pred = [post(x.X) for x in iris_m];
 mean(class_pred .== class)
+
 
 

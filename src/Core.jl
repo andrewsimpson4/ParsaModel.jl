@@ -294,6 +294,7 @@ function initialize_density_evaluation(X::Vector{Observation}, conditioned_domai
 				new_conditions = [conditioned_domains; next_condition]
 				lik_new = initialize_density_evaluation(G, new_conditions, density, domain_map, map_collector, independent_map; should_eval = should_eval)
 				pi_c = () -> (typeof(next_condition.value_) == Unknown ? next_condition.Z.Pi[k] : next_condition.Z.Pi[k])
+				# pi_c = () -> (typeof(next_condition.value_) == Unknown ? next_condition.Z.Pi[k] : 1)
 				sum_list[i_k] = EVAL(() -> (log(pi_c()) + lik_new()), false)
 				lv_set(next_condition, 0)
 			end
@@ -441,12 +442,12 @@ function LMEM(X::Set{Observation}, base::Parsa_Base;
 	end
 	# best_Pi()
 	# best_prams()
-	for _ in 1:2
-		Pi(best_tau)
-		for _ in 1:n_M_steps M(X, best_tau, parameter_map, base) end
-		call_collection(map_collector)
-		tau_wild = [(ta()) for ta in tau_chain]
-	end
+	Pi(best_tau)
+	for _ in 1:n_M_steps M(X, best_tau, parameter_map, base) end
+	call_collection(map_collector)
+	tau_wild = [(ta()) for ta in tau_chain]
+	Pi(tau_wild)
+	for _ in 1:n_M_steps M(X, tau_wild, parameter_map, base) end
 	##########
 
 	lik_old = -Inf
@@ -675,6 +676,7 @@ function E_step_i_initalize(X_i::Observation, X::Vector{Observation}, density::P
 			tau = initialize_density_evaluation(X, used_conditions, density, domain_map, map_collector, independent_map)
 			current_ks = [(lv_v(d), typeof(condition.value_) == Unknown ) for d in used_conditions]
 			Pi_val = () -> prod([current_ks[i][2] ? d.Z.Pi[current_ks[i][1]] : d.Z.Pi[current_ks[i][1]] for (i, d) in enumerate(used_conditions)])
+			# Pi_val = () -> prod([current_ks[i][2] ? d.Z.Pi[current_ks[i][1]] : 1 for (i, d) in enumerate(used_conditions)])
 			push!(tau_chain, () -> log(Pi_val()) + tau())
 			push!(params_used, params)
 		end

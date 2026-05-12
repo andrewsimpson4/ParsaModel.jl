@@ -4,7 +4,6 @@ using CSV, DataFrames, Clustering, Distances, LinearAlgebra, StatsBase, Progress
 using Random
 include("../src/Types.jl")
 include("../src/Core.jl")
-# include("../src/Macros.jl")
 include("../src/Models.jl")
 include("../src/Notation.jl")
 

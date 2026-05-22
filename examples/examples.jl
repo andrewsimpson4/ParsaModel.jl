@@ -15,7 +15,7 @@ mu = [ones(p), ones(p) .+ 3, ones(p) .- 3];
 cov = [diagm(ones(p)), diagm(ones(p)), diagm(ones(p)) .+ 1];
 X = Observation.([vec(rand(MvNormal(mu[true_id[i]], cov[true_id[i]]), 1)) for i in 1:n]);
 
-n_test = 1000000
+n_test = 1000
 true_id_test = rand(1:K, n_test);
 X_test = ([vec(rand(MvNormal(mu[true_id_test[i]], cov[true_id_test[i]]), 1)) for i in 1:n_test]);
 
@@ -29,20 +29,10 @@ EM!(N; n_init=10,init_eps = 10^-3,verbose=true)
 X_new = Observation();
 i = length(X) + 1
 X_new ~ N(:mu => Z[i], :cov => Z[i])
-lik = f(Z[i]);
+# lik = f(Z[i]);
+lik = f(X_new);
 pr(x) = (X_new(x); lik());
-@time [pr(x) for x in X_test];
-
-inv(cholesky(diagm(ones(p))).L) * ones(p)
-
-3639.489262411928
-val(Z)
-val(N[:cov])
-
-test = Dict()
-test["b"] = 2
-test["a"] = 1
-test["c"] = 3
+[pr(x) for x in X_test]
 
 
 n = 800

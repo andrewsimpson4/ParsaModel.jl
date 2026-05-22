@@ -89,6 +89,7 @@ function f(X::Observation...)
     map_collector = OrderedDict()
     independent_map = Dict()
     domain_map = Dict([x => unique([LV for LV in GetDependentVariable(x) if !lv_isKnown(LV)]) for x in X])
+    # domain_map = Dict([x => unique([LV for LV in GetDependentVariable(x)]) for x in X])
     tt = initialize_density_evaluation(X, Vector{}(), X[1].base, domain_map, map_collector, independent_map; should_eval=true)
     function()
         call_collection(map_collector)
@@ -158,7 +159,7 @@ end
 function BIC(model)
     log_lik = model.full_likelihood()
     M = n_params(model)
-    Float64(M * log(model.n) - 2 * log_lik)
+    Float64(M * (model.n) - 2 * log_lik)
 end
 
 

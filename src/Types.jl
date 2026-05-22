@@ -217,12 +217,6 @@ end
 
 function Base.getindex(PG::ParameterGenerator, indx...)
 	indx = collect(indx)
-	# if size(indx) == ()
-	# 	indx = indx[1]
-	# end
-	# if typeof(indx) == Vector{Array{Int64, 0}}
-	# 	indx = [indx[1][1]]
-	# end
 	indx = length(indx) == 1 ? indx[1] : indx
 	if haskey(PG.parameter_map, indx)
 		return PG.parameter_map[indx]

@@ -55,20 +55,12 @@ function <--(LV::LV_wrap, val::Int)
     return nothing
 end
 
-# function <|(LV::LV_wrap, val::Int)
-#     LV.LV().value_ = val
-# end
 
 function <--(P::Parameter, val::Any)
    P.value.value = val
    return nothing
 end
 
-# function <|(P::Parameter, val::Any)
-#     P.value.value = val
-#     P.is_const = true
-#     return nothing
-# end
 
 function Base.setindex!(PG::ParameterGenerator, val, indx)
     PG[indx].value.value = val
@@ -162,20 +154,3 @@ function BIC(model)
     Float64(M * (model.n) - 2 * log_lik)
 end
 
-
-# function Base.getindex(PG::ParameterGenerator, indx...)
-#     PG.parameter_map[indx...].value.value
-# end
-
-# function BIC(model)
-#     log_lik = model.fit_model.log_likelihood()
-#     local M = 0
-#     for (_, gen) in model.base_model.parameters
-#         for (_, par) in gen.parameter_map
-#             if !par.is_const
-#                 M = M + par.value.n_parameters
-#             end
-#         end
-#     end
-#     Float64(M * log(model.fit_model.n) - 2 * log_lik)
-# end

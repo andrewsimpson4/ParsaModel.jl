@@ -153,90 +153,6 @@ struct EVAL{F}
 	is_eval::Bool
 end
 (f::EVAL)() = f.f()
-# prod_foldl(G) = foldl((a, g) -> a * g(), G; init=1)
-# sum_foldl(G) = foldl((a, g) -> a + g(), G; init=0)
-
-# prod_foldl(G) = foldl((a, g) -> a * g(), G; init=1)
-# sum_foldl(G) = foldl((a, g) -> a + g(), G; init=0)
-
-# Base.@kwdef mutable struct HOLDER
-# 	f::EVAL
-# 	is_eval::Bool
-# 	val::Float64 = 0.0
-# end
-
-# function initialize_density_evaluation(X::Vector{Observation}, conditioned_domains::Vector, density::Parsa_Base, domain_map::Dict, map_collector::OrderedDict, independent_map::Dict; should_eval=false)
-# 	relavent_conditions = intersect(reduce(vcat, [domain_map[x] for x in X]), conditioned_domains)
-# 	relavent_conditions_id = [objectid(r) for r in relavent_conditions]
-# 	conditions_key = [(LV, lv_v(LV)) for LV in relavent_conditions[sortperm(relavent_conditions_id)]]
-# 	magic_key = (X, conditions_key)
-# 	if haskey(map_collector, magic_key)
-# 		return EVAL(() -> map_collector[magic_key].val, map_collector[magic_key].is_eval)
-# 	end
-# 	independent_sets = getIndependentSets(X, relavent_conditions, independent_map, domain_map)
-# 	mult_list = Vector{EVAL}()
-# 	for G in independent_sets
-# 		all_domains = Vector{Vector{LatentVaraible}}(undef, length(G))
-# 		for (i, x) in enumerate(G)
-# 			# all_domains[i] = setdiff(domain_map[x], conditioned_domains) #GetDependentVariable(x)
-# 			all_domains[i] = GetDependentVariable(x) #GetDependentVariable(x)
-# 		end
-# 		# all_domains = [GetDependentVariable(x) for x in G] #[unique([lv for lv in GetDependentVariable(x)]) for x in G]
-# 		domain_lengths = [length(d) for d in all_domains]
-# 		domains = [LV for LV in (reduce(vcat, all_domains))]
-# 		lv_freq_map = countmap(domains)
-# 		if maximum(domain_lengths; init=0) <= maximum(values(lv_freq_map); init=0)
-# 			next_conditions = domains #setdiff(domains, conditioned_domains)
-# 			lv_freq_map = filter(x -> x[1] in next_conditions, lv_freq_map)
-# 			top_order = sortperm(collect(values(lv_freq_map)); rev=true)
-# 			next_conditions = collect(keys(lv_freq_map))[top_order]
-# 		else
-# 			next_conditions = all_domains[argmax(domain_lengths)]
-# 		end
-# 		if length(next_conditions) != 0
-# 			next_condition = next_conditions[1]
-# 			K = typeof(next_condition.value_) == Unknown ? (1:next_condition.Z.K) : lv_v(next_condition)
-# 			sum_list = Vector{EVAL}(undef, length(K))
-# 			for (i_k, k) in enumerate(K)
-# 				lv_set(next_condition, k)
-# 				new_conditions = [conditioned_domains; next_condition]
-# 				lik_new = initialize_density_evaluation(G, new_conditions, density, domain_map, map_collector, independent_map; should_eval = should_eval)
-# 				pi_c = () -> (typeof(next_condition.value_) == Unknown ? next_condition.Z.Pi[k] : 1)
-# 				sum_list[i_k] = EVAL(() -> (pi_c() * lik_new()), false)
-# 				lv_set(next_condition, 0)
-# 			end
-# 			sum_list = Tuple(sum_list)
-# 			if should_eval && sum([m.is_eval for m in sum_list]) == length(sum_list)
-# 				val = sum_foldl(sum_list)
-# 				push!(mult_list, EVAL(() -> val, true))
-# 			else
-# 				push!(mult_list, EVAL(() -> sum_foldl(sum_list), false))
-# 			end
-# 		else
-# 			for g in G
-# 				ma = rawCallDomain(g.T)
-# 				mm = index_to_parameters(ma, density.parameters)
-# 				if should_eval && !isnothing(g.X)
-# 					val = Float64(density.evaluate(g,  mm))
-# 					push!(mult_list, EVAL(() -> val, true))
-# 				else
-# 					push!(mult_list, EVAL(() -> Float64(density.evaluate(g,  mm)), false))
-# 				end
-# 			end
-
-# 		end
-
-# 	end
-# 	mult_list = Tuple(mult_list)
-# 	if should_eval && sum([m.is_eval for m in mult_list]) == length(mult_list)
-# 		val = prod_foldl(mult_list)
-# 		map_collector[magic_key] = HOLDER(f = EVAL(() -> val, true), is_eval=true)
-# 		return EVAL(() -> map_collector[magic_key].val, true)
-# 	else
-# 		map_collector[magic_key] = HOLDER(f = EVAL(() -> prod_foldl(mult_list), false), is_eval=false)
-# 		return EVAL(() -> map_collector[magic_key].val, false)
-# 	end
-# end
 
 prod_foldl(G) = foldl((a, g) -> a + g(), G; init=0)
 # sum_foldl(G) = foldl((a, g) -> a + g(), G; init=0)
@@ -364,16 +280,9 @@ function LMEM(X::Set{Observation}, base::Parsa_Base;
 	domain_map = Dict([x => unique([LV for LV in GetDependentVariable(x)]) for x in X])
 	map_collector = OrderedDict()
 	independent_map = Dict()
-	# map_collector_lik = OrderedDict()
 	(tau_chain, parameter_map, pi_parameters_used, tau_init) = E_step_initalize(X, base, domain_map, map_collector, independent_map, verbose)
-	# return (0, 0, true)
 	likelihood_ = initialize_density_evaluation(X, Vector{}(), base, domain_map, map_collector, independent_map)
 	likelihood = () -> likelihood_() #Float64(log(likelihood_()))
-	# likelihood = () -> 1
-	# if verbose
-	# 	likelihood_ = initialize_density_evaluation(X, Vector{}(), base, Dict(), map_collector)
-	# 	likelihood = () -> log(likelihood_())
-	# end
 	verbose ? update(pbar) : nothing
 	tau_wild = [wild_tau(ta()) for ta in tau_init]
 	M = M_step_init(X, tau_wild, parameter_map, base)

@@ -161,45 +161,6 @@ MtvNormalDouble(p) = ParsaDensity(normal_pdf_double, normal_pdf_log, (x) -> norm
 
 ####### Normal Parsa #########
 
-
-# function get_objective_function(param, package_index, pdf_func)
-#     X = [p[1] for p in package_index]
-#     paramter_map = [Dict([ke => p_v(va) for (ke, va) in p[3]]) for p in package_index]
-#     tau_map = [p[2] for p in package_index]
-#     N_keys = Vector{}(undef, length(X))
-#     for i in eachindex(X)
-#         pars = paramter_map[i]
-#         par_search = [t for t in values(pars)]
-#         param_index = [i for i in 1:length(par_search) if (par_search[i]) == param][1]
-#         N_keys[i] = collect(keys(pars))[param_index]
-#     end
-#     function(ve)
-#         res = 0.0
-#         for i in eachindex(X)
-#             pars = paramter_map[i]
-#             x = x_v(X[i])
-#             tau = tau_map[i]
-#             pars[N_keys[i]] = ve
-#             res = res + tau * pdf_func(x, pars)
-#         end
-#         return res
-#     end
-# end
-
-# function optimizeOrthogonal(param, package_index, log_pdf)
-#     func = get_objective_function(param, package_index, log_pdf)
-#     model = Model(Ipopt.Optimizer)
-#     set_optimizer_attribute(model, "max_iter", 3)
-#     set_silent(model)
-#     p = size(param)[1]
-#     @variable(model, V[i=1:p, j=1:p], start=param[i,j]);
-#     @constraint(model, V*V' - I == zeros(p,p));
-#     @objective(model, Max, func(V))
-#     optimize!(model)
-#     return value.(V)
-
-# end
-
 function normal_parsa_a_update(a, package_index, log_pdf)
     p = length(val(collect(package_index)[1][1]))
     a_new = 0

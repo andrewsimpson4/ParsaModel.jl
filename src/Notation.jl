@@ -145,12 +145,19 @@ function n_params(model)
             end
         end
     end
+
+    domains = unique(reduce(vcat, [GetDependentVariable(x) for x in model.X]))
+	all_Z = unique([LV.Z for LV in domains])
+	vals = Vector{}()
+	for Z in all_Z
+		M = M + length(Z.Pi) - 1
+	end
     return M
 end
 
 function BIC(model)
     log_lik = model.full_likelihood()
     M = n_params(model)
-    Float64(M * (model.n) - 2 * log_lik)
+    Float64(M * log(model.n) - 2 * log_lik)
 end
 

@@ -295,14 +295,16 @@ function initialize_density_evaluation(X::Vector{Observation}, conditioned_domai
 				sum_list[i_k] = (() -> (log(pi_c()) + lik_new()))
 				lv_set(next_condition, 0)
 			end
-			sum_list = Tuple(sum_list)
-			if should_eval && sum([m.is_eval for m in sum_list]) == length(sum_list)
-				val = sum_foldl(sum_list)()
-				push!(mult_list, (() -> val))
-			else
-				ss = sum_foldl(sum_list)
-				push!(mult_list, (() -> ss()))
-			end
+			# sum_list = Tuple(sum_list)
+			# if should_eval && sum([m.is_eval for m in sum_list]) == length(sum_list)
+			# 	val = sum_foldl(sum_list)()
+			# 	push!(mult_list, (() -> val))
+			# else
+			# 	ss = sum_foldl(sum_list)
+			# 	push!(mult_list, (() -> ss()))
+			# end
+			ss = sum_foldl(sum_list)
+			push!(mult_list, (() -> ss()))
 		else
 			for g in G
 				ma = rawCallDomain(g.T)
@@ -318,17 +320,20 @@ function initialize_density_evaluation(X::Vector{Observation}, conditioned_domai
 		end
 
 	end
-	mult_list = Tuple(mult_list)
-	if should_eval && sum([m.is_eval for m in mult_list]) == length(mult_list)
-		val = prod_foldl(mult_list)
-		map_collector[magic_key] = HOLDER(f = (() -> val), is_eval=true)
-		obj = map_collector[magic_key]
-		return (() -> obj.val)
-	else
-		map_collector[magic_key] = HOLDER(f = (() -> prod_foldl(mult_list)), is_eval=false)
-		obj = map_collector[magic_key]
-		return (() -> obj.val)
-	end
+	# mult_list = Tuple(mult_list)
+	# if should_eval && sum([m.is_eval for m in mult_list]) == length(mult_list)
+	# 	val = prod_foldl(mult_list)
+	# 	map_collector[magic_key] = HOLDER(f = (() -> val), is_eval=true)
+	# 	obj = map_collector[magic_key]
+	# 	return (() -> obj.val)
+	# else
+	# 	map_collector[magic_key] = HOLDER(f = (() -> prod_foldl(mult_list)), is_eval=false)
+	# 	obj = map_collector[magic_key]
+	# 	return (() -> obj.val)
+	# end
+	map_collector[magic_key] = HOLDER(f = (() -> prod_foldl(mult_list)), is_eval=false)
+	obj = map_collector[magic_key]
+	return (() -> obj.val)
 end
 
 

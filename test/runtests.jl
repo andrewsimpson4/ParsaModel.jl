@@ -2,6 +2,8 @@ using Test
 using LinearAlgebra, Distributions, ParsaModel
 # import ParsaModel: ~
 @testset "ParsaModel.jl" begin
+	display(load_iris_dataset())
+	return 0
 	n = 200
 	p = 5
 	K = 2

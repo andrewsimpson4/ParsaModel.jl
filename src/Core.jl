@@ -2,6 +2,7 @@ using UnicodePlots
 using Distributions
 using OrderedCollections
 using Base: IdSet
+using CSV, DataFrames
 
 function getRelaventTaus(parameter::Parameter, X::Vector{Observation}, tau::Vector{Vector{Real}}, parameter_map::Vector{Vector{Any}})
 	reduce(vcat, [[(x, pr, param) for (pr, param) in zip(tau_x, params_x) if parameter in values(param)] for (x, tau_x, params_x) in zip(X, tau, parameter_map)])
@@ -168,10 +169,89 @@ function sum_foldl(G)
 end
 
 Base.@kwdef mutable struct HOLDER
-	f::EVAL
+	# f::EVAL
+	f::Function
 	is_eval::Bool
 	val::Float64 = 0.0
 end
+
+# function initialize_density_evaluation(X::Vector{Observation}, conditioned_domains::Vector, density::Parsa_Base, domain_map::Dict, map_collector::OrderedDict, independent_map::Dict; should_eval=false)
+# 	relavent_conditions = intersect(reduce(vcat, [domain_map[x] for x in X]), conditioned_domains)
+# 	relavent_conditions_id = [objectid(r) for r in relavent_conditions]
+# 	conditions_key = [(LV, lv_v(LV)) for LV in relavent_conditions[sortperm(relavent_conditions_id)]]
+# 	magic_key = (X, conditions_key)
+# 	if haskey(map_collector, magic_key)
+# 		obj = map_collector[magic_key]
+# 		return EVAL(() -> obj.val, obj.is_eval)
+# 	end
+# 	independent_sets = getIndependentSets(X, relavent_conditions, independent_map, domain_map)
+# 	mult_list = Vector{EVAL}()
+# 	for G in independent_sets
+# 		all_domains = Vector{Vector{LatentVaraible}}(undef, length(G))
+# 		for (i, x) in enumerate(G)
+# 			# all_domains[i] = setdiff(domain_map[x], conditioned_domains) #GetDependentVariable(x)
+# 			all_domains[i] = GetDependentVariable(x) #GetDependentVariable(x)
+# 		end
+# 		# all_domains = [GetDependentVariable(x) for x in G] #[unique([lv for lv in GetDependentVariable(x)]) for x in G]
+# 		domain_lengths = [length(d) for d in all_domains]
+# 		domains = [LV for LV in (reduce(vcat, all_domains))]
+# 		lv_freq_map = countmap(domains)
+# 		if maximum(domain_lengths; init=0) <= maximum(values(lv_freq_map); init=0)
+# 			next_conditions = domains #setdiff(domains, conditioned_domains)
+# 			lv_freq_map = filter(x -> x[1] in next_conditions, lv_freq_map)
+# 			top_order = sortperm(collect(values(lv_freq_map)); rev=true)
+# 			next_conditions = collect(keys(lv_freq_map))[top_order]
+# 		else
+# 			next_conditions = all_domains[argmax(domain_lengths)]
+# 		end
+# 		if length(next_conditions) != 0
+# 			next_condition = next_conditions[1]
+# 			K = typeof(next_condition.value_) == Unknown ? (1:next_condition.Z.K) : lv_v(next_condition)
+# 			sum_list = Vector{EVAL}(undef, length(K))
+# 			for (i_k, k) in enumerate(K)
+# 				lv_set(next_condition, k)
+# 				new_conditions = [conditioned_domains; next_condition]
+# 				lik_new = initialize_density_evaluation(G, new_conditions, density, domain_map, map_collector, independent_map; should_eval = should_eval)
+# 				pi_c = () -> (typeof(next_condition.value_) == Unknown ? next_condition.Z.Pi[k] : next_condition.Z.Pi[k])
+# 				# pi_c = () -> (typeof(next_condition.value_) == Unknown ? next_condition.Z.Pi[k] : 1)
+# 				sum_list[i_k] = EVAL(() -> (log(pi_c()) + lik_new()), false)
+# 				lv_set(next_condition, 0)
+# 			end
+# 			sum_list = Tuple(sum_list)
+# 			if should_eval && sum([m.is_eval for m in sum_list]) == length(sum_list)
+# 				val = sum_foldl(sum_list)()
+# 				push!(mult_list, EVAL(() -> val, true))
+# 			else
+# 				ss = sum_foldl(sum_list)
+# 				push!(mult_list, EVAL(() -> ss(), false))
+# 			end
+# 		else
+# 			for g in G
+# 				ma = rawCallDomain(g.T)
+# 				mm = index_to_parameters(ma, density.parameters)
+# 				if should_eval && !isnothing(g.X)
+# 					val = (density.evaluate(g,  mm))
+# 					push!(mult_list, EVAL(() -> val, true))
+# 				else
+# 					push!(mult_list, EVAL(() -> (density.evaluate(g,  mm)), false))
+# 				end
+# 			end
+
+# 		end
+
+# 	end
+# 	mult_list = Tuple(mult_list)
+# 	if should_eval && sum([m.is_eval for m in mult_list]) == length(mult_list)
+# 		val = prod_foldl(mult_list)
+# 		map_collector[magic_key] = HOLDER(f = EVAL(() -> val, true), is_eval=true)
+# 		obj = map_collector[magic_key]
+# 		return EVAL(() -> obj.val, true)
+# 	else
+# 		map_collector[magic_key] = HOLDER(f = EVAL(() -> prod_foldl(mult_list), false), is_eval=false)
+# 		obj = map_collector[magic_key]
+# 		return EVAL(() -> obj.val, false)
+# 	end
+# end
 
 function initialize_density_evaluation(X::Vector{Observation}, conditioned_domains::Vector, density::Parsa_Base, domain_map::Dict, map_collector::OrderedDict, independent_map::Dict; should_eval=false)
 	relavent_conditions = intersect(reduce(vcat, [domain_map[x] for x in X]), conditioned_domains)
@@ -179,10 +259,11 @@ function initialize_density_evaluation(X::Vector{Observation}, conditioned_domai
 	conditions_key = [(LV, lv_v(LV)) for LV in relavent_conditions[sortperm(relavent_conditions_id)]]
 	magic_key = (X, conditions_key)
 	if haskey(map_collector, magic_key)
-		return EVAL(() -> map_collector[magic_key].val, map_collector[magic_key].is_eval)
+		obj = map_collector[magic_key]
+		return () -> obj.val
 	end
 	independent_sets = getIndependentSets(X, relavent_conditions, independent_map, domain_map)
-	mult_list = Vector{EVAL}()
+	mult_list = Vector{}()
 	for G in independent_sets
 		all_domains = Vector{Vector{LatentVaraible}}(undef, length(G))
 		for (i, x) in enumerate(G)
@@ -204,23 +285,23 @@ function initialize_density_evaluation(X::Vector{Observation}, conditioned_domai
 		if length(next_conditions) != 0
 			next_condition = next_conditions[1]
 			K = typeof(next_condition.value_) == Unknown ? (1:next_condition.Z.K) : lv_v(next_condition)
-			sum_list = Vector{EVAL}(undef, length(K))
+			sum_list = Vector{}(undef, length(K))
 			for (i_k, k) in enumerate(K)
 				lv_set(next_condition, k)
 				new_conditions = [conditioned_domains; next_condition]
 				lik_new = initialize_density_evaluation(G, new_conditions, density, domain_map, map_collector, independent_map; should_eval = should_eval)
 				pi_c = () -> (typeof(next_condition.value_) == Unknown ? next_condition.Z.Pi[k] : next_condition.Z.Pi[k])
 				# pi_c = () -> (typeof(next_condition.value_) == Unknown ? next_condition.Z.Pi[k] : 1)
-				sum_list[i_k] = EVAL(() -> (log(pi_c()) + lik_new()), false)
+				sum_list[i_k] = (() -> (log(pi_c()) + lik_new()))
 				lv_set(next_condition, 0)
 			end
 			sum_list = Tuple(sum_list)
 			if should_eval && sum([m.is_eval for m in sum_list]) == length(sum_list)
 				val = sum_foldl(sum_list)()
-				push!(mult_list, EVAL(() -> val, true))
+				push!(mult_list, (() -> val))
 			else
 				ss = sum_foldl(sum_list)
-				push!(mult_list, EVAL(() -> ss(), false))
+				push!(mult_list, (() -> ss()))
 			end
 		else
 			for g in G
@@ -228,9 +309,9 @@ function initialize_density_evaluation(X::Vector{Observation}, conditioned_domai
 				mm = index_to_parameters(ma, density.parameters)
 				if should_eval && !isnothing(g.X)
 					val = (density.evaluate(g,  mm))
-					push!(mult_list, EVAL(() -> val, true))
+					push!(mult_list, (() -> val))
 				else
-					push!(mult_list, EVAL(() -> (density.evaluate(g,  mm)), false))
+					push!(mult_list, (() -> (density.evaluate(g,  mm))))
 				end
 			end
 
@@ -240,13 +321,16 @@ function initialize_density_evaluation(X::Vector{Observation}, conditioned_domai
 	mult_list = Tuple(mult_list)
 	if should_eval && sum([m.is_eval for m in mult_list]) == length(mult_list)
 		val = prod_foldl(mult_list)
-		map_collector[magic_key] = HOLDER(f = EVAL(() -> val, true), is_eval=true)
-		return EVAL(() -> map_collector[magic_key].val, true)
+		map_collector[magic_key] = HOLDER(f = (() -> val), is_eval=true)
+		obj = map_collector[magic_key]
+		return (() -> obj.val)
 	else
-		map_collector[magic_key] = HOLDER(f = EVAL(() -> prod_foldl(mult_list), false), is_eval=false)
-		return EVAL(() -> map_collector[magic_key].val, false)
+		map_collector[magic_key] = HOLDER(f = (() -> prod_foldl(mult_list)), is_eval=false)
+		obj = map_collector[magic_key]
+		return (() -> obj.val)
 	end
 end
+
 
 function prime_X(X::Observation)
     domains = GetDependentVariable(X)
@@ -772,3 +856,11 @@ function max_posterior_val(post)
 	return (top_prob)
 end
 
+function load_iris_dataset()
+	iris = CSV.read("../examples/datasets/Iris.csv", DataFrame)
+	iris_matrix = Matrix(iris[:, 2:5])
+	class_string = vec(iris[:,6]);
+	mapping = Dict(val => i for (i, val) in enumerate(unique(class_string)));
+	class = [mapping[val] for val in class_string];
+	return iris_matrix, class
+end

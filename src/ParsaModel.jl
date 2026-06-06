@@ -43,5 +43,6 @@ export ParsaBase,
          val,
          SummationPackage,
          n_params,
-         BIC
+         BIC,
+         load_iris_dataset
 end

@@ -272,12 +272,17 @@ function initialize_density_evaluation(X::Vector{Observation}, conditioned_domai
 			all_domains[i] =  GetDependentVariable(x) #[LV for LV in unique(GetDependentVariable(x)) if typeof(LV.value_) == Unknown] #GetDependentVariable(x)
 		end
 		domains = [LV for LV in (reduce(vcat, all_domains))]
-
+	    domain_lengths = [length(d) for d in all_domains]
 		lv_freq_map = countmap(domains)
-		next_conditions = domains #setdiff(domains, conditioned_domains)
-		lv_freq_map = filter(x -> x[1] in next_conditions, lv_freq_map)
-		top_order = sortperm(collect(values(lv_freq_map)); rev=true)
-		next_conditions = collect(keys(lv_freq_map))[top_order]
+		if maximum(domain_lengths, init=0) > maximum(values(lv_freq_map), init=0)
+			next_conditions = all_domains[argmax(domain_lengths)]
+		else
+			next_conditions = domains #setdiff(domains, conditioned_domains)
+			lv_freq_map = filter(x -> x[1] in next_conditions, lv_freq_map)
+			top_order = sortperm(collect(values(lv_freq_map)); rev=true)
+			next_conditions = collect(keys(lv_freq_map))[top_order]
+		end
+
 		if length(next_conditions) != 0
 			next_condition = next_conditions[1]
 			K = typeof(next_condition.value_) == Unknown ? (1:next_condition.Z.K) : lv_v(next_condition)

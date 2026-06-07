@@ -170,7 +170,8 @@ end
 
 Base.@kwdef mutable struct HOLDER
 	# f::EVAL
-	f::Function
+	# f::Function
+	f::Any
 	is_eval::Bool
 	val::Float64 = 0.0
 end
@@ -256,7 +257,8 @@ end
 function initialize_density_evaluation(X::Vector{Observation}, conditioned_domains::Vector, density::Parsa_Base, domain_map::Dict, map_collector::OrderedDict, independent_map::Dict; should_eval=false)
 	relavent_conditions = intersect(reduce(vcat, [domain_map[x] for x in X]), conditioned_domains)
 	relavent_conditions_id = [objectid(r) for r in relavent_conditions]
-	conditions_key = [(LV, lv_v(LV)) for LV in relavent_conditions[sortperm(relavent_conditions_id)]]
+	relavent_conditions = relavent_conditions[sortperm(relavent_conditions_id)]
+	conditions_key = [(LV, lv_v(LV)) for LV in relavent_conditions]
 	magic_key = (X, conditions_key)
 	if haskey(map_collector, magic_key)
 		obj = map_collector[magic_key]
@@ -267,21 +269,15 @@ function initialize_density_evaluation(X::Vector{Observation}, conditioned_domai
 	for G in independent_sets
 		all_domains = Vector{Vector{LatentVaraible}}(undef, length(G))
 		for (i, x) in enumerate(G)
-			# all_domains[i] = setdiff(domain_map[x], conditioned_domains) #GetDependentVariable(x)
-			all_domains[i] = GetDependentVariable(x) #GetDependentVariable(x)
+			all_domains[i] =  GetDependentVariable(x) #[LV for LV in unique(GetDependentVariable(x)) if typeof(LV.value_) == Unknown] #GetDependentVariable(x)
 		end
-		# all_domains = [GetDependentVariable(x) for x in G] #[unique([lv for lv in GetDependentVariable(x)]) for x in G]
-		domain_lengths = [length(d) for d in all_domains]
 		domains = [LV for LV in (reduce(vcat, all_domains))]
+
 		lv_freq_map = countmap(domains)
-		if maximum(domain_lengths; init=0) <= maximum(values(lv_freq_map); init=0)
-			next_conditions = domains #setdiff(domains, conditioned_domains)
-			lv_freq_map = filter(x -> x[1] in next_conditions, lv_freq_map)
-			top_order = sortperm(collect(values(lv_freq_map)); rev=true)
-			next_conditions = collect(keys(lv_freq_map))[top_order]
-		else
-			next_conditions = all_domains[argmax(domain_lengths)]
-		end
+		next_conditions = domains #setdiff(domains, conditioned_domains)
+		lv_freq_map = filter(x -> x[1] in next_conditions, lv_freq_map)
+		top_order = sortperm(collect(values(lv_freq_map)); rev=true)
+		next_conditions = collect(keys(lv_freq_map))[top_order]
 		if length(next_conditions) != 0
 			next_condition = next_conditions[1]
 			K = typeof(next_condition.value_) == Unknown ? (1:next_condition.Z.K) : lv_v(next_condition)
@@ -862,7 +858,9 @@ function max_posterior_val(post)
 end
 
 function load_iris_dataset()
-	iris = CSV.read("../examples/datasets/Iris.csv", DataFrame)
+	path = joinpath(@__DIR__, "..", "examples/datasets")
+    file = joinpath(path, "Iris.csv")
+	iris = CSV.read(file, DataFrame)
 	iris_matrix = Matrix(iris[:, 2:5])
 	class_string = vec(iris[:,6]);
 	mapping = Dict(val => i for (i, val) in enumerate(unique(class_string)));

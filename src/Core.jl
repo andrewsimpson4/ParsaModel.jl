@@ -265,6 +265,8 @@ function initialize_density_evaluation(X::Vector{Observation}, conditioned_domai
 		return () -> obj.val
 	end
 	independent_sets = getIndependentSets(X, relavent_conditions, independent_map, domain_map)
+	# println(length(independent_sets))
+	# println([length(unique(G)) for G in independent_sets])
 	mult_list = Vector{}()
 	for G in independent_sets
 		all_domains = Vector{Vector{LatentVaraible}}(undef, length(G))
@@ -293,7 +295,7 @@ function initialize_density_evaluation(X::Vector{Observation}, conditioned_domai
 				lik_new = initialize_density_evaluation(G, new_conditions, density, domain_map, map_collector, independent_map; should_eval = should_eval)
 				pi_c = () -> (typeof(next_condition.value_) == Unknown ? next_condition.Z.Pi[k] : next_condition.Z.Pi[k])
 				# pi_c = () -> (typeof(next_condition.value_) == Unknown ? next_condition.Z.Pi[k] : 1)
-				sum_list[i_k] = (() -> (log(pi_c()) + lik_new()))
+				sum_list[i_k] = (() -> (log(pi_c() + 10^-8) + lik_new()))
 				lv_set(next_condition, 0)
 			end
 			# sum_list = Tuple(sum_list)
@@ -676,7 +678,7 @@ function E_step_i_initalize(X_i::Observation, X::Vector{Observation}, density::P
 			current_ks = [(lv_v(d), typeof(condition.value_) == Unknown ) for d in used_conditions]
 			Pi_val = () -> prod([current_ks[i][2] ? d.Z.Pi[current_ks[i][1]] : d.Z.Pi[current_ks[i][1]] for (i, d) in enumerate(used_conditions)])
 			# Pi_val = () -> prod([current_ks[i][2] ? d.Z.Pi[current_ks[i][1]] : 1 for (i, d) in enumerate(used_conditions)])
-			push!(tau_chain, () -> log(Pi_val()) + tau())
+			push!(tau_chain, () -> log(Pi_val() + 10^-8) + tau())
 			push!(params_used, params)
 		end
 		lv_set(condition, 0)
@@ -829,7 +831,8 @@ function posterior_initalize!(domains, X::Vector{Observation}, density::Parsa_Ba
 			push!(Pi_used, Tuple([(d.Z, lv_v(d)) for d in domains]))
 			current_ks = [lv_v(d) for d in used_conditions]
 			Pi_val = () -> prod([d.Z.Pi[current_ks[i]] for (i, d) in enumerate(used_conditions)])
-			push!(tau_chain, () -> log(Pi_val()) + tau())
+			push!(tau_chain, () -> log(Pi_val()
+			+ 10^-8) + tau())
 		end
 		lv_set(condition, 0)
 

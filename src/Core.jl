@@ -193,12 +193,12 @@ function initialize_density_evaluation(X::Vector{Observation}, conditioned_domai
 	relavent_conditions = intersect(reduce(vcat, [domain_map[x] for x in X]), conditioned_domains)
 	relavent_conditions_id = [objectid(r) for r in relavent_conditions]
 	relavent_conditions = relavent_conditions[sortperm(relavent_conditions_id)]
-	conditions_key = [(LV, lv_v(LV)) for LV in relavent_conditions]
-	magic_key = (X, conditions_key)
-	if haskey(map_collector, magic_key)
-		obj = map_collector[magic_key]
-		return () -> obj.val
-	end
+	# conditions_key = [(LV, lv_v(LV)) for LV in relavent_conditions]
+	# magic_key = (X, conditions_key)
+	# if haskey(map_collector, magic_key)
+	# 	obj = map_collector[magic_key]
+	# 	return () -> obj.val
+	# end
 	independent_sets = getIndependentSets(X, relavent_conditions, independent_map, domain_map)
 	if check_independence exhaustiveIndependenceCheck(independent_sets) end
 	mult_list = Vector{}()
@@ -227,8 +227,8 @@ function initialize_density_evaluation(X::Vector{Observation}, conditioned_domai
 				lv_set(next_condition, k)
 				new_conditions = [conditioned_domains; next_condition]
 				lik_new = initialize_density_evaluation(G, new_conditions, density, domain_map, map_collector, independent_map; should_eval = should_eval)
-				pi_c = () -> (typeof(next_condition.value_) == Unknown ? next_condition.Z.Pi[k] : next_condition.Z.Pi[k])
-				# pi_c = () -> (typeof(next_condition.value_) == Unknown ? next_condition.Z.Pi[k] : 1)
+				# pi_c = () -> (typeof(next_condition.value_) == Unknown ? next_condition.Z.Pi[k] : next_condition.Z.Pi[k])
+				pi_c = () -> (typeof(next_condition.value_) == Unknown ? next_condition.Z.Pi[k] : 1)
 				sum_list[i_k] = (() -> (log(pi_c() + 10^-8) + lik_new()))
 				lv_set(next_condition, 0)
 			end
@@ -249,9 +249,10 @@ function initialize_density_evaluation(X::Vector{Observation}, conditioned_domai
 		end
 
 	end
-	map_collector[magic_key] = HOLDER(f = (() -> prod_foldl(mult_list)), is_eval=false)
-	obj = map_collector[magic_key]
-	return (() -> obj.val)
+	# map_collector[magic_key] = HOLDER(f = (() -> prod_foldl(mult_list)), is_eval=false)
+	# obj = map_collector[magic_key]
+	# return (() -> obj.val)
+	return () -> prod_foldl(mult_list)
 end
 
 
@@ -591,8 +592,8 @@ function E_step_i_initalize(X_i::Observation, X::Vector{Observation}, density::P
 			params = index_to_parameters(rawCallDomain(X_i.T), density.parameters)
 			tau = initialize_density_evaluation(X, used_conditions, density, domain_map, map_collector, independent_map)
 			current_ks = [(lv_v(d), typeof(condition.value_) == Unknown ) for d in used_conditions]
-			Pi_val = () -> prod([current_ks[i][2] ? d.Z.Pi[current_ks[i][1]] : d.Z.Pi[current_ks[i][1]] for (i, d) in enumerate(used_conditions)])
-			# Pi_val = () -> prod([current_ks[i][2] ? d.Z.Pi[current_ks[i][1]] : 1 for (i, d) in enumerate(used_conditions)])
+			# Pi_val = () -> prod([current_ks[i][2] ? d.Z.Pi[current_ks[i][1]] : d.Z.Pi[current_ks[i][1]] for (i, d) in enumerate(used_conditions)])
+			Pi_val = () -> prod([current_ks[i][2] ? d.Z.Pi[current_ks[i][1]] : 1 for (i, d) in enumerate(used_conditions)])
 			push!(tau_chain, () -> log(Pi_val() + 10^-8) + tau())
 			push!(params_used, params)
 		end

@@ -30,7 +30,8 @@ end
 function normal_pdf(X::Any, params::Dict)
     p = length(X)
     y = (X - val(params[:mu]))
-    (-p / 2) * log(2pi) + (-1 / 2) * log(val(params[:cov]).det) + ((-1 / 2 * y' * val(params[:cov]).inv * y))
+    # (-p / 2) * log(2pi) + (-1 / 2) * log(val(params[:cov]).det) + ((-1 / 2 * y' * val(params[:cov]).inv * y))
+    (-p / 2) * log(2pi) + (-1 / 2) * log(val(params[:cov]).det) - 1/2*dot(y, val(params[:cov]).inv, y)
     # y = val(params[:cov]).chol * (X - val(params[:mu]))
     # (-p/2) * log(2pi) + (-1/2) * (val(params[:cov]).det) + ((-1/2 * y' * y))
 end

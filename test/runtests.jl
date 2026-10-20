@@ -19,7 +19,7 @@ using LinearAlgebra, Distributions, ParsaModel
         class[i] = class_id[i]
         X[i] ~ F(:mu => class[i], :cov => Z[class[i]])
     end
-    EM!(F; n_init=30, init_eps=10^-6)
+    EM!(F; n_init=100, init_eps=10^-6)
 
     F = ParsimoniousNormal(p)
     class = categorical(n_classes)
@@ -173,7 +173,7 @@ using LinearAlgebra, Distributions, ParsaModel
     pr = f(cl[n+1])
     post(x) = (new_x(x); pr().max[1])
     class_pred = [post(x.X) for x in iris_m]
-    mean(class_pred .== class)
+    display(mean(class_pred .== class))
 
 
 

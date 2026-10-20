@@ -1,99 +1,115 @@
-
+# High-level DSL notation and user-facing API for ParsaModel.jl
 
 macro |>(mod, code)
     Base.eval(mod, code)
 end
 
-categorical(K::Int; name="LV") = CategoricalZ(K = K, name=name)
+categorical(K::Int; name::String = "LV") = CategoricalZ(K = K, name = name)
 
-function categorical(V::Vector{<:Pair}; name ="LV")
+function categorical(V::Vector{<:Pair}; name::String = "LV")
     set = CategoricalZset()
     for (ke, va) in V
-        set.set[ke] = categorical(va, name=name)
+        set.set[ke] = categorical(va, name = name)
     end
     return set
 end
 
-function categorical(V::Vector{Float64}; name ="LV")
-    LV = CategoricalZ(K = length(V), name=name)
-    LV.Pi = V
-    LV.constant = true
-    return LV
+function categorical(V::Vector{Float64}; name::String = "LV")
+    lv = CategoricalZ(K = length(V), Pi = V, name = name, constant = true)
+    return lv
 end
-function categorical(V::Vector{Real}; name ="LV")
-    LV = CategoricalZ(K = length(V), name=name)
-    LV.Pi = V
-    return LV
+
+function categorical(V::Vector{Real}; name::String = "LV")
+    lv = CategoricalZ(K = length(V), Pi = Float64.(V), name = name)
+    return lv
 end
 
 function (PB::Parsa_Base)(x...)
-	return (PB, collect(x))
+    return (PB, collect(x))
 end
 
 function (PB::Parsa_Base)(x::Vector{<:Pair})
-	return (PB, x)
+    return (PB, x)
 end
 
 function Base.:~(X::Observation, map::Any)
-    X.base = map[1]
+    base = map[1]
+    X.base = base
     X.T = map[2]
-    push!(map[1].X, X)
+    push!(base.X, X)
     domains = GetDependentVariable(X)
-    for LV in domains
-        if !isnothing(LV.Z.base)
-            if LV.Z.base != map[1]
-                error("Z already associated with a base distribution")
-            end
+    for lv in domains
+        if !isnothing(lv.Z.base) && lv.Z.base != base
+            error("Z already associated with a base distribution")
         end
-        LV.Z.base = map[1]
+        lv.Z.base = base
     end
     return nothing
 end
 
-function <--(LV::LV_wrap, val::Int)
-    lv_set_init(LV.LV(), val)
+function <--(lv::LV_wrap, v::Int)
+    lv_set_init(resolve_lv(lv), v)
     return nothing
 end
 
-
-function <--(P::Parameter, val::Any)
-   P.value.value = val
-   return nothing
-end
-
-
-function Base.setindex!(PG::ParameterGenerator, val, indx)
-    PG[indx].value.value = val
-    PG[indx].is_const = true
+function <--(P::Parameter, v::Any)
+    P.value.value = v
     return nothing
 end
 
-function Base.setindex!(Z::CategoricalZ, val, indx)
-    Z[indx].LV().value_ = val
+function Base.setindex!(PG::ParameterGenerator, v, indx)
+    param = PG[indx]
+    param.value.value = v
+    param.is_const = true
+    return nothing
 end
 
-function Base.setindex!(Z::LV_wrap, val, indx)
-    Z.LV()[indx].LV().value_ = val
+function Base.setindex!(Z::CategoricalZ, v, indx)
+    resolve_lv(Z[indx]).value_ = v
+    return nothing
+end
+
+function Base.setindex!(Z::LV_wrap, v, indx)
+    resolve_lv(resolve_lv(Z)[indx]).value_ = v
+    return nothing
+end
+
+struct ObservationLikelihoodEvaluator
+    dag::DensityDAG
+    ref::DAGNodeRef
+end
+
+function (ole::ObservationLikelihoodEvaluator)()
+    call_collection(ole.dag)
+    return ole.ref()
 end
 
 function f(X::Observation...)
-    X = collect(X)
-    map_collector = OrderedDict()
-    independent_map = Dict()
-    # domain_map = Dict([x => unique([LV for LV in GetDependentVariable(x) if !lv_isKnown(LV)]) for x in X])
-    domain_map = Dict([x => unique([LV for LV in GetDependentVariable(x)]) for x in X])
-    tt = initialize_density_evaluation(X, Vector{}(), X[1].base, domain_map, map_collector, independent_map; should_eval=true)
-    function()
-        call_collection(map_collector)
-        tt()
+    X_vec = collect(Observation, X)
+    for x in X_vec
+        prime_X(x)
     end
+    dag = DensityDAG(mutable_obs = Set{Observation}(X_vec))
+    independent_map = Dict{Any, Any}()
+    domain_map = Dict{Observation, Vector{LatentVaraible}}(x => unique(GetDependentVariable(x)) for x in X_vec)
+    ref = initialize_density_evaluation(X_vec, LatentVaraible[], X_vec[1].base, domain_map, dag, independent_map; should_eval = true)
+    return ObservationLikelihoodEvaluator(dag, ref)
 end
 
 function f(LV::LV_wrap...)
-    LVs = [lv.LV() for lv in LV]
-    prime_X.(LVs[1].Z.base.X)
-    all_X = unique(reduce(vcat, [collect(LV.dependent_X) for LV in LVs]))
-    posterior_initalize(LVs, all_X, all_X[1].base)
+    LVs = LatentVaraible[resolve_lv(lv) for lv in LV]
+    for x in LVs[1].Z.base.X
+        prime_X(x)
+    end
+    all_X = Vector{Observation}()
+    for lv in LVs
+        for x in lv.dependent_X
+            if !(x in all_X)
+                push!(all_X, x)
+            end
+        end
+    end
+    return posterior_initalize(LVs, all_X, all_X[1].base)
 end
 
 function EM!(PB::Parsa_Base; args...)
@@ -109,55 +125,30 @@ end
 
 function Base.getindex(PB::Parsa_Base, sym::Symbol)
     return PB.parameters[sym]
-    local to_return = Dict()
-    for (key, val) in PB.parameters[sym].parameter_map
-        to_return[key] = val
-    end
-    return to_return
 end
 
-function val(P::ParameterGenerator)
-    local to_return = Dict()
-    for (key, val) in P.parameter_map
-        to_return[key] = val.value.value
-    end
-    return to_return
-end
-val(P::Parameter) = P.value.value
-val(P::CategoricalZ) = P.Pi
-function val(P::CategoricalZset)
-    local to_return = Dict()
-    for (key, val_) in P.set
-        to_return[key] = val(val_)
-    end
-    return to_return
-end
-function val(X::Observation)
-	X.X
-end
-
-function n_params(model)
-    M::Int = 0
+function n_params(model::Parsa_Base)
+    M = 0
     for (_, gen) in model.parameters
         for (_, par) in gen.parameter_map
             if !par.is_const
-                M = M + par.value.n_parameters
+                M += Int(par.value.n_parameters)
             end
         end
     end
-
-    domains = unique(reduce(vcat, [GetDependentVariable(x) for x in model.X]))
-	all_Z = unique([LV.Z for LV in domains])
-	vals = Vector{}()
-	for Z in all_Z
-		M = M + length(Z.Pi) - 1
-	end
+    X_vec = collect(model.X)
+    all_Z = _collect_all_Z(X_vec)
+    for Z in all_Z
+        if !Z.constant
+            M += length(Z.Pi) - 1
+        end
+    end
     return M
 end
 
-function BIC(model)
+function BIC(model::Parsa_Base)
     log_lik = model.full_likelihood()
     M = n_params(model)
-    Float64(M * log(model.n) - 2 * log_lik)
+    return Float64(M * log(model.n) - 2 * log_lik)
 end
 

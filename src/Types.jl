@@ -16,7 +16,7 @@ end
 Base.@kwdef mutable struct CategoricalZ
 	K::Int
 	LV = Dict{Any, LatentVaraible}()
-	Pi::Vector{Real} = ones(K) ./ K
+	Pi::Vector{Float64} = ones(K) ./ K
     name::String
 	constant = false
 	base = nothing
@@ -38,9 +38,9 @@ Base.@kwdef mutable struct CategoricalZVec
 end
 
 
-lv_v(LV::LatentVaraible) = typeof(LV.value_) == Unknown ? LV.value_.value : LV.value_
+@inline lv_v(LV::LatentVaraible) = typeof(LV.value_) == Unknown ? LV.value_.value : LV.value_
 # lv_set(LV::LatentVaraible, x) = typeof(LV.value_) == Unknown ? LV.value_.value = x : nothing
-function lv_set(LV::LatentVaraible, x)
+@inline function lv_set(LV::LatentVaraible, x)
 	if typeof(LV.value_) == Unknown
 		LV.value_.value = x
 	end
@@ -51,7 +51,7 @@ function lv_set(LV::LatentVaraible, x)
 	end
 end
 lv_set_init(LV::LatentVaraible, x) = LV.init_value = x
-lv_isKnown(LV::LatentVaraible) = typeof(LV.value_) == Unknown ? (lv_v(LV) == 0 ? false : true) : true
+@inline lv_isKnown(LV::LatentVaraible) = typeof(LV.value_) == Unknown ? (lv_v(LV) == 0 ? false : true) : true
 
 function get_possible_indexes(V::Vector{Any}, i::Int)
 
@@ -227,8 +227,8 @@ function Base.getindex(PG::ParameterGenerator, indx...)
 end
 
 function index_to_parameters(p, parameters)
-	new = Dict()
-	keys = Dict()
+	new = Dict{Symbol, Any}()
+	keys = Dict{Symbol, Any}()
 	for (key, indx) in p
 		V = indx
 		if !isa(indx, AbstractVector) && !isa(indx, Int)
@@ -254,14 +254,14 @@ function parameter_map_to_values(p)
 	return new
 end
 
-Base.@kwdef mutable struct Parsa_Base
-	pdf::Function
-	log_pdf::Function
+Base.@kwdef mutable struct Parsa_Base{F1<:Function, F2<:Function, F3<:Function, F4<:Function}
+	pdf::F1
+	log_pdf::F2
 	parameters::Dict
 	parameter_order::Vector
-	is_valid_input::Function
+	is_valid_input::F3
 	X = Set{Observation}()
-	evaluate::Function = (X, p) -> pdf(X.X, p)
+	evaluate::F4 = @inline (X, p) -> pdf(X.X, p)
 	eval_catch = Dict()
 	full_likelihood = nothing
 	n = 0
@@ -282,13 +282,13 @@ end
 Observation(x) = Observation(x, nothing, nothing)
 Observation() = Observation(nothing, nothing, nothing)
 
-function p_v(p::Parameter)
+@inline function p_v(p::Parameter)
 	p.value.value
 end
 
-function x_v(X::Observation)
+@inline function x_v(X::Observation)
 	X.X
 end
 
 
-SummationPackage = Base.Iterators.Zip{Tuple{Vector{Observation}, Vector{Real}, Vector{Dict{Any, Any}}}}
+SummationPackage = Base.Iterators.Zip{Tuple{Vector{Observation}, Vector{Float64}, Vector{Dict{Symbol, Any}}}}

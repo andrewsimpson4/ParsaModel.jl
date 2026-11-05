@@ -153,21 +153,88 @@ function normalize_log_post(L)
     return 1 ./ po
 end
 
+@inline function normalize_log_post!(posteriors, likelihoods, wi)
+    @inbounds for i in wi
+        l = likelihoods[i]
+        s = 0.0
+        for j in wi
+            s += exp(likelihoods[j] - l)
+        end
+        posteriors[i] = 1.0 / s
+    end
+end
+
+struct DensityCache
+    evals::Vector{Tuple{Observation, Dict{Symbol, Any}}}
+    index::Dict{Tuple{Observation, Dict{Symbol, Any}}, Int}
+    values::Vector{Float64}
+    leaf_closures::Dict{Vector{Int}, Function}
+    sum_evals::Vector{Function}
+    sum_index::Dict{Tuple{CategoricalZ, Vector{Int}, Vector{Function}}, Int}
+    sum_values::Vector{Float64}
+    sum_closures::Vector{Function}
+end
+
+DensityCache() = DensityCache(
+    Vector{Tuple{Observation, Dict{Symbol, Any}}}(),
+    Dict{Tuple{Observation, Dict{Symbol, Any}}, Int}(),
+    Vector{Float64}(),
+    Dict{Vector{Int}, Function}(),
+    Vector{Function}(),
+    Dict{Tuple{CategoricalZ, Vector{Int}, Vector{Function}}, Int}(),
+    Vector{Float64}(),
+    Vector{Function}()
+)
+
+function register_leaf!(cache::DensityCache, g::Observation, mm::Dict{Symbol, Any})
+    return get!(cache.index, (g, mm)) do
+        push!(cache.evals, (g, mm))
+        push!(cache.values, 0.0)
+        return length(cache.evals)
+    end
+end
+
+function register_sum!(cache::DensityCache, Z_cond::CategoricalZ, K_vec::Vector{Int}, children::Vector{Function}, sum_list)
+    idx = get!(cache.sum_index, (Z_cond, K_vec, children)) do
+        fn = length(sum_list) == 1 ? sum_list[1] : sum_foldl(sum_list)
+        push!(cache.sum_evals, fn)
+        push!(cache.sum_values, 0.0)
+        new_idx = length(cache.sum_evals)
+        svals = cache.sum_values
+        push!(cache.sum_closures, @inline () -> svals[new_idx])
+        return new_idx
+    end
+    return cache.sum_closures[idx]
+end
+
 function E_step(X, density)
-    all_packages = Vector{}()
-    E_step!(X, nothing, all_packages, density)
+    all_packages = Vector{Package}()
+    cache = DensityCache()
+    E_step!(X, nothing, all_packages, density, cache)
 
     likelihoods = Vector{Float64}(undef, length(all_packages))
     posteriors = Vector{Float64}(undef, length(all_packages))
     group_id = [pack.group_id for pack in all_packages]
+    group_indices = [findall(group_id .== g) for g in unique(group_id)]
     eval_posterior = function()
-        for (i, pack) in enumerate(all_packages)
-            likelihoods[i] = pack.likelihood()
+        @inbounds for i in eachindex(cache.evals)
+            g, mm = cache.evals[i]
+            cache.values[i] = density.evaluate(g, mm)::Float64
+        end
+        @inbounds for i in eachindex(cache.sum_evals)
+            cache.sum_values[i] = cache.sum_evals[i]()::Float64
         end
 
-        for g in unique(group_id)
-           wi = findall(group_id .== g)
-           posteriors[wi] = normalize_log_post(likelihoods[wi])
+        @inbounds for (i, pack) in enumerate(all_packages)
+            if i > 1 && pack.likelihood === all_packages[i - 1].likelihood
+                likelihoods[i] = likelihoods[i - 1]
+            else
+                likelihoods[i] = pack.likelihood()::Float64
+            end
+        end
+
+        @inbounds for wi in group_indices
+            normalize_log_post!(posteriors, likelihoods, wi)
         end
         return posteriors
     end
@@ -196,61 +263,64 @@ function is_feasible_init(LVs)
     return true
 end
 
-function E_step!(X, parent_node, all_packages, density)
+function E_step!(X, parent_node, all_packages, density, cache=nothing)
     independent_sets = getIndependentSets(X)
     is_first = isnothing(parent_node)
+    shared_likelihood = nothing
     for (i_g, G) in enumerate(independent_sets)
         if is_first
-            parent_node = Node(nothing, nothing, 0, Vector{}(), i_g)
+            parent_node = Node(nothing, nothing, 0, G, i_g)
         end
         # get next best condition
         all_domains = Vector{Vector{LatentVaraible}}(undef, length(G))
         for (i, x) in enumerate(G)
             all_domains[i] = GetDependentVariable(x)
         end
-        domains = [LV for LV in (reduce(vcat, all_domains))]
+        domains = reduce(vcat, all_domains)
         domain_lengths = [length(d) for d in all_domains]
         lv_freq_map = countmap(domains)
         if maximum(domain_lengths, init=0) > maximum(values(lv_freq_map), init=0)
-            next_conditions = all_domains[argmax(domain_lengths)]
+            next_condition = all_domains[argmax(domain_lengths)][1]
+            has_next = true
+        elseif !isempty(lv_freq_map)
+            next_condition = argmax(lv_freq_map)
+            has_next = true
         else
-            next_conditions = domains
-            lv_freq_map = filter(x -> x[1] in next_conditions, lv_freq_map)
-            top_order = sortperm(collect(values(lv_freq_map)); rev=true)
-            next_conditions = collect(keys(lv_freq_map))[top_order]
+            has_next = false
         end
         ######
 
-        if length(next_conditions) != 0
-            next_condition = next_conditions[1]
+        if has_next
             K = typeof(next_condition.value_) == Unknown ? (1:next_condition.Z.K) : lv_v(next_condition)
             # K = 1:next_condition.Z.K
             for (i_k, k) in enumerate(K)
                 lv_set(next_condition, k)
-                new_node = Node((next_condition, k), parent_node, length(independent_sets), [parent_node.all_X; G], parent_node.group_id)
-                E_step!(G, new_node, all_packages, density)
+                new_node = Node((next_condition, k), parent_node, length(independent_sets), parent_node.all_X, parent_node.group_id)
+                E_step!(G, new_node, all_packages, density, cache)
                 lv_set(next_condition, 0)
             end
         else
             g = G[1]
             params_used = index_to_parameters(rawCallDomain(g.T), density.parameters)
-            new_node = Node(nothing, parent_node, length(independent_sets), [parent_node.all_X; G], parent_node.group_id)
+            new_node = Node(nothing, parent_node, length(independent_sets), parent_node.all_X, parent_node.group_id)
             pis_used = Vector{}()
             get_pis_used!(new_node,pis_used, 1)
-            pre_sets = Vector{}()
-            get_needed_sets!(new_node, pre_sets)
             LV_used = Vector{}()
             get_LVs_used!(new_node, LV_used)
-            conditional_likelihood = initialize_density_evaluation(new_node.all_X, density)
-            likelihood = function ()
-                log_pi = 0
-                for (c, k) in pre_sets
-                    log_pi = log_pi + safe_log(c.Z.Pi[k])
+            if is_first || isnothing(shared_likelihood)
+                pre_sets = Vector{Tuple{LatentVaraible, Int}}()
+                get_needed_sets!(new_node, pre_sets)
+                conditional_likelihood = initialize_density_evaluation(new_node.all_X, density, cache)
+                shared_likelihood = @inline function ()
+                    log_pi = 0.0
+                    @inbounds for (c, k) in pre_sets
+                        log_pi = log_pi + safe_log(Float64(c.Z.Pi[k]))
+                    end
+                    ll = log_pi + conditional_likelihood()::Float64
+                    return ll
                 end
-                ll = log_pi + conditional_likelihood()
-                return ll
             end
-            push!(all_packages, Package(likelihood, pis_used, params_used, new_node.group_id, g, LV_used))
+            push!(all_packages, Package(shared_likelihood, pis_used, params_used, new_node.group_id, g, LV_used))
         end
     end
 end
@@ -286,72 +356,127 @@ function get_needed_sets!(node::Node, collection)
     end
 end
 
-prod_foldl(G) = foldl((a, g) -> a + g(), G; init=0)
+@inline function prod_foldl(G)
+    s = 0.0
+    @inbounds for g in G
+        s += g()::Float64
+    end
+    return s
+end
 function sum_foldl(G)
     vv = Vector{Float64}(undef, length(G))
-    function ()
-        for (i, g) in enumerate(G)
-            vv[i] = g()
+    @inline function ()
+        mm = -Inf
+        @inbounds for i in eachindex(G)
+            v = G[i]()::Float64
+            vv[i] = v
+            if v > mm
+                mm = v
+            end
         end
-        mm = maximum(vv)
-        return mm + safe_log(sum(exp.(vv .- mm)))
+        s = 0.0
+        @inbounds for v in vv
+            s += exp(v - mm)
+        end
+        return mm + safe_log(s)
     end
 end
-safe_log(x) = log(max(x, eps(Float64)))
+@inline safe_log(x) = log(max(x, eps(Float64)))
 # safe_log(x) = log(x)
-function initialize_density_evaluation(X::Vector{Observation}, density)
+function initialize_density_evaluation(X::Vector{Observation}, density, cache=nothing)
     independent_sets = getIndependentSets(X)
     mult_list = Vector{}()
+    leaf_list = Vector{Tuple{Observation, Dict{Symbol, Any}}}()
     for G in independent_sets
         all_domains = Vector{Vector{LatentVaraible}}(undef, length(G))
         for (i, x) in enumerate(G)
             all_domains[i] = GetDependentVariable(x)
         end
-        domains = [LV for LV in (reduce(vcat, all_domains))]
+        domains = reduce(vcat, all_domains)
         domain_lengths = [length(d) for d in all_domains]
         lv_freq_map = countmap(domains)
         if maximum(domain_lengths, init=0) > maximum(values(lv_freq_map), init=0)
-            next_conditions = all_domains[argmax(domain_lengths)]
+            next_condition = all_domains[argmax(domain_lengths)][1]
+            has_next = true
+        elseif !isempty(lv_freq_map)
+            next_condition = argmax(lv_freq_map)
+            has_next = true
         else
-            next_conditions = domains
-            lv_freq_map = filter(x -> x[1] in next_conditions, lv_freq_map)
-            top_order = sortperm(collect(values(lv_freq_map)); rev=true)
-            next_conditions = collect(keys(lv_freq_map))[top_order]
+            has_next = false
         end
 
-        if length(next_conditions) != 0
-            next_condition = next_conditions[1]
+        if has_next
             K = typeof(next_condition.value_) == Unknown ? (1:next_condition.Z.K) : lv_v(next_condition)
             # K = 1:next_condition.Z.K
             sum_list = Vector{}(undef, length(K))
+            children = Vector{Function}(undef, length(K))
+            Z_cond = next_condition.Z
             for (i_k, k) in enumerate(K)
                 lv_set(next_condition, k)
-                lik_new = initialize_density_evaluation(G, density)
+                lik_new = initialize_density_evaluation(G, density, cache)
+                children[i_k] = lik_new
                 # pi_c = () -> (typeof(next_condition.value_) == Unknown ? next_condition.Z.Pi[k] : lv_v(next_condition) == k)
-                pi_c = () -> (typeof(next_condition.value_) == Unknown ? next_condition.Z.Pi[k] : next_condition.Z.Pi[k])
-                sum_list[i_k] = (() -> (safe_log(pi_c()) + lik_new()))
+                sum_list[i_k] = @inline () -> (safe_log(Float64(Z_cond.Pi[k])) + lik_new()::Float64)
                 lv_set(next_condition, 0)
             end
-            ss = sum_foldl(sum_list)
-            push!(mult_list, (() -> ss()))
+            if isnothing(cache)
+                ss = length(sum_list) == 1 ? sum_list[1] : sum_foldl(sum_list)
+            else
+                ss = register_sum!(cache, Z_cond, K isa Int ? [K] : collect(K), children, sum_list)
+            end
+            push!(mult_list, ss)
         else
             for g in G
                 ma = rawCallDomain(g.T)
                 mm = index_to_parameters(ma, density.parameters)
-                push!(mult_list, (() -> (density.evaluate(g, mm))))
+                push!(leaf_list, (g, mm))
             end
         end
     end
-    return () -> prod_foldl(mult_list)
+    if !isempty(leaf_list)
+        if isnothing(cache)
+            if length(leaf_list) == 1
+                g1, mm1 = leaf_list[1]
+                push!(mult_list, @inline () -> (density.evaluate(g1, mm1)))
+            else
+                push!(mult_list, @inline function ()
+                    s = 0.0
+                    @inbounds for (g, mm) in leaf_list
+                        s += density.evaluate(g, mm)::Float64
+                    end
+                    return s
+                end)
+            end
+        else
+            leaf_indices = [register_leaf!(cache, g, mm) for (g, mm) in leaf_list]
+            leaf_fn = get!(cache.leaf_closures, leaf_indices) do
+                vals = cache.values
+                if length(leaf_indices) == 1
+                    idx1 = leaf_indices[1]
+                    return @inline () -> vals[idx1]
+                else
+                    return @inline function ()
+                        s = 0.0
+                        @inbounds for idx in leaf_indices
+                            s += vals[idx]
+                        end
+                        return s
+                    end
+                end
+            end
+            push!(mult_list, leaf_fn)
+        end
+    end
+    return length(mult_list) == 1 ? mult_list[1] : (@inline () -> prod_foldl(mult_list))
 end
 
 
 function M_step_init(packages, base::Parsa_Base)
-    mappings = Dict{}()
+    mappings = Dict{Parameter, Vector{Int}}()
     for ke in base.parameter_order
         for (ke2, params) in base.parameters[ke].parameter_map
             if !params.is_const
-                mappings[params] = Vector{}()
+                mappings[params] = Vector{Int}()
                 for (i, pack) in enumerate(packages)
                     if params in values(pack.params_used)
                         push!(mappings[params], i)
@@ -360,11 +485,15 @@ function M_step_init(packages, base::Parsa_Base)
             end
         end
     end
-    return function (tau, base)
+    m_entries = [
+        (param, va, Observation[pack.X for pack in packages[va]], Vector{Float64}(undef, length(va)), Dict{Symbol,Any}[pack.params_used for pack in packages[va]])
         for (param, va) in mappings
-            x::Vector{Observation} = [pack.X for pack in packages[va]]
-            pr::Vector{Real} = tau[va]
-            map::Vector{Dict{Any,Any}} = [pack.params_used for pack in packages[va]]
+    ]
+    return function (tau, base)
+        for (param, va, x, pr, map) in m_entries
+            @inbounds for (j, idx) in enumerate(va)
+                pr[j] = tau[idx]
+            end
             param.run_update(x, pr, map, base.log_pdf)
         end
     end
@@ -375,12 +504,12 @@ function Pi_init(packages, base::Parsa_Base)
     X = unique([pack.X for pack in packages])
     domains = unique(reduce(vcat, [GetDependentVariable(x) for x in X]))
     all_Z = unique([LV.Z for LV in domains])
-    mappings = Dict{}()
+    mappings = Dict{CategoricalZ, Vector{Vector{Tuple{Int, Int}}}}()
     for (i, Z_cat) in enumerate(all_Z)
-        mappings[Z_cat] = Dict{}()
+        mappings[Z_cat] = Vector{Vector{Tuple{Int, Int}}}(undef, Z_cat.K)
         for k in 1:Z_cat.K
-            mappings[Z_cat][k] = Vector{}()
-             for i in eachindex(packages)
+            mappings[Z_cat][k] = Vector{Tuple{Int, Int}}()
+            for i in eachindex(packages)
                 if (Z_cat,k) in pis_used[i]
                     correction = [p[2] for p in packages[i].pi_used if p[1] == (Z_cat,k)][1]
                     push!(mappings[Z_cat][k], (i, correction))
@@ -389,17 +518,21 @@ function Pi_init(packages, base::Parsa_Base)
         end
     end
     return function (tau)
-        for (i, Z_cat) in enumerate(all_Z)
-            Pi_new = zeros(Z_cat.K)
-            for k in 1:Z_cat.K
-                z_map = mappings[Z_cat][k]
-                is = [m[1] for m in z_map]
-                co = [m[2] for m in z_map]
-                Pi_new[k] = sum(tau[is] ./ co; init=0)
+        for Z_cat in all_Z
+            Z_cat.constant && continue
+            Pi_new = Z_cat.Pi
+            total = 0.0
+            z_maps = mappings[Z_cat]
+            @inbounds for k in 1:Z_cat.K
+                s = 0.0
+                for (idx, co) in z_maps[k]
+                    s += tau[idx] / co
+                end
+                Pi_new[k] = s
+                total += s
             end
-            Pi_new = Pi_new ./ sum(Pi_new)
-            if !Z_cat.constant
-                Z_cat.Pi = Pi_new
+            @inbounds for k in 1:Z_cat.K
+                Pi_new[k] /= total
             end
         end
     end

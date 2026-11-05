@@ -5,11 +5,10 @@ using StatsBase
 function normal_mean_update(value::Any, index_package::SummationPackage, log_pdf::Function)
     mu_new = zeros(length(value))
     cov = zeros(length(value), length(value))
-    for (_, pr, params) in index_package
-        cov += pr * val(params[:cov]).inv
-    end
     for (x, pr, params) in index_package
-        mu_new += pr * val(params[:cov]).inv * val(x)
+        cov_inv = val(params[:cov]::Parameter).inv
+        cov .+= pr .* cov_inv
+        mu_new .+= pr .* (cov_inv * val(x))
     end
     mu_new = cov \ mu_new
     return mu_new
@@ -17,21 +16,36 @@ end
 
 function normal_covariance_update(value::Any, index_package::SummationPackage, log_pdf::Function)
     cov_new = zeros(size(value.inv))
+    tau_sum = 0.0
     for (x, pr, params) in index_package
-        y = val(x) - val(params[:mu])
-        cov_new += pr * (y * y')
+        y = val(x) - val(params[:mu]::Parameter)
+        cov_new .+= pr .* (y * y')
+        tau_sum += pr
     end
-    taus = [d[2] for d in index_package]
-    cov_new ./= sum(taus)
+    cov_new ./= tau_sum
     return (inv=inv(cov_new), det=det(cov_new))
     # return (inv = inv(cov_new), chol = inv(cholesky(cov_new).L), det = logdet(cov_new))
 end
 
-function normal_pdf(X::Any, params::Dict)
+@inline function _quadform_diff(X::AbstractVector, mu::AbstractVector, cov_inv::AbstractMatrix)
+    q = 0.0
+    @inbounds for j in eachindex(X, mu)
+        yj = X[j] - mu[j]
+        s = 0.0
+        for i in eachindex(X, mu)
+            s += (X[i] - mu[i]) * cov_inv[i, j]
+        end
+        q += s * yj
+    end
+    return q
+end
+
+@inline function normal_pdf(X::Any, params::Dict)
     p = length(X)
-    y = (X - val(params[:mu]))
+    mu = val(params[:mu]::Parameter)::Vector{Float64}
+    cov = val(params[:cov]::Parameter)::NamedTuple{(:inv, :det), Tuple{Matrix{Float64}, Float64}}
     # (-p / 2) * log(2pi) + (-1 / 2) * log(val(params[:cov]).det) + ((-1 / 2 * y' * val(params[:cov]).inv * y))
-    (-p / 2) * log(2pi) + (-1 / 2) * log(val(params[:cov]).det) - 1/2*dot(y, val(params[:cov]).inv, y)
+    return (-0.5 * p) * log(2pi) - 0.5 * log(cov.det) - 0.5 * _quadform_diff(X, mu, cov.inv)
     # y = val(params[:cov]).chol * (X - val(params[:mu]))
     # (-p/2) * log(2pi) + (-1/2) * (val(params[:cov]).det) + ((-1/2 * y' * y))
 end
@@ -50,7 +64,7 @@ normal_input(x, p) = length(x) == p && all(isa.(x, Real))
 
 MtvNormal(p) = ParsaDensity(normal_pdf, normal_pdf_log, (x) -> normal_input(x, p),
     :mu => Parameter(zeros(p), normal_mean_update),
-    :cov => Parameter((inv=diagm(ones(p)), det=1), p * (p + 1) / 2, normal_covariance_update))
+    :cov => Parameter((inv=diagm(ones(p)), det=1.0), p * (p + 1) / 2, normal_covariance_update))
 
 
 #### safe normal
@@ -89,23 +103,24 @@ function normal_covariance_update_safe(value::Any, index_package::SummationPacka
         cov_new ./= sum(taus)
         return (inv=inv(cov_new), det=det(cov_new))
     else
-        return (inv=value.inv, det=-1)
+        return (inv=value.inv, det=-1.0)
     end
 end
 
-function normal_pdf_safe(X::Any, params::Dict)
-    if val(params[:cov]).det != -1
+@inline function normal_pdf_safe(X::Any, params::Dict)
+    cov = val(params[:cov]::Parameter)::NamedTuple{(:inv, :det), Tuple{Matrix{Float64}, Float64}}
+    if cov.det != -1.0
         p = length(X)
-        y = (X - val(params[:mu]))
-        (2pi)^(-p / 2) * val(params[:cov]).det^(-1 / 2) * exp((-1 / 2 * y' * val(params[:cov]).inv * y))
+        mu = val(params[:mu]::Parameter)::Vector{Float64}
+        return (2pi)^(-0.5 * p) * cov.det^(-0.5) * exp(-0.5 * _quadform_diff(X, mu, cov.inv))
     else
-        return 0
+        return 0.0
     end
 end
 
 MtvNormalSafe(p) = ParsaDensity(normal_pdf_safe, normal_pdf_log, (x) -> normal_input(x, p),
     :mu => Parameter(zeros(p), normal_mean_update_safe),
-    :cov => Parameter((inv=diagm(ones(p)), det=1), p * (p + 1) / 2, normal_covariance_update_safe))
+    :cov => Parameter((inv=diagm(ones(p)), det=1.0), p * (p + 1) / 2, normal_covariance_update_safe))
 
 
 
@@ -149,39 +164,59 @@ function normal_covariance_update_double(value::Any, index_package::SummationPac
     return (inv=inv(cov_new), det=det(cov_new))
 end
 
-function normal_pdf_double(X::Any, params::Dict)
+@inline function _quadform_diff_double(X::AbstractVector, mu1::AbstractVector, mu2::AbstractVector, cov_inv::AbstractMatrix)
+    q = 0.0
+    @inbounds for j in eachindex(X, mu1, mu2)
+        yj = X[j] - (mu1[j] + mu2[j])
+        s = 0.0
+        for i in eachindex(X, mu1, mu2)
+            s += (X[i] - (mu1[i] + mu2[i])) * cov_inv[i, j]
+        end
+        q += s * yj
+    end
+    return q
+end
+
+@inline function normal_pdf_double(X::Any, params::Dict)
     p = length(X)
-    y = (X - (val(params[:mu1]) + val(params[:mu2])))
-    (2pi)^(-p / 2) * val(params[:cov]).det^(-1 / 2) * exp((-1 / 2 * y' * val(params[:cov]).inv * y))
+    mu1 = val(params[:mu1]::Parameter)::Vector{Float64}
+    mu2 = val(params[:mu2]::Parameter)::Vector{Float64}
+    cov = val(params[:cov]::Parameter)::NamedTuple{(:inv, :det), Tuple{Matrix{Float64}, Float64}}
+    return (2pi)^(-0.5 * p) * cov.det^(-0.5) * exp(-0.5 * _quadform_diff_double(X, mu1, mu2, cov.inv))
 end
 
 MtvNormalDouble(p) = ParsaDensity(normal_pdf_double, normal_pdf_log, (x) -> normal_input(x, p),
     :mu1 => Parameter(zeros(p), normal_mean_update_double_1),
     :mu2 => Parameter(zeros(p), normal_mean_update_double_2),
-    :cov => Parameter((inv=diagm(ones(p)), det=1), p * (p + 1) / 2, normal_covariance_update_double))
+    :cov => Parameter((inv=diagm(ones(p)), det=1.0), p * (p + 1) / 2, normal_covariance_update_double))
 
 ####### Normal Parsa #########
 
 function normal_parsa_a_update(a, package_index, log_pdf)
-    p = length(val(collect(package_index)[1][1]))
-    a_new = 0
+    p = length(val(first(package_index)[1]))
+    a_new = 0.0
+    tau_sum = 0.0
     for (x, pr, params) in package_index
-        y = (val(x) - val(params[:mu]))
-        a_new += pr * (y' * val(params[:V]) * diagm(1 ./ val(params[:L])) * val(params[:V])' * y)
+        y = val(x) - val(params[:mu]::Parameter)
+        z = val(params[:V]::Parameter)' * y
+        L = val(params[:L]::Parameter)
+        a_new += pr * sum((z .^ 2) ./ L)
+        tau_sum += pr
     end
-    taus = [d[2] for d in package_index]
-    a_new = a_new / (sum(taus) * p)
+    a_new = a_new / (tau_sum * p)
     return a_new
 end
 
 function normal_parsa_L_update(L, package_index, log_pdf)
-    p = length(val(collect(package_index)[1][1]))
-    L_new = zeros(size(diagm(L)))
+    p = length(L)
+    L_new = zeros(p)
     for (x, pr, params) in package_index
-        y = (val(x) - val(params[:mu]))
-        L_new += pr * (val(params[:V])' * y * y' * val(params[:V]) * val(params[:a])^(-1))
+        y = val(x) - val(params[:mu]::Parameter)
+        z = val(params[:V]::Parameter)' * y
+        a = val(params[:a]::Parameter)
+        L_new .+= (pr / a) .* (z .^ 2)
     end
-    L_new = diag(L_new) / prod(diag(L_new))^(1 / p)
+    L_new ./= prod(L_new)^(1 / p)
     return L_new
 end
 
@@ -236,25 +271,39 @@ end
 function parsa_mean_update(value, index_package, log_pdf)
     mu_new = zeros(length(value))
     cov = zeros(length(value), length(value))
-    for (_, pr, params) in index_package
-        cov_inv = 1 / p_v(params[:a]) * p_v(params[:V]) * diagm(1 ./ p_v(params[:L])) * p_v(params[:V])'
-        cov += pr * cov_inv
-    end
     for (x, pr, params) in index_package
-        cov_inv = 1 / p_v(params[:a]) * p_v(params[:V]) * diagm(1 ./ p_v(params[:L])) * p_v(params[:V])'
-        mu_new += pr * cov_inv * x_v(x)
+        V = p_v(params[:V]::Parameter)
+        L = p_v(params[:L]::Parameter)
+        a = p_v(params[:a]::Parameter)
+        cov_inv = (1 / a) * V * Diagonal(1 ./ L) * V'
+        cov .+= pr .* cov_inv
+        mu_new .+= pr .* (cov_inv * x_v(x))
     end
-    mu_new = inv(cov) * mu_new
+    mu_new = cov \ mu_new
     return mu_new
 end
 
-function normal_parsa_pdf_2(X, params)
-    cov_inv = (Symmetric(1 / p_v(params[:a]) * p_v(params[:V]) * diagm(1 ./ p_v(params[:L])) * p_v(params[:V])'))
+@inline function _parsa_quadform(X::AbstractVector, mu::AbstractVector, V::AbstractMatrix, L::AbstractVector, a::Float64)
+    q = 0.0
+    @inbounds for j in eachindex(L)
+        zj = 0.0
+        for i in eachindex(X, mu)
+            zj += V[i, j] * (X[i] - mu[i])
+        end
+        q += (zj * zj) / L[j]
+    end
+    return q / a
+end
+
+@inline function normal_parsa_pdf_2(X, params)
     p = length(X)
-    y = (X - val(params[:mu]))
+    mu = val(params[:mu]::Parameter)::Vector{Float64}
+    V = p_v(params[:V]::Parameter)::Matrix{Float64}
+    L = p_v(params[:L]::Parameter)::Vector{Float64}
+    a = p_v(params[:a]::Parameter)::Float64
     # (2pi)^(-p/2) * p_v(params[:a])^(-p/2) * exp((-1/2 * y' * cov_inv * y))
 
-    (-p / 2 * log(2pi) - p / 2 * log(p_v(params[:a])) + (-1 / 2 * y' * cov_inv * y))
+    return (-0.5 * p * log(2pi) - 0.5 * p * log(a) - 0.5 * _parsa_quadform(X, mu, V, L, a))
 end
 
 function normal_parsa_pdf_log_2(X, params)
@@ -272,7 +321,7 @@ end
 parsa_V(p) = Parameter(diagm(ones(p)), p * (p - 1) / 2, normal_parsa_V_update)
 # parsa_V_opt(p) = Parameter(diagm(ones(p)), optimizeOrthogonal)
 parsa_L(p) = Parameter(ones(p), p - 1, normal_parsa_L_update)
-parsa_a() = Parameter(1, 1, normal_parsa_a_update)
+parsa_a() = Parameter(1.0, 1, normal_parsa_a_update)
 
 # ParsimoniousNormal(p) = ParsaDensity(normal_parsa_pdf_2, normal_parsa_pdf_log_2, (x) -> normal_input(x, p),
 #         :mu=> Parameter(zeros(p), parsa_mean_update),

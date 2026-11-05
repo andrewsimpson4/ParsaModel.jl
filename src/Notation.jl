@@ -22,7 +22,7 @@ function categorical(V::Vector{Float64}; name ="LV")
 end
 function categorical(V::Vector{Real}; name ="LV")
     LV = CategoricalZ(K = length(V), name=name)
-    LV.Pi = V
+    LV.Pi = Float64.(V)
     return LV
 end
 
@@ -114,8 +114,8 @@ function val(P::ParameterGenerator)
     end
     return to_return
 end
-val(P::Parameter) = P.value.value
-val(P::CategoricalZ) = P.Pi
+@inline val(P::Parameter) = P.value.value
+@inline val(P::CategoricalZ) = P.Pi
 function val(P::CategoricalZset)
     local to_return = Dict()
     for (key, val_) in P.set
@@ -123,7 +123,7 @@ function val(P::CategoricalZset)
     end
     return to_return
 end
-function val(X::Observation)
+@inline function val(X::Observation)
 	X.X
 end
 

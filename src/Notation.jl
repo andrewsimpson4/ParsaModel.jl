@@ -78,13 +78,8 @@ end
 
 function f(X::Observation...)
     X = collect(X)
-    map_collector = OrderedDict()
-    independent_map = Dict()
-    # domain_map = Dict([x => unique([LV for LV in GetDependentVariable(x) if !lv_isKnown(LV)]) for x in X])
-    domain_map = Dict([x => unique([LV for LV in GetDependentVariable(x)]) for x in X])
-    tt = initialize_density_evaluation(X, Vector{}(), X[1].base, domain_map, map_collector, independent_map; should_eval=true)
+    tt = initialize_density_evaluation(X, X[1].base)
     function()
-        call_collection(map_collector)
         tt()
     end
 end
@@ -93,18 +88,14 @@ function f(LV::LV_wrap...)
     LVs = [lv.LV() for lv in LV]
     prime_X.(LVs[1].Z.base.X)
     all_X = unique(reduce(vcat, [collect(LV.dependent_X) for LV in LVs]))
-    posterior_initalize(LVs, all_X, all_X[1].base)
+    posterior_initialize(LVs, all_X, all_X[1].base)
 end
 
 function EM!(PB::Parsa_Base; args...)
-    l1, l2, flag = LMEM(PB.X, PB; args...)
+    l1, l2 = LMEM(PB.X, PB; args...)
     PB.full_likelihood = l1
     PB.n = l2
-    if flag
-        return (descresing_likelihood = true,)
-    else
-        return nothing
-    end
+    return
 end
 
 function Base.getindex(PB::Parsa_Base, sym::Symbol)

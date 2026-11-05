@@ -109,13 +109,13 @@ using LinearAlgebra, Distributions, ParsaModel
         iris_m[i] ~ F(:mu => cl[i], :cov => 1)
         cl[i] = class[i]
     end
-    EM!(F; verbose=true, allow_desc_likelihood=true)
+    EM!(F; verbose=true)
 
     n = length(iris_m)
     new_x = Observation()
     new_x ~ F(:mu => cl[n+1], :cov => 1)
     pr = f(cl[n+1])
-    post(x) = (new_x.X = x; pr().max[1])
+    post(x) = (new_x.X = x; pr().max)
     class_pred = [post(x.X) for x in iris_m]
     mean(class_pred .== class)
 

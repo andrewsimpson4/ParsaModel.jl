@@ -1,5 +1,5 @@
 module ParsaModel
-using LinearAlgebra, UnicodePlots, ProgressBars
+using LinearAlgebra, UnicodePlots, ProgressBars, Term
 include("./Types.jl")
 include("./Models.jl")
 include("./Core.jl")

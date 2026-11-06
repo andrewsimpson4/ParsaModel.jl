@@ -553,13 +553,19 @@ function LMEM(X::AbstractSet{Observation}, base::Parsa_Base; eps=10^-6,
                                                         init_eps=10^-3,
                                                         verbose=true)
     X = collect(X)
+    tui = verbose ? EM_TUI(length(X), n_init, eps, init_eps) : nothing
+    verbose && render_build!(tui, 1, "Priming observations")
     prime_X.(X)
+    verbose && render_build!(tui, 2, "Building E-step graph")
     posteriors, random_posterior, packages = E_step(X, base)
+    verbose && render_build!(tui, 3, "Mapping M-step & π", length(packages))
     m = M_step_init(packages, base)
     p = Pi_init(packages, base)
+    verbose && render_build!(tui, 4, "Building likelihood tree", length(packages))
     likelihood = initialize_density_evaluation(X, base)
     param_reset = set_original_parameters(base)
     pi_reset = reset_Pi(X)
+    verbose && finish_build!(tui, length(packages))
 
 
     init_likelihoods = [[] for _ in 1:n_init]
@@ -586,7 +592,7 @@ function LMEM(X::AbstractSet{Observation}, base::Parsa_Base; eps=10^-6,
             end
             if i_wild > 0
                 push!(init_likelihoods[i_init], (lik_new))
-                verbose ? plotit(init_likelihoods, Vector{}()) : nothing
+                verbose ? plotit(init_likelihoods, Vector{}(); tui=tui, phase=:init, i_init=i_init, step=i_wild, max_steps=max_steps, rel_diff=abs(lik_new - lik_old) / abs(lik_old), target_eps=init_eps) : nothing
             end
             if abs(lik_new - lik_old) / abs(lik_old) < init_eps
                 break
@@ -621,35 +627,291 @@ function LMEM(X::AbstractSet{Observation}, base::Parsa_Base; eps=10^-6,
         lik_new = likelihood()
         all_likelihoods = [all_likelihoods; Float64(lik_new)]
         all_steps = [all_steps; i]
-        verbose ? plotit(init_likelihoods, all_likelihoods) : nothing
+        verbose ? plotit(init_likelihoods, all_likelihoods; tui=tui, phase=:final, i_init=n_init, step=i, max_steps=max_steps+i, rel_diff=abs(lik_new - lik_old) / abs(lik_new), target_eps=eps) : nothing
         i = i + 1
     end
+    verbose ? plotit(init_likelihoods, all_likelihoods; tui=tui, phase=:done, i_init=n_init, step=max(1, i-1), max_steps=max_steps+i-1, rel_diff=abs(lik_new - lik_old) / abs(lik_new), target_eps=eps, force=true) : nothing
+    verbose && restore_logger!(tui)
     (log_likelihood=likelihood, n=length(X))
 end
 
 
-function plotit(lines, final_lines)
-    println("\33[H")
-    print("\33c\e[3J")
+mutable struct EM_TUI
+    n_obs::Int
+    n_init::Int
+    eps::Float64
+    init_eps::Float64
+    n_packages::Int
+    build_stage::Int
+    build_msg::String
+    build_start_ns::UInt64
+    build_elapsed::Float64
+    em_start_ns::UInt64
+    last_render_ns::UInt64
+    total_iters::Int
+    last_lines::Int
+    warnings::OrderedDict{String, Int}
+    prev_logger::Any
+end
+
+struct TUIWarningLogger <: Base.CoreLogging.AbstractLogger
+    tui::EM_TUI
+end
+
+Base.CoreLogging.min_enabled_level(::TUIWarningLogger) = Base.CoreLogging.Warn
+Base.CoreLogging.shouldlog(::TUIWarningLogger, level, _module, group, id) = level >= Base.CoreLogging.Warn
+Base.CoreLogging.catch_exceptions(::TUIWarningLogger) = true
+
+function Base.CoreLogging.handle_message(logger::TUIWarningLogger, level, message, _module, group, id, file, line; kwargs...)
+    msg = strip(string(message))
+    if !isempty(msg)
+        logger.tui.warnings[msg] = get(logger.tui.warnings, msg, 0) + 1
+    end
+    return nothing
+end
+
+function EM_TUI(n_obs::Int, n_init::Int, eps::Real, init_eps::Real)
+    now_ns = time_ns()
+    tui = EM_TUI(n_obs, n_init, Float64(eps), Float64(init_eps), 0, 0, "Initializing...", now_ns, 0.0, now_ns, UInt64(0), 0, 0, OrderedDict{String, Int}(), nothing)
+    tui.prev_logger = Base.CoreLogging.global_logger(TUIWarningLogger(tui))
+    return tui
+end
+
+function restore_logger!(tui::EM_TUI)
+    if !isnothing(tui.prev_logger)
+        Base.CoreLogging.global_logger(tui.prev_logger)
+        tui.prev_logger = nothing
+    end
+end
+
+function _tui_bar(frac::Real, width::Int=28; color::String="cyan")
+    f = clamp(Float64(frac), 0.0, 1.0)
+    filled = Int(round(f * width))
+    empty = width - filled
+    pct = lpad(string(Int(round(f * 100))), 3) * "%"
+    return "{$(color)}" * ("█"^filled) * "{/$(color)}{dim}" * ("░"^empty) * "{/dim} " * pct
+end
+
+function _render_frame!(tui::Union{Nothing, EM_TUI}, dashboard, total_w::Int)
+    if !isnothing(tui) && !isempty(tui.warnings)
+        warn_lines = String[]
+        for (msg, cnt) in tui.warnings
+            suffix = cnt > 1 ? " {dim}(×$(cnt)){/dim}" : ""
+            push!(warn_lines, "  {red}⚠{/red} $(msg)$(suffix)")
+        end
+        warn_panel = Term.Panel(join(warn_lines, "\n"); title="Warnings", style="red", width=total_w)
+        dashboard = dashboard / warn_panel
+    end
+    frame_str = string(dashboard)
+    if !isnothing(tui) && tui.last_lines > 0
+        print(stdout, "\e[$(tui.last_lines)A\r\e[J", frame_str, "\n")
+    else
+        print(stdout, frame_str, "\n")
+    end
+    if !isnothing(tui)
+        tui.last_lines = count(==('\n'), frame_str) + 1
+    end
+    flush(stdout)
+end
+
+function render_build!(tui::EM_TUI, stage::Int, msg::String, n_pkgs::Int=0)
+    tui.build_stage = stage
+    tui.build_msg = msg
+    if n_pkgs > 0
+        tui.n_packages = n_pkgs
+    end
+    tui.build_elapsed = (time_ns() - tui.build_start_ns) / 1e9
     terminal = displaysize(stdout)
-    lll = [l for l in [reduce(vcat, lines); final_lines] if l != 0]
+    total_w = clamp(terminal[2] - 2, 76, 120)
+    right_w = 34
+    left_w = total_w - right_w
+    panel_h = clamp(Int(round(terminal[1] * 0.55)), 14, 24)
+
+    build_frac = (stage - 0.5) / 4.0
+    b_bar = _tui_bar(build_frac, 20; color="yellow")
+    e_bar = _tui_bar(0.0, 20; color="cyan")
+    top_text = "  {bold}Build {/bold} $(b_bar)  {dim}[$(stage)/4: $(msg)]{/dim}\n" *
+               "  {bold}EM Fit{/bold} $(e_bar)  {dim}[Waiting for compilation]{/dim}"
+    top_panel = Term.Panel(top_text; title="ParsaModel EM!", style="bright_blue", width=total_w)
+
+    steps = [
+        (1, "Prime Observations (X)"),
+        (2, "E-Step Conditioning Graph"),
+        (3, "M-Step & π Parameter Mappings"),
+        (4, "Log-Likelihood Evaluation Tree")
+    ]
+    checklist = IOBuffer()
+    println(checklist, "")
+    for (idx, label) in steps
+        if idx < stage
+            println(checklist, "  {green}✓{/green} $(label)")
+        elseif idx == stage
+            println(checklist, "  {yellow}⟳{/yellow} {bold}$(label){/bold}")
+        else
+            println(checklist, "  {dim}• $(label){/dim}")
+        end
+    end
+    println(checklist, "\n  {dim}Elapsed build time: $(round(tui.build_elapsed, digits=2))s{/dim}")
+    left_panel = Term.Panel(String(take!(checklist)); title="Structure Compilation", style="yellow", width=left_w, height=panel_h)
+
+    info_text = join([
+        "• {bold}Status:{/bold}     {yellow}Compiling{/yellow}",
+        "• {bold}Stage:{/bold}      $(stage) / 4",
+        "• {bold}Obs (N):{/bold}    $(tui.n_obs)",
+        "• {bold}Packages:{/bold}   $(tui.n_packages > 0 ? string(tui.n_packages) : "...")",
+        "• {bold}Restarts:{/bold}   0 / $(tui.n_init)",
+        "• {bold}Init ε:{/bold}     $(round(tui.init_eps, sigdigits=2))",
+        "• {bold}Final ε:{/bold}    $(round(tui.eps, sigdigits=2))",
+        "• {bold}Elapsed:{/bold}    $(round(tui.build_elapsed, digits=2))s"
+    ], "\n")
+    right_panel = Term.Panel(info_text; title="Model & Convergence", style="blue", width=right_w, height=panel_h)
+
+    _render_frame!(tui, top_panel / (left_panel * right_panel), total_w)
+end
+
+function finish_build!(tui::EM_TUI, n_pkgs::Int)
+    tui.n_packages = n_pkgs
+    tui.build_stage = 4
+    tui.build_elapsed = (time_ns() - tui.build_start_ns) / 1e9
+    tui.em_start_ns = time_ns()
+end
+
+function plotit(lines, final_lines;
+                tui::Union{Nothing, EM_TUI}=nothing,
+                phase::Symbol=:init,
+                i_init::Int=1,
+                step::Int=1,
+                max_steps::Int=10000,
+                rel_diff::Real=NaN,
+                target_eps::Real=1e-6,
+                force::Bool=false)
+    now_ns = time_ns()
+    if !isnothing(tui)
+        tui.total_iters += 1
+        if !force && step > 1 && (now_ns - tui.last_render_ns) < 33_000_000
+            return nothing
+        end
+        tui.last_render_ns = now_ns
+    end
+
+    terminal = displaysize(stdout)
+    total_w = clamp(terminal[2] - 2, 76, 120)
+    right_w = 34
+    left_w = total_w - right_w
+    panel_h = clamp(Int(round(terminal[1] * 0.62)), 16, 26)
+    plot_w = max(16, left_w - 18)
+    plot_h = max(6, panel_h - 6)
+
+    lll = [Float64(l) for l in [reduce(vcat, lines); final_lines] if l != 0 && isfinite(l)]
+    if isempty(lll)
+        lll = [0.0]
+    end
     ymax = maximum(lll)
     ymin = minimum(lll)
+    if ymin == ymax
+        ymin -= 1.0
+        ymax += 1.0
+    end
     xmin = 0
-    xmax_init = argmax([maximum(l, init=1) for l in lines]) #maximum([length(ll) for ll in lines])
-    xmax_init = length(lines[xmax_init])
-    xmax = xmax_init + length(final_lines)
-    plt = UnicodePlots.lineplot([0], [0]; ylim=(ymin, ymax), xlim=(xmin, xmax), xlabel="steps", ylabel="log-likelihood", height=Int(round(terminal[1] / 2)), width=Int(round(terminal[2] / 2)), color=:red)
+
+    best_init_idx = 1
+    best_init_ll = -Inf
+    for (idx, l) in enumerate(lines)
+        if !isempty(l)
+            m_val = maximum(l)
+            if m_val > best_init_ll
+                best_init_ll = m_val
+                best_init_idx = idx
+            end
+        end
+    end
+    xmax_init = isempty(lines[best_init_idx]) ? 1 : length(lines[best_init_idx])
+    max_any_init = maximum([length(l) for l in lines]; init=1)
+    xmax = max(max_any_init, xmax_init + length(final_lines))
+
+    plt = UnicodePlots.lineplot([0], [ymin];
+        ylim=(round(ymin, digits=1), round(ymax, digits=1)),
+        xlim=(xmin, xmax),
+        xlabel="steps",
+        margin=1,
+        padding=0,
+        height=plot_h,
+        width=plot_w,
+        color=:blue)
+
     for i in 1:size(lines)[1]
-        n_l = lines[i] #[l for l in lines[i, :] if l != 0]
-        UnicodePlots.lineplot!(plt, 1:length(n_l), n_l, color=:blue)
+        n_l = lines[i]
+        if !isempty(n_l) && i != best_init_idx && i != i_init
+            UnicodePlots.lineplot!(plt, 1:length(n_l), Float64.(n_l), color=:blue)
+        end
+    end
+    if !isempty(lines[best_init_idx])
+        UnicodePlots.lineplot!(plt, 1:length(lines[best_init_idx]), Float64.(lines[best_init_idx]), color=:cyan)
+    end
+    if phase == :init && i_init <= length(lines) && !isempty(lines[i_init]) && i_init != best_init_idx
+        UnicodePlots.lineplot!(plt, 1:length(lines[i_init]), Float64.(lines[i_init]), color=:yellow)
     end
     if length(final_lines) > 0
-        n_l = final_lines
-        UnicodePlots.lineplot!(plt, xmax_init:(length(n_l)+xmax_init-1), n_l)
+        n_l = Float64.(final_lines)
+        UnicodePlots.lineplot!(plt, xmax_init:(length(n_l)+xmax_init-1), n_l, color=:green)
     end
-    display(plt)
-    sleep(0.001)
+
+    str_plt = sprint(show, MIME("text/plain"), plt; context=:color=>true)
+    left_panel = Term.Panel(str_plt; title="Log-Likelihood", style="cyan", width=left_w, height=panel_h)
+
+    curr_ll = !isempty(final_lines) ? Float64(final_lines[end]) :
+              (i_init <= length(lines) && !isempty(lines[i_init]) ? Float64(lines[i_init][end]) : best_init_ll)
+
+    n_init_total = !isnothing(tui) ? tui.n_init : length(lines)
+    if phase == :init
+        em_frac = (i_init - 0.5) / max(1, n_init_total) * 0.75
+        em_status = "Init $(i_init)/$(n_init_total) • Step $(step)"
+        phase_str = "{blue}Init ($(i_init)/$(n_init_total)){/blue}"
+        em_color = "blue"
+    elseif phase == :final
+        init_e = !isnothing(tui) ? tui.init_eps : 1e-3
+        final_e = !isnothing(tui) ? tui.eps : 1e-6
+        conv_frac = (isfinite(rel_diff) && rel_diff > 0) ?
+            clamp((log10(init_e) - log10(rel_diff)) / max(1e-9, log10(init_e) - log10(final_e)), 0.0, 0.99) : 0.5
+        em_frac = 0.75 + 0.25 * conv_frac
+        em_status = "Refining • Step $(step)"
+        phase_str = "{cyan}Final EM{/cyan}"
+        em_color = "cyan"
+    else
+        em_frac = 1.0
+        em_status = "Converged at step $(step)"
+        phase_str = "{green}Converged ✓{/green}"
+        em_color = "green"
+    end
+
+    build_time_str = !isnothing(tui) ? "$(round(tui.build_elapsed, digits=2))s" : "done"
+    pkgs_str = (!isnothing(tui) && tui.n_packages > 0) ? "$(tui.n_packages) pkgs" : "ready"
+    b_bar = _tui_bar(1.0, 20; color="green")
+    e_bar = _tui_bar(em_frac, 20; color=em_color)
+    top_text = "  {bold}Build {/bold} $(b_bar)  {dim}[Done in $(build_time_str) • $(pkgs_str)]{/dim}\n" *
+               "  {bold}EM Fit{/bold} $(e_bar)  {dim}[$(em_status)]{/dim}"
+    top_panel = Term.Panel(top_text; title="ParsaModel EM!", style="bright_blue", width=total_w)
+
+    em_elapsed = !isnothing(tui) ? (now_ns - tui.em_start_ns) / 1e9 : 0.0
+    speed = ( !isnothing(tui) && em_elapsed > 0 ) ? Int(round(tui.total_iters / em_elapsed)) : 0
+    rel_str = isfinite(rel_diff) ? string(round(rel_diff, sigdigits=3)) : "..."
+
+    info_lines = [
+        "• {bold}Phase:{/bold}      $(phase_str)",
+        "• {bold}Step:{/bold}       $(step) / $(max_steps)",
+        "• {bold}Best Init:{/bold}  #$(best_init_idx) / $(n_init_total)",
+        "• {bold}Best LL:{/bold}    $(round(max(best_init_ll, curr_ll), digits=4))",
+        "• {bold}Curr LL:{/bold}    $(round(curr_ll, digits=4))",
+        "• {bold}ΔLL / |LL|:{/bold} $(rel_str)",
+        "• {bold}Target ε:{/bold}   $(round(target_eps, sigdigits=2))",
+        "• {bold}Obs (N):{/bold}    $(!isnothing(tui) ? string(tui.n_obs) : "...")",
+        "• {bold}Packages:{/bold}   $(!isnothing(tui) ? string(tui.n_packages) : "...")",
+        "• {bold}Speed:{/bold}      $(speed) iter/s",
+        "• {bold}Elapsed:{/bold}    $(round(em_elapsed, digits=2))s"
+    ]
+    right_panel = Term.Panel(join(info_lines, "\n"); title="Model & Convergence", style="blue", width=right_w, height=panel_h)
+
+    _render_frame!(tui, top_panel / (left_panel * right_panel), total_w)
 end
 
 

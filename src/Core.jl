@@ -88,10 +88,18 @@ function GetDependentVariable!(X_i::Observation, used_conditions::Vector)
     end
 end
 
+function ordered_countmap(v::Vector{LatentVaraible})
+    counts = OrderedDict{LatentVaraible, Int}()
+    for x in v
+        counts[x] = get(counts, x, 0) + 1
+    end
+    return counts
+end
+
 function getIndependentSets(X::Vector{Observation})
-    domains = Dict([x => Set([lv for lv in GetDependentVariable(x) if !lv_isKnown(lv)]) for x in X])
-    Xset = Set(X)
-    domainSet = Set{LatentVaraible}()
+    domains = Dict([x => OrderedSet([lv for lv in GetDependentVariable(x) if !lv_isKnown(lv)]) for x in X])
+    Xset = OrderedSet(X)
+    domainSet = OrderedSet{LatentVaraible}()
     independent_sets = Vector{Vector{Observation}}()
     for x in X
         if x in Xset
@@ -278,7 +286,7 @@ function E_step!(X, parent_node, all_packages, density, cache=nothing)
         end
         domains = reduce(vcat, all_domains)
         domain_lengths = [length(d) for d in all_domains]
-        lv_freq_map = countmap(domains)
+        lv_freq_map = ordered_countmap(domains)
         if maximum(domain_lengths, init=0) > maximum(values(lv_freq_map), init=0)
             next_condition = all_domains[argmax(domain_lengths)][1]
             has_next = true
@@ -394,7 +402,7 @@ function initialize_density_evaluation(X::Vector{Observation}, density, cache=no
         end
         domains = reduce(vcat, all_domains)
         domain_lengths = [length(d) for d in all_domains]
-        lv_freq_map = countmap(domains)
+        lv_freq_map = ordered_countmap(domains)
         if maximum(domain_lengths, init=0) > maximum(values(lv_freq_map), init=0)
             next_condition = all_domains[argmax(domain_lengths)][1]
             has_next = true
@@ -472,7 +480,7 @@ end
 
 
 function M_step_init(packages, base::Parsa_Base)
-    mappings = Dict{Parameter, Vector{Int}}()
+    mappings = OrderedDict{Parameter, Vector{Int}}()
     for ke in base.parameter_order
         for (ke2, params) in base.parameters[ke].parameter_map
             if !params.is_const
@@ -539,7 +547,7 @@ function Pi_init(packages, base::Parsa_Base)
 end
 
 
-function LMEM(X::Set{Observation}, base::Parsa_Base; eps=10^-6,
+function LMEM(X::AbstractSet{Observation}, base::Parsa_Base; eps=10^-6,
                                                         max_steps = 10000,
                                                         n_init = 30,
                                                         init_eps=10^-3,

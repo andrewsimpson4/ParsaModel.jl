@@ -1,4 +1,4 @@
-
+using OrderedCollections
 
 mutable struct Unknown
 	value::Int
@@ -27,7 +27,7 @@ Base.@kwdef mutable struct LatentVaraible
 	value_::Union{Int, Unknown}
 	init_value = nothing
 	Z::CategoricalZ
-	dependent_X = Set{Observation}()
+	dependent_X = OrderedSet{Observation}()
     index::Any
 	active=false
 end
@@ -212,7 +212,7 @@ Parameter(initial_value, number_of_parameters, update_function::Function, post_p
 
 Base.@kwdef mutable struct ParameterGenerator
 	parameter_base::Parameter
-	parameter_map::Dict = Dict()
+	parameter_map::OrderedDict = OrderedDict()
 end
 
 function Base.getindex(PG::ParameterGenerator, indx...)
@@ -260,7 +260,7 @@ Base.@kwdef mutable struct Parsa_Base{F1<:Function, F2<:Function, F3<:Function, 
 	parameters::Dict
 	parameter_order::Vector
 	is_valid_input::F3
-	X = Set{Observation}()
+	X = OrderedSet{Observation}()
 	evaluate::F4 = @inline (X, p) -> pdf(X.X, p)
 	eval_catch = Dict()
 	full_likelihood = nothing

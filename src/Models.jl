@@ -22,8 +22,16 @@ function normal_covariance_update(value::Any, index_package::SummationPackage, l
         cov_new .+= pr .* (y * y')
         tau_sum += pr
     end
-    cov_new ./= tau_sum
-    return (inv=inv(cov_new), det=det(cov_new))
+    if tau_sum > 0.0
+        cov_new ./= tau_sum
+    end
+    d = det(cov_new)
+    if !(d > eps(Float64))
+        @warn "Singular covariance detected; adding regularization"
+        cov_new .+= 1e-6 .* I(size(cov_new, 1))
+        d = det(cov_new)
+    end
+    return (inv=inv(cov_new), det=d)
     # return (inv = inv(cov_new), chol = inv(cholesky(cov_new).L), det = logdet(cov_new))
 end
 
@@ -216,7 +224,13 @@ function normal_parsa_L_update(L, package_index, log_pdf)
         a = val(params[:a]::Parameter)
         L_new .+= (pr / a) .* (z .^ 2)
     end
-    L_new ./= prod(L_new)^(1 / p)
+    d = prod(L_new)
+    if !(d > eps(Float64))
+        @warn "Singular L matrix detected; adding regularization"
+        L_new .+= 1e-6
+        d = prod(L_new)
+    end
+    L_new ./= d^(1 / p)
     return L_new
 end
 

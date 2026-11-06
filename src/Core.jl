@@ -553,7 +553,7 @@ function LMEM(X::AbstractSet{Observation}, base::Parsa_Base; eps=10^-6,
                                                         init_eps=10^-3,
                                                         verbose=true)
     X = collect(X)
-    tui = verbose ? EM_TUI(length(X), n_init, eps, init_eps) : nothing
+    tui = EM_TUI(length(X), n_init, eps, init_eps, verbose)
     verbose && render_build!(tui, 1, "Priming observations")
     prime_X.(X)
     verbose && render_build!(tui, 2, "Building E-step graph")
@@ -574,6 +574,7 @@ function LMEM(X::AbstractSet{Observation}, base::Parsa_Base; eps=10^-6,
     best_prams = nothing
     best_Pi = nothing
     for i_init in 1:n_init
+        tui.had_warning = false
         param_reset()
         pi_reset()
         tau_wild = random_posterior()
@@ -594,18 +595,23 @@ function LMEM(X::AbstractSet{Observation}, base::Parsa_Base; eps=10^-6,
                 push!(init_likelihoods[i_init], (lik_new))
                 verbose ? plotit(init_likelihoods, Vector{}(); tui=tui, phase=:init, i_init=i_init, step=i_wild, max_steps=max_steps, rel_diff=abs(lik_new - lik_old) / abs(lik_old), target_eps=init_eps) : nothing
             end
-            if abs(lik_new - lik_old) / abs(lik_old) < init_eps
+            if tui.had_warning || abs(lik_new - lik_old) / abs(lik_old) < init_eps
                 break
             end
         end
-        if lik_new > best_likelihood
+        if !tui.had_warning && lik_new > best_likelihood
             best_likelihood = lik_new
             best_tau = tau_wild
             best_prams = save_parameters(base)
             best_Pi = save_Pi(X)
         end
     end
+    if isnothing(best_prams)
+        best_prams = save_parameters(base)
+        best_Pi = save_Pi(X)
+    end
 
+    tui.in_final = true
     best_Pi()
     best_prams()
     for _ in 1:2
@@ -631,10 +637,13 @@ function LMEM(X::AbstractSet{Observation}, base::Parsa_Base; eps=10^-6,
         i = i + 1
     end
     verbose ? plotit(init_likelihoods, all_likelihoods; tui=tui, phase=:done, i_init=n_init, step=max(1, i-1), max_steps=max_steps+i-1, rel_diff=abs(lik_new - lik_old) / abs(lik_new), target_eps=eps, force=true) : nothing
-    verbose && restore_logger!(tui)
+    restore_logger!(tui)
     (log_likelihood=likelihood, n=length(X))
 end
 
+
+const _SUNSET_BAR = ["#FF5E62", "#FF7560", "#FF8C5E", "#FFA35C", "#FFBA60", "#FFD166"]
+const _OCEAN_BAR  = ["#FF7E5F", "#E5748F", "#C471ED", "#7A8CE2", "#2CA5E0", "#00B4DB"]
 
 mutable struct EM_TUI
     n_obs::Int
@@ -650,8 +659,12 @@ mutable struct EM_TUI
     last_render_ns::UInt64
     total_iters::Int
     last_lines::Int
-    warnings::OrderedDict{String, Int}
+    init_warnings::OrderedDict{String, Int}
+    final_warnings::OrderedDict{String, Int}
     prev_logger::Any
+    verbose::Bool
+    had_warning::Bool
+    in_final::Bool
 end
 
 struct TUIWarningLogger <: Base.CoreLogging.AbstractLogger
@@ -663,16 +676,22 @@ Base.CoreLogging.shouldlog(::TUIWarningLogger, level, _module, group, id) = leve
 Base.CoreLogging.catch_exceptions(::TUIWarningLogger) = true
 
 function Base.CoreLogging.handle_message(logger::TUIWarningLogger, level, message, _module, group, id, file, line; kwargs...)
-    msg = strip(string(message))
-    if !isempty(msg)
-        logger.tui.warnings[msg] = get(logger.tui.warnings, msg, 0) + 1
+    logger.tui.had_warning = true
+    if logger.tui.verbose
+        msg = strip(string(message))
+        if !isempty(msg)
+            target = logger.tui.in_final ? logger.tui.final_warnings : logger.tui.init_warnings
+            target[msg] = get(target, msg, 0) + 1
+        end
+    elseif !isnothing(logger.tui.prev_logger)
+        Base.CoreLogging.handle_message(logger.tui.prev_logger, level, message, _module, group, id, file, line; kwargs...)
     end
     return nothing
 end
 
-function EM_TUI(n_obs::Int, n_init::Int, eps::Real, init_eps::Real)
+function EM_TUI(n_obs::Int, n_init::Int, eps::Real, init_eps::Real, verbose::Bool=true)
     now_ns = time_ns()
-    tui = EM_TUI(n_obs, n_init, Float64(eps), Float64(init_eps), 0, 0, "Initializing...", now_ns, 0.0, now_ns, UInt64(0), 0, 0, OrderedDict{String, Int}(), nothing)
+    tui = EM_TUI(n_obs, n_init, Float64(eps), Float64(init_eps), 0, 0, "Initializing...", now_ns, 0.0, now_ns, UInt64(0), 0, 0, OrderedDict{String, Int}(), OrderedDict{String, Int}(), nothing, verbose, false, false)
     tui.prev_logger = Base.CoreLogging.global_logger(TUIWarningLogger(tui))
     return tui
 end
@@ -684,22 +703,35 @@ function restore_logger!(tui::EM_TUI)
     end
 end
 
-function _tui_bar(frac::Real, width::Int=28; color::String="cyan")
+function _tui_bar(frac::Real, width::Int=20; palette::Vector{String}=_SUNSET_BAR)
     f = clamp(Float64(frac), 0.0, 1.0)
     filled = Int(round(f * width))
     empty = width - filled
+    buf = IOBuffer()
+    n_col = length(palette)
+    for i in 1:filled
+        c_idx = clamp(Int(ceil((i / max(1, width)) * n_col)), 1, n_col)
+        col = palette[c_idx]
+        print(buf, "{$(col)}█{/$(col)}")
+    end
     pct = lpad(string(Int(round(f * 100))), 3) * "%"
-    return "{$(color)}" * ("█"^filled) * "{/$(color)}{dim}" * ("░"^empty) * "{/dim} " * pct
+    print(buf, "{dim}", "░"^empty, "{/dim} ", pct)
+    return String(take!(buf))
 end
 
 function _render_frame!(tui::Union{Nothing, EM_TUI}, dashboard, total_w::Int)
-    if !isnothing(tui) && !isempty(tui.warnings)
+    if !isnothing(tui) && (!isempty(tui.init_warnings) || !isempty(tui.final_warnings))
         warn_lines = String[]
-        for (msg, cnt) in tui.warnings
+        for (msg, cnt) in tui.init_warnings
             suffix = cnt > 1 ? " {dim}(×$(cnt)){/dim}" : ""
-            push!(warn_lines, "  {red}⚠{/red} $(msg)$(suffix)")
+            push!(warn_lines, "  {#FFB347}⚠ [Init] {/#FFB347} $(msg)$(suffix)")
         end
-        warn_panel = Term.Panel(join(warn_lines, "\n"); title="Warnings", style="red", width=total_w)
+        for (msg, cnt) in tui.final_warnings
+            suffix = cnt > 1 ? " {dim}(×$(cnt)){/dim}" : ""
+            push!(warn_lines, "  {#FF4D6D}⚠ [Final]{/#FF4D6D} $(msg)$(suffix)")
+        end
+        w_style = isempty(tui.final_warnings) ? "#FFA647" : "#FF4D6D"
+        warn_panel = Term.Panel(join(warn_lines, "\n"); title="Warnings", style=w_style, width=total_w)
         dashboard = dashboard / warn_panel
     end
     frame_str = string(dashboard)
@@ -728,11 +760,11 @@ function render_build!(tui::EM_TUI, stage::Int, msg::String, n_pkgs::Int=0)
     panel_h = clamp(Int(round(terminal[1] * 0.55)), 14, 24)
 
     build_frac = (stage - 0.5) / 4.0
-    b_bar = _tui_bar(build_frac, 20; color="yellow")
-    e_bar = _tui_bar(0.0, 20; color="cyan")
-    top_text = "  {bold}Build {/bold} $(b_bar)  {dim}[$(stage)/4: $(msg)]{/dim}\n" *
-               "  {bold}EM Fit{/bold} $(e_bar)  {dim}[Waiting for compilation]{/dim}"
-    top_panel = Term.Panel(top_text; title="ParsaModel EM!", style="bright_blue", width=total_w)
+    b_bar = _tui_bar(build_frac, 20; palette=_SUNSET_BAR)
+    e_bar = _tui_bar(0.0, 20; palette=_OCEAN_BAR)
+    top_text = "  {bold #FFD166}Build {/bold #FFD166} $(b_bar)  {dim}[$(stage)/4: $(msg)]{/dim}\n" *
+               "  {bold #48CAE4}EM Fit{/bold #48CAE4} $(e_bar)  {dim}[Waiting for compilation]{/dim}"
+    top_panel = Term.Panel(top_text; title="🌅 ParsaModel EM!", style="#FF7E5F", width=total_w)
 
     steps = [
         (1, "Prime Observations (X)"),
@@ -744,27 +776,27 @@ function render_build!(tui::EM_TUI, stage::Int, msg::String, n_pkgs::Int=0)
     println(checklist, "")
     for (idx, label) in steps
         if idx < stage
-            println(checklist, "  {green}✓{/green} $(label)")
+            println(checklist, "  {#FFD166}✓{/#FFD166} $(label)")
         elseif idx == stage
-            println(checklist, "  {yellow}⟳{/yellow} {bold}$(label){/bold}")
+            println(checklist, "  {#FF7E5F}⟳{/#FF7E5F} {bold #FFD166}$(label){/bold #FFD166}")
         else
             println(checklist, "  {dim}• $(label){/dim}")
         end
     end
     println(checklist, "\n  {dim}Elapsed build time: $(round(tui.build_elapsed, digits=2))s{/dim}")
-    left_panel = Term.Panel(String(take!(checklist)); title="Structure Compilation", style="yellow", width=left_w, height=panel_h)
+    left_panel = Term.Panel(String(take!(checklist)); title="Structure Compilation", style="#FFA647", width=left_w, height=panel_h)
 
     info_text = join([
-        "• {bold}Status:{/bold}     {yellow}Compiling{/yellow}",
-        "• {bold}Stage:{/bold}      $(stage) / 4",
-        "• {bold}Obs (N):{/bold}    $(tui.n_obs)",
-        "• {bold}Packages:{/bold}   $(tui.n_packages > 0 ? string(tui.n_packages) : "...")",
-        "• {bold}Restarts:{/bold}   0 / $(tui.n_init)",
-        "• {bold}Init ε:{/bold}     $(round(tui.init_eps, sigdigits=2))",
-        "• {bold}Final ε:{/bold}    $(round(tui.eps, sigdigits=2))",
-        "• {bold}Elapsed:{/bold}    $(round(tui.build_elapsed, digits=2))s"
+        "• {bold #90E0EF}Status:{/bold #90E0EF}     {#FFB347}Compiling{/#FFB347}",
+        "• {bold #90E0EF}Stage:{/bold #90E0EF}      $(stage) / 4",
+        "• {bold #90E0EF}Obs (N):{/bold #90E0EF}    $(tui.n_obs)",
+        "• {bold #90E0EF}Packages:{/bold #90E0EF}   $(tui.n_packages > 0 ? string(tui.n_packages) : "...")",
+        "• {bold #90E0EF}Restarts:{/bold #90E0EF}   0 / $(tui.n_init)",
+        "• {bold #90E0EF}Init ε:{/bold #90E0EF}     $(round(tui.init_eps, sigdigits=2))",
+        "• {bold #90E0EF}Final ε:{/bold #90E0EF}    $(round(tui.eps, sigdigits=2))",
+        "• {bold #90E0EF}Elapsed:{/bold #90E0EF}    $(round(tui.build_elapsed, digits=2))s"
     ], "\n")
-    right_panel = Term.Panel(info_text; title="Model & Convergence", style="blue", width=right_w, height=panel_h)
+    right_panel = Term.Panel(info_text; title="Model & Convergence", style="#0077B6", width=right_w, height=panel_h)
 
     _render_frame!(tui, top_panel / (left_panel * right_panel), total_w)
 end
@@ -837,27 +869,27 @@ function plotit(lines, final_lines;
         padding=0,
         height=plot_h,
         width=plot_w,
-        color=:blue)
+        color=39)
 
     for i in 1:size(lines)[1]
         n_l = lines[i]
         if !isempty(n_l) && i != best_init_idx && i != i_init
-            UnicodePlots.lineplot!(plt, 1:length(n_l), Float64.(n_l), color=:blue)
+            UnicodePlots.lineplot!(plt, 1:length(n_l), Float64.(n_l), color=39)
         end
     end
     if !isempty(lines[best_init_idx])
-        UnicodePlots.lineplot!(plt, 1:length(lines[best_init_idx]), Float64.(lines[best_init_idx]), color=:cyan)
+        UnicodePlots.lineplot!(plt, 1:length(lines[best_init_idx]), Float64.(lines[best_init_idx]), color=45)
     end
     if phase == :init && i_init <= length(lines) && !isempty(lines[i_init]) && i_init != best_init_idx
-        UnicodePlots.lineplot!(plt, 1:length(lines[i_init]), Float64.(lines[i_init]), color=:yellow)
+        UnicodePlots.lineplot!(plt, 1:length(lines[i_init]), Float64.(lines[i_init]), color=208)
     end
     if length(final_lines) > 0
         n_l = Float64.(final_lines)
-        UnicodePlots.lineplot!(plt, xmax_init:(length(n_l)+xmax_init-1), n_l, color=:green)
+        UnicodePlots.lineplot!(plt, xmax_init:(length(n_l)+xmax_init-1), n_l, color=220)
     end
 
     str_plt = sprint(show, MIME("text/plain"), plt; context=:color=>true)
-    left_panel = Term.Panel(str_plt; title="Log-Likelihood", style="cyan", width=left_w, height=panel_h)
+    left_panel = Term.Panel(str_plt; title="🌊 Log-Likelihood", style="#00B4DB", width=left_w, height=panel_h)
 
     curr_ll = !isempty(final_lines) ? Float64(final_lines[end]) :
               (i_init <= length(lines) && !isempty(lines[i_init]) ? Float64(lines[i_init][end]) : best_init_ll)
@@ -866,8 +898,7 @@ function plotit(lines, final_lines;
     if phase == :init
         em_frac = (i_init - 0.5) / max(1, n_init_total) * 0.75
         em_status = "Init $(i_init)/$(n_init_total) • Step $(step)"
-        phase_str = "{blue}Init ($(i_init)/$(n_init_total)){/blue}"
-        em_color = "blue"
+        phase_str = "{#FF9966}Init ($(i_init)/$(n_init_total)){/#FF9966}"
     elseif phase == :final
         init_e = !isnothing(tui) ? tui.init_eps : 1e-3
         final_e = !isnothing(tui) ? tui.eps : 1e-6
@@ -875,41 +906,39 @@ function plotit(lines, final_lines;
             clamp((log10(init_e) - log10(rel_diff)) / max(1e-9, log10(init_e) - log10(final_e)), 0.0, 0.99) : 0.5
         em_frac = 0.75 + 0.25 * conv_frac
         em_status = "Refining • Step $(step)"
-        phase_str = "{cyan}Final EM{/cyan}"
-        em_color = "cyan"
+        phase_str = "{#48CAE4}Final EM{/#48CAE4}"
     else
         em_frac = 1.0
         em_status = "Converged at step $(step)"
-        phase_str = "{green}Converged ✓{/green}"
-        em_color = "green"
+        phase_str = "{#FFD166}Converged ☀{/#FFD166}"
     end
 
     build_time_str = !isnothing(tui) ? "$(round(tui.build_elapsed, digits=2))s" : "done"
     pkgs_str = (!isnothing(tui) && tui.n_packages > 0) ? "$(tui.n_packages) pkgs" : "ready"
-    b_bar = _tui_bar(1.0, 20; color="green")
-    e_bar = _tui_bar(em_frac, 20; color=em_color)
-    top_text = "  {bold}Build {/bold} $(b_bar)  {dim}[Done in $(build_time_str) • $(pkgs_str)]{/dim}\n" *
-               "  {bold}EM Fit{/bold} $(e_bar)  {dim}[$(em_status)]{/dim}"
-    top_panel = Term.Panel(top_text; title="ParsaModel EM!", style="bright_blue", width=total_w)
+    b_bar = _tui_bar(1.0, 20; palette=_SUNSET_BAR)
+    e_bar = _tui_bar(em_frac, 20; palette=_OCEAN_BAR)
+    top_text = "  {bold #FFD166}Build {/bold #FFD166} $(b_bar)  {dim}[Done in $(build_time_str) • $(pkgs_str)]{/dim}\n" *
+               "  {bold #48CAE4}EM Fit{/bold #48CAE4} $(e_bar)  {dim}[$(em_status)]{/dim}"
+    top_panel = Term.Panel(top_text; title="🌅 ParsaModel EM!", style="#FF7E5F", width=total_w)
 
     em_elapsed = !isnothing(tui) ? (now_ns - tui.em_start_ns) / 1e9 : 0.0
     speed = ( !isnothing(tui) && em_elapsed > 0 ) ? Int(round(tui.total_iters / em_elapsed)) : 0
     rel_str = isfinite(rel_diff) ? string(round(rel_diff, sigdigits=3)) : "..."
 
     info_lines = [
-        "• {bold}Phase:{/bold}      $(phase_str)",
-        "• {bold}Step:{/bold}       $(step) / $(max_steps)",
-        "• {bold}Best Init:{/bold}  #$(best_init_idx) / $(n_init_total)",
-        "• {bold}Best LL:{/bold}    $(round(max(best_init_ll, curr_ll), digits=4))",
-        "• {bold}Curr LL:{/bold}    $(round(curr_ll, digits=4))",
-        "• {bold}ΔLL / |LL|:{/bold} $(rel_str)",
-        "• {bold}Target ε:{/bold}   $(round(target_eps, sigdigits=2))",
-        "• {bold}Obs (N):{/bold}    $(!isnothing(tui) ? string(tui.n_obs) : "...")",
-        "• {bold}Packages:{/bold}   $(!isnothing(tui) ? string(tui.n_packages) : "...")",
-        "• {bold}Speed:{/bold}      $(speed) iter/s",
-        "• {bold}Elapsed:{/bold}    $(round(em_elapsed, digits=2))s"
+        "• {bold #90E0EF}Phase:{/bold #90E0EF}      $(phase_str)",
+        "• {bold #90E0EF}Step:{/bold #90E0EF}       $(step) / $(max_steps)",
+        "• {bold #90E0EF}Best Init:{/bold #90E0EF}  #$(best_init_idx) / $(n_init_total)",
+        "• {bold #90E0EF}Best LL:{/bold #90E0EF}    {#FFD166}$(round(max(best_init_ll, curr_ll), digits=4)){/#FFD166}",
+        "• {bold #90E0EF}Curr LL:{/bold #90E0EF}    $(round(curr_ll, digits=4))",
+        "• {bold #90E0EF}ΔLL / |LL|:{/bold #90E0EF} $(rel_str)",
+        "• {bold #90E0EF}Target ε:{/bold #90E0EF}   $(round(target_eps, sigdigits=2))",
+        "• {bold #90E0EF}Obs (N):{/bold #90E0EF}    $(!isnothing(tui) ? string(tui.n_obs) : "...")",
+        "• {bold #90E0EF}Packages:{/bold #90E0EF}   $(!isnothing(tui) ? string(tui.n_packages) : "...")",
+        "• {bold #90E0EF}Speed:{/bold #90E0EF}      $(speed) iter/s",
+        "• {bold #90E0EF}Elapsed:{/bold #90E0EF}    $(round(em_elapsed, digits=2))s"
     ]
-    right_panel = Term.Panel(join(info_lines, "\n"); title="Model & Convergence", style="blue", width=right_w, height=panel_h)
+    right_panel = Term.Panel(join(info_lines, "\n"); title="Model & Convergence", style="#0077B6", width=right_w, height=panel_h)
 
     _render_frame!(tui, top_panel / (left_panel * right_panel), total_w)
 end

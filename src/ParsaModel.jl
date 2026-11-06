@@ -2,6 +2,7 @@ module ParsaModel
 using LinearAlgebra, UnicodePlots, ProgressBars, Term
 include("./Types.jl")
 include("./Models.jl")
+include("./EM_TUI.jl")
 include("./Core.jl")
 include("./Notation.jl")
 

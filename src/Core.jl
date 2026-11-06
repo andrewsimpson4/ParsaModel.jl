@@ -586,6 +586,7 @@ function LMEM(X::AbstractSet{Observation}, base::Parsa_Base; eps=10^-6,
             tau_wild = posteriors()
             p(tau_wild)
             m(tau_wild, base)
+            tui.had_warning && break
             lik_old = lik_new
             lik_new = likelihood()
             if (lik_new < lik_old && i_wild >= 3)
@@ -595,7 +596,7 @@ function LMEM(X::AbstractSet{Observation}, base::Parsa_Base; eps=10^-6,
                 push!(init_likelihoods[i_init], (lik_new))
                 verbose ? plotit(init_likelihoods, Vector{}(); tui=tui, phase=:init, i_init=i_init, step=i_wild, max_steps=max_steps, rel_diff=abs(lik_new - lik_old) / abs(lik_old), target_eps=init_eps) : nothing
             end
-            if tui.had_warning || abs(lik_new - lik_old) / abs(lik_old) < init_eps
+            if abs(lik_new - lik_old) / abs(lik_old) < init_eps
                 break
             end
         end

@@ -28,8 +28,12 @@ function normal_covariance_update(value::Any, index_package::SummationPackage, l
     d = det(cov_new)
     if !(d > eps(Float64))
         @warn "Singular covariance detected; adding regularization"
-        cov_new .+= 1e-6 .* I(size(cov_new, 1))
-        d = det(cov_new)
+        reg = eps(Float64)
+        while !(d > eps(Float64))
+            cov_new .+= reg .* I(size(cov_new, 1))
+            reg *= 10.0
+            d = det(cov_new)
+        end
     end
     return (inv=inv(cov_new), det=d)
     # return (inv = inv(cov_new), chol = inv(cholesky(cov_new).L), det = logdet(cov_new))
@@ -227,8 +231,12 @@ function normal_parsa_L_update(L, package_index, log_pdf)
     d = prod(L_new)
     if !(d > eps(Float64))
         @warn "Singular L matrix detected; adding regularization"
-        L_new .+= 1e-6
-        d = prod(L_new)
+        reg = eps(Float64)
+        while !(d > eps(Float64))
+            L_new .+= reg
+            reg *= 10.0
+            d = prod(L_new)
+        end
     end
     L_new ./= d^(1 / p)
     return L_new

@@ -62,18 +62,18 @@ function <--(P::Parameter, val::Any)
 end
 
 
-function Base.setindex!(PG::ParameterGenerator, val, indx)
-    PG[indx].value.value = val
-    PG[indx].is_const = true
+function Base.setindex!(PG::ParameterGenerator, val, indx...)
+    PG[indx...].value.value = val
+    PG[indx...].is_const = true
     return nothing
 end
 
-function Base.setindex!(Z::CategoricalZ, val, indx)
-    Z[indx].LV().value_ = val
+function Base.setindex!(Z::CategoricalZ, val, indx...)
+    Z[indx...].LV().value_ = val
 end
 
-function Base.setindex!(Z::LV_wrap, val, indx)
-    Z.LV()[indx].LV().value_ = val
+function Base.setindex!(Z::LV_wrap, val, indx...)
+    Z.LV()[indx...].LV().value_ = val
 end
 
 function f(X::Observation...)

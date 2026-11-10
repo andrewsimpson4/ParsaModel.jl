@@ -551,9 +551,10 @@ function LMEM(X::AbstractSet{Observation}, base::Parsa_Base; eps=10^-6,
                                                         max_steps = 10000,
                                                         n_init = 30,
                                                         init_eps=10^-3,
-                                                        verbose=true)
+                                                        verbose::Union{Bool, Symbol}=true)
     X = collect(X)
     tui = EM_TUI(length(X), n_init, eps, init_eps, verbose)
+    verbose = verbose != false
     verbose && render_build!(tui, 1, "Priming observations")
     prime_X.(X)
     verbose && render_build!(tui, 2, "Building E-step graph")

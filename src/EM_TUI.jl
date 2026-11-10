@@ -32,7 +32,7 @@ mutable struct EM_TUI
     init_warnings::OrderedDict{String, Int}
     final_warnings::OrderedDict{String, Int}
     prev_logger::Any
-    verbose::Bool
+    verbose::Union{Bool, Symbol}
     had_warning::Bool
     in_final::Bool
 end
@@ -47,7 +47,7 @@ Base.CoreLogging.catch_exceptions(::TUIWarningLogger) = true
 
 function Base.CoreLogging.handle_message(logger::TUIWarningLogger, level, message, _module, group, id, file, line; kwargs...)
     logger.tui.had_warning = true
-    if logger.tui.verbose
+    if logger.tui.verbose != false
         msg = strip(string(message))
         if !isempty(msg)
             target = logger.tui.in_final ? logger.tui.final_warnings : logger.tui.init_warnings
@@ -59,7 +59,7 @@ function Base.CoreLogging.handle_message(logger::TUIWarningLogger, level, messag
     return nothing
 end
 
-function EM_TUI(n_obs::Int, n_init::Int, eps::Real, init_eps::Real, verbose::Bool=true)
+function EM_TUI(n_obs::Int, n_init::Int, eps::Real, init_eps::Real, verbose::Union{Bool, Symbol}=true)
     now_ns = time_ns()
     tui = EM_TUI(n_obs, n_init, Float64(eps), Float64(init_eps), 0, 0, "Initializing...", now_ns, 0.0, now_ns, UInt64(0), 0, 0, 0, OrderedDict{String, Int}(), OrderedDict{String, Int}(), nothing, verbose, false, false)
     tui.prev_logger = Base.CoreLogging.global_logger(TUIWarningLogger(tui))
@@ -73,10 +73,14 @@ function restore_logger!(tui::EM_TUI)
     end
 end
 
-function _tui_bar(frac::Real, width::Int=20; palette::Vector{String}=_SUNSET_BAR)
+function _tui_bar(frac::Real, width::Int=20; palette::Union{Nothing, Vector{String}}=_SUNSET_BAR)
     f = clamp(Float64(frac), 0.0, 1.0)
     filled = Int(round(f * width))
     empty = width - filled
+    pct = lpad(string(Int(round(f * 100))), 3) * "%"
+    if isnothing(palette)
+        return ("█"^filled) * ("░"^empty) * " " * pct
+    end
     buf = IOBuffer()
     n_col = length(palette)
     for i in 1:filled
@@ -84,7 +88,6 @@ function _tui_bar(frac::Real, width::Int=20; palette::Vector{String}=_SUNSET_BAR
         col = palette[c_idx]
         print(buf, "{$(col)}█{/$(col)}")
     end
-    pct = lpad(string(Int(round(f * 100))), 3) * "%"
     print(buf, "{dim}", "░"^empty, "{/dim} ", pct)
     return String(take!(buf))
 end
@@ -141,12 +144,12 @@ const _STANCE_HIGH = [
 ]
 
 const _STANCE_CROUCH = [
-    "..........................",
-    "..........HHHH............",
-    "..SS.....HHHHHHH..........",
-    "...SS.....HHSSSS..........",
-    "....SS....WWWWWW..........",
-    ".....SS..WWWWWWWW..SSSS...",
+    "...........HHHH...........",
+    "..........HHHHHHH.........",
+    "..SS......HHSSSS..........",
+    "...SS......SSSS...........",
+    "....SS...WWWWWWW..........",
+    ".....SS.WWWWWWWW...SSSS...",
     "......SWWWWWWWWWWSSSS.....",
     "........WWWWWWWWWW........",
     ".......WWWWWWWWWW.........",
@@ -244,17 +247,22 @@ function _overlay_surfer_in_plot(str_plt::String, frame::Int)
         lines[r_idx] = join(styled)
     end
 
-    # Tuck the surfer deep into the pocket so the wave arches right over his shoulder/head
+    # Position the surfer in the pocket to the right of the rising wave slope,
+    # checking rows from his head (start_r) down to his board (start_r + sprite_h - 2)
     start_r = n_rows - sprite_h + 1
     curve_col = 0
-    for r_off in (start_r + 2):(start_r + sprite_h - 2)
+    for r_off in start_r:(start_r + sprite_h - 2)
         r_chars = collect(lines[canvas_rows[r_off]])
         r_braille = findall(c -> ('⠀' <= c <= '⣿'), r_chars)
-        for c in length(r_braille):-1:1
-            if r_chars[r_braille[c]] != '⠀'
-                curve_col = max(curve_col, c)
-                break
+        first_c = findfirst(c -> r_chars[r_braille[c]] != '⠀', 1:length(r_braille))
+        if !isnothing(first_c)
+            slope_end = first_c
+            while slope_end < min(length(r_braille), first_c + 4) && r_chars[r_braille[slope_end + 1]] != '⠀'
+                slope_end += 1
             end
+            needed = (r_off == start_r) ? max(1, slope_end - 2) :
+                     ((r_off == start_r + 1) ? max(1, slope_end - 1) : slope_end)
+            curve_col = max(curve_col, needed)
         end
     end
     col_start = curve_col > 0 ?
@@ -310,14 +318,19 @@ function _overlay_surfer_in_plot(str_plt::String, frame::Int)
                 end
             end
 
-            # Overlay the surfer & surfboard
+            # Overlay the surfer & surfboard in the foreground so background curve lines never clip his head
             if length(braille_pos) >= col_start + sprite_w - 1
-                for k in 1:sprite_w
-                    c_idx = braille_pos[col_start + k - 1]
-                    if chars[c_idx] == '⠀'
+                active_k = findall(k -> cells[sr, k][1] != '⠀', 1:sprite_w)
+                if !isempty(active_k)
+                    k_min = max(1, first(active_k) - 1)
+                    k_max = min(sprite_w, last(active_k) + 1)
+                    for k in k_min:k_max
+                        c_idx = braille_pos[col_start + k - 1]
                         bchar, col_code = cells[sr, k]
                         if bchar != '⠀'
                             styled_chars[c_idx] = "\e[38;2;" * col_code * "m" * string(bchar) * "\e[0m"
+                        elseif chars[c_idx] != '⠀'
+                            styled_chars[c_idx] = "⠀"
                         end
                     end
                 end
@@ -329,21 +342,37 @@ function _overlay_surfer_in_plot(str_plt::String, frame::Int)
 end
 
 function _render_frame!(tui::Union{Nothing, EM_TUI}, dashboard, total_w::Int)
+    is_surf = isnothing(tui) || tui.verbose === :surf
     if !isnothing(tui) && (!isempty(tui.init_warnings) || !isempty(tui.final_warnings))
         warn_lines = String[]
-        for (msg, cnt) in tui.init_warnings
-            suffix = cnt > 1 ? " {dim}(×$(cnt)){/dim}" : ""
-            push!(warn_lines, "  {#FFB347}⚠ [Init] {/#FFB347} $(msg)$(suffix)")
+        if is_surf
+            for (msg, cnt) in tui.init_warnings
+                suffix = cnt > 1 ? " {dim}(×$(cnt)){/dim}" : ""
+                push!(warn_lines, "  {#FFB347}⚠ [Init] {/#FFB347} $(msg)$(suffix)")
+            end
+            for (msg, cnt) in tui.final_warnings
+                suffix = cnt > 1 ? " {dim}(×$(cnt)){/dim}" : ""
+                push!(warn_lines, "  {#FF4D6D}⚠ [Final]{/#FF4D6D} $(msg)$(suffix)")
+            end
+            w_style = isempty(tui.final_warnings) ? "#FFA647" : "#FF4D6D"
+        else
+            for (msg, cnt) in tui.init_warnings
+                suffix = cnt > 1 ? " (×$(cnt))" : ""
+                push!(warn_lines, "  ⚠ [Init]  $(msg)$(suffix)")
+            end
+            for (msg, cnt) in tui.final_warnings
+                suffix = cnt > 1 ? " (×$(cnt))" : ""
+                push!(warn_lines, "  ⚠ [Final] $(msg)$(suffix)")
+            end
+            w_style = "default"
         end
-        for (msg, cnt) in tui.final_warnings
-            suffix = cnt > 1 ? " {dim}(×$(cnt)){/dim}" : ""
-            push!(warn_lines, "  {#FF4D6D}⚠ [Final]{/#FF4D6D} $(msg)$(suffix)")
-        end
-        w_style = isempty(tui.final_warnings) ? "#FFA647" : "#FF4D6D"
         warn_panel = Term.Panel(join(warn_lines, "\n"); title="Warnings", style=w_style, width=total_w)
         dashboard = dashboard / warn_panel
     end
     frame_str = string(dashboard)
+    if !is_surf
+        frame_str = replace(frame_str, r"\e\[[0-9;]*m" => "")
+    end
     if !isnothing(tui) && tui.last_lines > 0
         print(stdout, "\e[$(tui.last_lines)A\r\e[J", frame_str, "\n")
     else
@@ -370,12 +399,6 @@ function render_build!(tui::EM_TUI, stage::Int, msg::String, n_pkgs::Int=0)
     panel_h = clamp(Int(round(terminal[1] * 0.55)), 14, 24)
 
     build_frac = (stage - 0.5) / 4.0
-    b_bar = _tui_bar(build_frac, 20; palette=_SUNSET_BAR)
-    e_bar = _tui_bar(0.0, 20; palette=_OCEAN_BAR)
-    top_text = "  {bold #FFD166}Build {/bold #FFD166} $(b_bar)  {dim}[$(stage)/4: $(msg)]{/dim}\n" *
-               "  {bold #48CAE4}EM Fit{/bold #48CAE4} $(e_bar)  {dim}[Waiting for compilation]{/dim}"
-    top_panel = Term.Panel(top_text; title="🌅 ParsaModel", style="#FF7E5F", width=total_w)
-
     steps = [
         (1, "Prime Observations (X)"),
         (2, "E-Step Conditioning Graph"),
@@ -384,29 +407,68 @@ function render_build!(tui::EM_TUI, stage::Int, msg::String, n_pkgs::Int=0)
     ]
     checklist = IOBuffer()
     println(checklist, "")
-    for (idx, label) in steps
-        if idx < stage
-            println(checklist, "  {#FFD166}✓{/#FFD166} $(label)")
-        elseif idx == stage
-            println(checklist, "  {#FF7E5F}⟳{/#FF7E5F} {bold #FFD166}$(label){/bold #FFD166}")
-        else
-            println(checklist, "  {dim}• $(label){/dim}")
-        end
-    end
-    println(checklist, "\n  {dim}Elapsed build time: $(round(tui.build_elapsed, digits=2))s{/dim}")
-    left_panel = Term.Panel(String(take!(checklist)); title="Structure Compilation", style="#FFA647", width=left_w, height=panel_h)
 
-    info_text = join([
-        "• {bold #90E0EF}Status:{/bold #90E0EF}     {#FFB347}Compiling{/#FFB347}",
-        "• {bold #90E0EF}Stage:{/bold #90E0EF}      $(stage) / 4",
-        "• {bold #90E0EF}Obs (N):{/bold #90E0EF}    $(tui.n_obs)",
-        "• {bold #90E0EF}Packages:{/bold #90E0EF}   $(tui.n_packages > 0 ? string(tui.n_packages) : "...")",
-        "• {bold #90E0EF}Restarts:{/bold #90E0EF}   0 / $(tui.n_init)",
-        "• {bold #90E0EF}Init ε:{/bold #90E0EF}     $(round(tui.init_eps, sigdigits=2))",
-        "• {bold #90E0EF}Final ε:{/bold #90E0EF}    $(round(tui.eps, sigdigits=2))",
-        "• {bold #90E0EF}Elapsed:{/bold #90E0EF}    $(round(tui.build_elapsed, digits=2))s"
-    ], "\n")
-    right_panel = Term.Panel(info_text; title="Model & Convergence", style="#0077B6", width=right_w, height=panel_h)
+    if tui.verbose === :surf
+        b_bar = _tui_bar(build_frac, 20; palette=_SUNSET_BAR)
+        e_bar = _tui_bar(0.0, 20; palette=_OCEAN_BAR)
+        top_text = "  {bold #FFD166}Build {/bold #FFD166} $(b_bar)  {dim}[$(stage)/4: $(msg)]{/dim}\n" *
+                   "  {bold #48CAE4}EM Fit{/bold #48CAE4} $(e_bar)  {dim}[Waiting for compilation]{/dim}"
+        top_panel = Term.Panel(top_text; title="🌅 ParsaModel", style="#FF7E5F", width=total_w)
+
+        for (idx, label) in steps
+            if idx < stage
+                println(checklist, "  {#FFD166}✓{/#FFD166} $(label)")
+            elseif idx == stage
+                println(checklist, "  {#FF7E5F}⟳{/#FF7E5F} {bold #FFD166}$(label){/bold #FFD166}")
+            else
+                println(checklist, "  {dim}• $(label){/dim}")
+            end
+        end
+        println(checklist, "\n  {dim}Elapsed build time: $(round(tui.build_elapsed, digits=2))s{/dim}")
+        left_panel = Term.Panel(String(take!(checklist)); title="Structure Compilation", style="#FFA647", width=left_w, height=panel_h)
+
+        info_text = join([
+            "• {bold #90E0EF}Status:{/bold #90E0EF}     {#FFB347}Compiling{/#FFB347}",
+            "• {bold #90E0EF}Stage:{/bold #90E0EF}      $(stage) / 4",
+            "• {bold #90E0EF}Obs (N):{/bold #90E0EF}    $(tui.n_obs)",
+            "• {bold #90E0EF}Packages:{/bold #90E0EF}   $(tui.n_packages > 0 ? string(tui.n_packages) : "...")",
+            "• {bold #90E0EF}Restarts:{/bold #90E0EF}   0 / $(tui.n_init)",
+            "• {bold #90E0EF}Init ε:{/bold #90E0EF}     $(round(tui.init_eps, sigdigits=2))",
+            "• {bold #90E0EF}Final ε:{/bold #90E0EF}    $(round(tui.eps, sigdigits=2))",
+            "• {bold #90E0EF}Elapsed:{/bold #90E0EF}    $(round(tui.build_elapsed, digits=2))s"
+        ], "\n")
+        right_panel = Term.Panel(info_text; title="Model & Convergence", style="#0077B6", width=right_w, height=panel_h)
+    else
+        b_bar = _tui_bar(build_frac, 20; palette=nothing)
+        e_bar = _tui_bar(0.0, 20; palette=nothing)
+        top_text = "  Build  $(b_bar)  [$(stage)/4: $(msg)]\n" *
+                   "  EM Fit $(e_bar)  [Waiting for compilation]"
+        top_panel = Term.Panel(top_text; title="ParsaModel", style="default", width=total_w)
+
+        for (idx, label) in steps
+            if idx < stage
+                println(checklist, "  ✓ $(label)")
+            elseif idx == stage
+                println(checklist, "  ⟳ $(label)")
+            else
+                println(checklist, "  • $(label)")
+            end
+        end
+        println(checklist, "\n  Elapsed build time: $(round(tui.build_elapsed, digits=2))s")
+        left_panel = Term.Panel(String(take!(checklist)); title="Structure Compilation", style="default", width=left_w, height=panel_h)
+
+        info_text = join([
+            "• Status:     Compiling",
+            "• Stage:      $(stage) / 4",
+            "• Obs (N):    $(tui.n_obs)",
+            "• Packages:   $(tui.n_packages > 0 ? string(tui.n_packages) : "...")",
+            "• Restarts:   0 / $(tui.n_init)",
+            "• Init ε:     $(round(tui.init_eps, sigdigits=2))",
+            "• Final ε:    $(round(tui.eps, sigdigits=2))",
+            "• Elapsed:    $(round(tui.build_elapsed, digits=2))s"
+        ], "\n")
+        right_panel = Term.Panel(info_text; title="Model & Convergence", style="default", width=right_w, height=panel_h)
+    end
 
     _render_frame!(tui, top_panel / (left_panel * right_panel), total_w)
 end
@@ -437,6 +499,7 @@ function plotit(lines, final_lines;
         tui.render_count += 1
     end
 
+    is_surf = isnothing(tui) || tui.verbose === :surf
     terminal = displaysize(stdout)
     total_w = clamp(terminal[2] - 2, 76, 120)
     right_w = 34
@@ -499,11 +562,16 @@ function plotit(lines, final_lines;
         UnicodePlots.lineplot!(plt, xmax_init:(length(n_l)+xmax_init-1), n_l, color=:yellow)
     end
 
-    str_plt = sprint(show, MIME("text/plain"), plt; context=:color=>true)
-    str_plt = replace(str_plt, _PLOT_RGB_MAP...)
-    wave_frame = !isnothing(tui) ? tui.render_count : step
-    str_plt = _overlay_surfer_in_plot(str_plt, wave_frame)
-    left_panel = Term.Panel(str_plt; title="🌊 Log-Likelihood", style="#00B4DB", width=left_w, height=panel_h)
+    if is_surf
+        str_plt = sprint(show, MIME("text/plain"), plt; context=:color=>true)
+        str_plt = replace(str_plt, _PLOT_RGB_MAP...)
+        wave_frame = !isnothing(tui) ? tui.render_count : step
+        str_plt = _overlay_surfer_in_plot(str_plt, wave_frame)
+        left_panel = Term.Panel(str_plt; title="🌊 Log-Likelihood", style="#00B4DB", width=left_w, height=panel_h)
+    else
+        str_plt = sprint(show, MIME("text/plain"), plt; context=:color=>false)
+        left_panel = Term.Panel(str_plt; title="Log-Likelihood", style="default", width=left_w, height=panel_h)
+    end
 
     curr_ll = !isempty(final_lines) ? Float64(final_lines[end]) :
               (i_init <= length(lines) && !isempty(lines[i_init]) ? Float64(lines[i_init][end]) : best_init_ll)
@@ -512,7 +580,7 @@ function plotit(lines, final_lines;
     if phase == :init
         em_frac = (i_init - 0.5) / max(1, n_init_total) * 0.75
         em_status = "Init $(i_init)/$(n_init_total) • Step $(step)"
-        phase_str = "{#FF9966}Init ($(i_init)/$(n_init_total)){/#FF9966}"
+        phase_str = is_surf ? "{#FF9966}Init ($(i_init)/$(n_init_total)){/#FF9966}" : "Init ($(i_init)/$(n_init_total))"
     elseif phase == :final
         init_e = !isnothing(tui) ? tui.init_eps : 1e-3
         final_e = !isnothing(tui) ? tui.eps : 1e-6
@@ -520,39 +588,62 @@ function plotit(lines, final_lines;
             clamp((log10(init_e) - log10(rel_diff)) / max(1e-9, log10(init_e) - log10(final_e)), 0.0, 0.99) : 0.5
         em_frac = 0.75 + 0.25 * conv_frac
         em_status = "Refining • Step $(step)"
-        phase_str = "{#48CAE4}Final EM{/#48CAE4}"
+        phase_str = is_surf ? "{#48CAE4}Final EM{/#48CAE4}" : "Final EM"
     else
         em_frac = 1.0
         em_status = "Converged at step $(step)"
-        phase_str = "{#FFD166}Converged ☀{/#FFD166}"
+        phase_str = is_surf ? "{#FFD166}Converged ☀{/#FFD166}" : "Converged"
     end
 
     build_time_str = !isnothing(tui) ? "$(round(tui.build_elapsed, digits=2))s" : "done"
     pkgs_str = (!isnothing(tui) && tui.n_packages > 0) ? "$(tui.n_packages) pkgs" : "ready"
-    b_bar = _tui_bar(1.0, 20; palette=_SUNSET_BAR)
-    e_bar = _tui_bar(em_frac, 20; palette=_OCEAN_BAR)
-    top_text = "  {bold #FFD166}Build {/bold #FFD166} $(b_bar)  {dim}[Done in $(build_time_str) • $(pkgs_str)]{/dim}\n" *
-               "  {bold #48CAE4}EM Fit{/bold #48CAE4} $(e_bar)  {dim}[$(em_status)]{/dim}"
-    top_panel = Term.Panel(top_text; title="🌅 ParsaModel", style="#FF7E5F", width=total_w)
-
     em_elapsed = !isnothing(tui) ? (now_ns - tui.em_start_ns) / 1e9 : 0.0
     speed = ( !isnothing(tui) && em_elapsed > 0 ) ? Int(round(tui.total_iters / em_elapsed)) : 0
     rel_str = isfinite(rel_diff) ? string(round(rel_diff, sigdigits=3)) : "..."
 
-    info_lines = [
-        "• {bold #90E0EF}Phase:{/bold #90E0EF}      $(phase_str)",
-        "• {bold #90E0EF}Step:{/bold #90E0EF}       $(step) / $(max_steps)",
-        "• {bold #90E0EF}Best Init:{/bold #90E0EF}  #$(best_init_idx) / $(n_init_total)",
-        "• {bold #90E0EF}Best LL:{/bold #90E0EF}    {#FFD166}$(round(max(best_init_ll, curr_ll), digits=4)){/#FFD166}",
-        "• {bold #90E0EF}Curr LL:{/bold #90E0EF}    $(round(curr_ll, digits=4))",
-        "• {bold #90E0EF}ΔLL / |LL|:{/bold #90E0EF} $(rel_str)",
-        "• {bold #90E0EF}Target ε:{/bold #90E0EF}   $(round(target_eps, sigdigits=2))",
-        "• {bold #90E0EF}Obs (N):{/bold #90E0EF}    $(!isnothing(tui) ? string(tui.n_obs) : "...")",
-        "• {bold #90E0EF}Packages:{/bold #90E0EF}   $(!isnothing(tui) ? string(tui.n_packages) : "...")",
-        "• {bold #90E0EF}Speed:{/bold #90E0EF}      $(speed) iter/s",
-        "• {bold #90E0EF}Elapsed:{/bold #90E0EF}    $(round(em_elapsed, digits=2))s"
-    ]
-    right_panel = Term.Panel(join(info_lines, "\n"); title="Model & Convergence", style="#0077B6", width=right_w, height=panel_h)
+    if is_surf
+        b_bar = _tui_bar(1.0, 20; palette=_SUNSET_BAR)
+        e_bar = _tui_bar(em_frac, 20; palette=_OCEAN_BAR)
+        top_text = "  {bold #FFD166}Build {/bold #FFD166} $(b_bar)  {dim}[Done in $(build_time_str) • $(pkgs_str)]{/dim}\n" *
+                   "  {bold #48CAE4}EM Fit{/bold #48CAE4} $(e_bar)  {dim}[$(em_status)]{/dim}"
+        top_panel = Term.Panel(top_text; title="🌅 ParsaModel", style="#FF7E5F", width=total_w)
+
+        info_lines = [
+            "• {bold #90E0EF}Phase:{/bold #90E0EF}      $(phase_str)",
+            "• {bold #90E0EF}Step:{/bold #90E0EF}       $(step) / $(max_steps)",
+            "• {bold #90E0EF}Best Init:{/bold #90E0EF}  #$(best_init_idx) / $(n_init_total)",
+            "• {bold #90E0EF}Best LL:{/bold #90E0EF}    {#FFD166}$(round(max(best_init_ll, curr_ll), digits=4)){/#FFD166}",
+            "• {bold #90E0EF}Curr LL:{/bold #90E0EF}    $(round(curr_ll, digits=4))",
+            "• {bold #90E0EF}ΔLL / |LL|:{/bold #90E0EF} $(rel_str)",
+            "• {bold #90E0EF}Target ε:{/bold #90E0EF}   $(round(target_eps, sigdigits=2))",
+            "• {bold #90E0EF}Obs (N):{/bold #90E0EF}    $(!isnothing(tui) ? string(tui.n_obs) : "...")",
+            "• {bold #90E0EF}Packages:{/bold #90E0EF}   $(!isnothing(tui) ? string(tui.n_packages) : "...")",
+            "• {bold #90E0EF}Speed:{/bold #90E0EF}      $(speed) iter/s",
+            "• {bold #90E0EF}Elapsed:{/bold #90E0EF}    $(round(em_elapsed, digits=2))s"
+        ]
+        right_panel = Term.Panel(join(info_lines, "\n"); title="Model & Convergence", style="#0077B6", width=right_w, height=panel_h)
+    else
+        b_bar = _tui_bar(1.0, 20; palette=nothing)
+        e_bar = _tui_bar(em_frac, 20; palette=nothing)
+        top_text = "  Build  $(b_bar)  [Done in $(build_time_str) • $(pkgs_str)]\n" *
+                   "  EM Fit $(e_bar)  [$(em_status)]"
+        top_panel = Term.Panel(top_text; title="ParsaModel", style="default", width=total_w)
+
+        info_lines = [
+            "• Phase:      $(phase_str)",
+            "• Step:       $(step) / $(max_steps)",
+            "• Best Init:  #$(best_init_idx) / $(n_init_total)",
+            "• Best LL:    $(round(max(best_init_ll, curr_ll), digits=4))",
+            "• Curr LL:    $(round(curr_ll, digits=4))",
+            "• ΔLL / |LL|: $(rel_str)",
+            "• Target ε:   $(round(target_eps, sigdigits=2))",
+            "• Obs (N):    $(!isnothing(tui) ? string(tui.n_obs) : "...")",
+            "• Packages:   $(!isnothing(tui) ? string(tui.n_packages) : "...")",
+            "• Speed:      $(speed) iter/s",
+            "• Elapsed:    $(round(em_elapsed, digits=2))s"
+        ]
+        right_panel = Term.Panel(join(info_lines, "\n"); title="Model & Convergence", style="default", width=right_w, height=panel_h)
+    end
 
     _render_frame!(tui, top_panel / (left_panel * right_panel), total_w)
 end
